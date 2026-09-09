@@ -1,0 +1,784 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetOrigin {
+  CREATED_INTERNAL
+  IMPORTED_FILE
+  IMPORTED_URL
+  IMPORTED_EXTERNAL
+  LIVE_REPLAY
+}
+
+enum AssetStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssetType {
+  BOOK
+  COURSE
+  VIDEO
+  MUSIC
+  SOFTWARE
+  SERVICE
+  PRODUCT
+  MEMBERSHIP
+  DOCUMENT
+  DESIGN
+  PODCAST
+  WEBSITE
+  DIGITAL_OFFER
+  WRITING
+  OTHER
+}
+
+enum CreateMode {
+  MANUAL
+  AI
+  IMPORT
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  ownerId   String
+  identity  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+model Asset {
+  id            String      @id @default(cuid())
+  ownerId       String
+  title         String
+  description   String      @default("")
+  assetType     AssetType
+  origin        AssetOrigin
+  status        AssetStatus @default(DRAFT)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  dataZoneId    String?
+  metadata      String      @default("{}")
+  relationships String      @default("[]")
+  analytics     String      @default("{}")
+  commerce      String      @default("{}")
+  distribution  String      @default("{}")
+  visibility    String      @default("private")
+  originSource    String?
+  originRef       String?
+  sourceProjectId String?
+
+  activity           Activity[]
+  outboundRelations  AssetRelationship[] @relation("SourceAsset")
+  inboundRelations   AssetRelationship[] @relation("TargetAsset")
+
+  @@index([ownerId])
+  @@index([ownerId, assetType])
+  @@index([ownerId, status])
+  @@index([ownerId, origin])
+  @@index([ownerId, updatedAt])
+  @@index([ownerId, createdAt])
+  @@index([title])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  ownerId   String
+  kind      String
+  title     String
+  detail    String   @default("")
+  assetId   String?
+  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+  @@index([assetId, createdAt])
+}
+
+model ImportJob {
+  id             String   @id @default(cuid())
+  ownerId        String
+  method         String
+  status         String   @default("completed")
+  origin         AssetOrigin
+  source         String?
+  assetIds       String   @default("[]")
+  platformJobId  String?
+  jobStatus      String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([ownerId])
+  @@index([platformJobId])
+}
+
+model CreationProject {
+  id                 String      @id @default(cuid())
+  ownerId            String
+  title              String
+  description        String      @default("")
+  projectType        String      @default("OTHER")
+  status             String      @default("DRAFT")
+  origin             AssetOrigin @default(CREATED_INTERNAL)
+  assetId            String?
+  mode               CreateMode  @default(MANUAL)
+  publishStatus      String      @default("DRAFT")
+  draftState         String      @default("{}")
+  settings           String      @default("{}")
+  currentVersionId   String?
+  derivedFromAssetId String?
+  lastAutosavedAt    DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  blocks    ContentBlock[]
+  versions  ProjectVersion[]
+  files     ProjectFile[]
+  aiActions AiAction[]
+  members   ProjectMember[]
+  bookMeta      BookMetadata?
+  chapters      BookChapter[]
+  courseMeta    CourseMetadata?
+  courseModules CourseModule[]
+  videoMeta     VideoMetadata?
+  scenes        VideoScene[]
+  musicMeta     MusicMetadata?
+  tracks        MusicTrack[]
+  writingMeta   WritingMetadata?
+  softwareMeta  SoftwareMetadata?
+  softwareCollaborators SoftwareCollaborator[]
+  softwarePermissions   SoftwareWorkspacePermission[]
+  softwareSecrets       SoftwareProjectSecret[]
+  softwareEvents        SoftwareProjectEvent[]
+  liveSessions  LiveSession[]
+
+  @@index([ownerId])
+  @@index([ownerId, projectType])
+  @@index([ownerId, status])
+}
+
+model ContentBlock {
+  id        String          @id @default(cuid())
+  projectId String
+  project   CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type      String
+  position  Int
+  content   String          @default("{}")
+  metadata  String          @default("{}")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([projectId, position])
+}
+
+model ProjectVersion {
+  id        String          @id @default(cuid())
+  projectId String
+  project   CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number    Int
+  label     String          @default("")
+  snapshot  String
+  isCurrent Boolean         @default(false)
+  createdAt DateTime        @default(now())
+
+  @@unique([projectId, number])
+  @@index([projectId])
+}
+
+model ProjectFile {
+  id         String          @id @default(cuid())
+  projectId  String
+  project    CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId    String
+  dataZoneId String
+  filename   String
+  mimeType   String
+  sizeBytes  Int             @default(0)
+  metadata   String          @default("{}")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([projectId])
+  @@index([ownerId])
+}
+
+model AiAction {
+  id         String          @id @default(cuid())
+  projectId  String
+  project    CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId     String
+  actionType String
+  input      String
+  output     String          @default("")
+  provider   String
+  status     String          @default("completed")
+  createdAt  DateTime        @default(now())
+
+  @@index([projectId])
+}
+
+model AssetRelationship {
+  id               String   @id @default(cuid())
+  sourceAssetId    String
+  targetAssetId    String
+  relationshipType String
+  createdAt        DateTime @default(now())
+  source           Asset    @relation("SourceAsset", fields: [sourceAssetId], references: [id], onDelete: Cascade)
+  target           Asset    @relation("TargetAsset", fields: [targetAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceAssetId, targetAssetId, relationshipType])
+  @@index([sourceAssetId])
+  @@index([targetAssetId])
+}
+
+model ProjectMember {
+  id        String          @id @default(cuid())
+  projectId String
+  project   CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  role      String
+  createdAt DateTime        @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model DistributionIntent {
+  id        String   @id @default(cuid())
+  ownerId   String
+  projectId String
+  assetId   String?
+  mode      String
+  status    String   @default("recorded")
+  payload   String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model PersonalSpace {
+  id                String   @id @default(cuid())
+  ownerId           String   @unique
+  displayName       String   @default("")
+  headline          String   @default("")
+  bio               String   @default("")
+  links             String   @default("[]")
+  featuredAssetIds  String   @default("[]")
+  slug              String?  @unique
+  publicEnabled     Boolean  @default(false)
+  theme             String   @default("{}")
+  publicNav         String   @default("[]")
+  cta               String   @default("{}")
+  brandMedia        String   @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AudienceSegment {
+  id        String   @id @default(cuid())
+  ownerId   String
+  name      String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+model BookMetadata {
+  id          String          @id @default(cuid())
+  projectId   String          @unique
+  project     CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtitle    String          @default("")
+  authorName  String          @default("")
+  language    String          @default("")
+  genre       String          @default("")
+  description String          @default("")
+  isbn        String          @default("")
+  edition     String          @default("")
+  publisher   String          @default("")
+  copyright   String          @default("")
+  coverFileId String?
+  extra       String          @default("{}")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model BookChapter {
+  id        String          @id @default(cuid())
+  projectId String
+  project   CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  slug      String          @default("")
+  position  Int
+  status    String          @default("DRAFT")
+  kind      String          @default("CHAPTER")
+  matterType String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  sections  BookSection[]
+
+  @@index([projectId, position])
+}
+
+model BookSection {
+  id        String      @id @default(cuid())
+  chapterId String
+  chapter   BookChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  title     String
+  position  Int
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([chapterId, position])
+}
+
+model CourseMetadata {
+  id               String          @id @default(cuid())
+  projectId        String          @unique
+  project          CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtitle         String          @default("")
+  description      String          @default("")
+  instructorName   String          @default("")
+  language         String          @default("")
+  level            String          @default("")
+  category         String          @default("")
+  estimatedDuration String         @default("")
+  thumbnailFileId  String?
+  extra            String          @default("{}")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model CourseModule {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String          @default("")
+  position    Int
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  lessons     CourseLesson[]
+
+  @@index([projectId, position])
+}
+
+model CourseLesson {
+  id              String       @id @default(cuid())
+  moduleId        String
+  module          CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title           String
+  description     String       @default("")
+  position        Int
+  lessonType      String       @default("TEXT")
+  status          String       @default("DRAFT")
+  durationSeconds Int?
+  thumbnailFileId String?
+  extra           String       @default("{}")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  questions       CourseQuizQuestion[]
+
+  @@index([moduleId, position])
+}
+
+model CourseQuizQuestion {
+  id              String       @id @default(cuid())
+  lessonId        String
+  lesson          CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  prompt          String
+  questionType    String
+  answers         String       @default("[]")
+  correctAnswerId String       @default("")
+  explanation     String       @default("")
+  position        Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([lessonId, position])
+}
+
+model VideoMetadata {
+  id                 String          @id @default(cuid())
+  projectId          String          @unique
+  project            CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  description        String          @default("")
+  aspectRatio        String          @default("16:9")
+  frameRate          String          @default("")
+  durationMs         Int?
+  sourceFileId       String?
+  thumbnailFileId    String?
+  audioFileId        String?
+  captionFileId      String?
+  renderOutputFileId String?
+  extra              String          @default("{}")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model VideoScene {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  text        String          @default("")
+  position    Int
+  durationMs  Int?
+  mediaFileId String?
+  extra       String          @default("{}")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([projectId, position])
+}
+
+model LiveSession {
+  id               String           @id @default(cuid())
+  ownerId          String
+  projectId        String?
+  project          CreationProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sourceAssetId    String?
+  title            String
+  description      String           @default("")
+  status           String           @default("SCHEDULED")
+  visibility       String           @default("private")
+  startedAt        DateTime?
+  endedAt          DateTime?
+  replayAssetId    String?
+  replayProjectId  String?
+  finalizeJobId    String?
+  notification     String           @default("idle")
+  broadcastId      String?
+  detail           String           @default("")
+  extra            String           @default("{}")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  distributions    LiveDistributionIntent[]
+
+  @@index([ownerId, status])
+  @@index([status, visibility])
+  @@index([projectId])
+}
+
+model LiveDistributionIntent {
+  id                 String      @id @default(cuid())
+  liveSessionId      String
+  liveSession        LiveSession @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+  destination        String
+  status             String      @default("SELECTED")
+  externalReference  String?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  errorCode          String?
+  errorMessage       String?
+  retryable          Boolean     @default(false)
+  metadata           String      @default("{}")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@unique([liveSessionId, destination])
+  @@index([liveSessionId])
+  @@index([destination, status])
+}
+
+model MusicMetadata {
+  id             String          @id @default(cuid())
+  projectId      String          @unique
+  project        CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artistName     String          @default("")
+  description    String          @default("")
+  genre          String          @default("")
+  subgenre       String          @default("")
+  releaseDate    String          @default("")
+  durationMs     Int?
+  coverFileId    String?
+  audioFileId    String?
+  lyricsFileId   String?
+  explicit       Boolean         @default(false)
+  collectionKind String          @default("SINGLE")
+  extra          String          @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model MusicTrack {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  artistName  String          @default("")
+  genre       String          @default("")
+  description String          @default("")
+  lyrics      String          @default("")
+  coverFileId String?
+  audioFileId String?
+  lyricsFileId String?
+  explicit    Boolean         @default(false)
+  durationMs  Int?
+  position    Int
+  extra       String          @default("{}")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([projectId, position])
+}
+
+model WritingMetadata {
+  id          String          @id @default(cuid())
+  projectId   String          @unique
+  project     CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtitle    String          @default("")
+  authorName  String          @default("")
+  description String          @default("")
+  language    String          @default("")
+  genre       String          @default("")
+  form        String          @default("ARTICLE")
+  extra       String          @default("{}")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model SoftwareMetadata {
+  id                  String          @id @default(cuid())
+  projectId           String          @unique
+  project             CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version             String          @default("0.1.0")
+  description         String          @default("")
+  developer           String          @default("")
+  license             String          @default("")
+  repositoryUrl       String          @default("")
+  documentationUrl    String          @default("")
+  websiteUrl          String          @default("")
+  platforms           String          @default("[]")
+  publicPackageFileId String?
+  extra               String          @default("{}")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model SoftwareCollaborator {
+  id         String          @id @default(cuid())
+  projectId  String
+  project    CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId     String
+  role       String          @default("DEVELOPER")
+  status     String          @default("INVITED")
+  invitedAt  DateTime        @default(now())
+  acceptedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([projectId, userId])
+  @@index([userId, status])
+}
+
+model SoftwareWorkspacePermission {
+  id         String          @id @default(cuid())
+  projectId  String
+  project    CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId     String
+  permission String
+  scope      String          @default("PROJECT")
+  scopeRef   String          @default("")
+  createdAt  DateTime        @default(now())
+
+  @@unique([projectId, userId, permission, scope, scopeRef])
+  @@index([projectId, userId])
+}
+
+model SoftwareProjectSecret {
+  id               String          @id @default(cuid())
+  projectId        String
+  project          CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name             String
+  valueCipher      String          @default("")
+  availableToExec  Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([projectId, name])
+}
+
+model SoftwareProjectEvent {
+  id        String          @id @default(cuid())
+  projectId String
+  project   CreationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId   String
+  kind      String
+  title     String
+  detail    String          @default("")
+  createdAt DateTime        @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model CommerceItem {
+  id              String   @id @default(cuid())
+  ownerId         String
+  kind            String
+  title           String
+  status          String   @default("DRAFT")
+  assetId         String?
+  description     String   @default("")
+  price           Int      @default(0)
+  currency        String   @default("NGN")
+  fulfillmentType String   @default("")
+  availability    String   @default("UNAVAILABLE")
+  extra           String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  checkouts     CommerceCheckout[]
+  orders        CommerceOrder[]
+  entitlements  CommerceEntitlement[]
+
+  @@index([ownerId])
+  @@index([ownerId, status])
+  @@index([assetId])
+}
+
+model CommerceCheckout {
+  id              String   @id @default(cuid())
+  offerId         String
+  offer           CommerceItem @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  ownerId         String
+  buyerId         String
+  idempotencyKey  String
+  state           String   @default("CREATED")
+  amount          Int      @default(0)
+  currency        String   @default("NGN")
+  fundzmanRef     String   @default("")
+  failureReason   String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  order           CommerceOrder?
+
+  @@unique([buyerId, idempotencyKey])
+  @@index([offerId])
+  @@index([ownerId])
+  @@index([buyerId])
+}
+
+model CommerceOrder {
+  id                String   @id @default(cuid())
+  checkoutId        String   @unique
+  checkout          CommerceCheckout @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
+  offerId           String
+  offer             CommerceItem @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  ownerId           String
+  buyerId           String
+  paymentState      String
+  fulfillmentState  String   @default("PENDING")
+  amount            Int      @default(0)
+  currency          String   @default("NGN")
+  fundzmanRef       String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+  entitlement       CommerceEntitlement?
+
+  @@index([ownerId])
+  @@index([buyerId])
+  @@index([offerId])
+}
+
+model CommerceEntitlement {
+  id               String   @id @default(cuid())
+  orderId          String   @unique
+  order            CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  offerId          String
+  offer            CommerceItem @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  assetId          String
+  buyerId          String
+  ownerId          String
+  status           String   @default("ACTIVE")
+  fulfillmentType  String   @default("")
+  createdAt        DateTime @default(now())
+  revokedAt        DateTime?
+
+  @@index([buyerId])
+  @@index([assetId])
+  @@index([ownerId])
+}
+
+model ProductionSession {
+  id            String   @id @default(cuid())
+  ownerId       String
+  title         String
+  status        String   @default("DRAFT")
+  scene         String   @default("CREATOR")
+  projectId     String?
+  assetId       String?
+  liveSessionId String?
+  detail        String   @default("")
+  extra         String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  devices       ProductionDevice[]
+  sources       ProductionSource[]
+  pairings      ProductionPairing[]
+
+  @@index([ownerId, status])
+  @@index([liveSessionId])
+}
+
+model ProductionDevice {
+  id           String    @id @default(cuid())
+  sessionId    String
+  session      ProductionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  ownerId      String
+  label        String
+  kind         String
+  role         String    @default("")
+  status       String    @default("PENDING")
+  capabilities String    @default("{}")
+  tokenHash    String    @default("")
+  lastSeenAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  sources      ProductionSource[]
+
+  @@index([sessionId])
+  @@index([ownerId])
+  @@index([tokenHash])
+}
+
+model ProductionSource {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   ProductionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind      String
+  label     String
+  selected  Boolean  @default(false)
+  available Boolean  @default(false)
+  detail    String   @default("")
+  deviceId  String?
+  device    ProductionDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  projectId String?
+  assetId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([sessionId])
+}
+
+model ProductionPairing {
+  id         String    @id @default(cuid())
+  sessionId  String
+  session    ProductionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  ownerId    String
+  code       String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  deviceId   String?
+  createdAt  DateTime  @default(now())
+
+  @@index([sessionId])
+  @@index([ownerId])
+}

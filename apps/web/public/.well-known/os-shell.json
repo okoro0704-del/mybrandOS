@@ -1,0 +1,10 @@
+{
+  "schema": "os-shell.manifest/0.1",
+  "name": "mybrandOS",
+  "version": "0.17.0",
+  "origin": "http://127.0.0.1:5176",
+  "class": "native",
+  "embed": "allow",
+  "launch": "/",
+  "requested": ["digitallife.context", "media.camera", "commerce.checkout"]
+}

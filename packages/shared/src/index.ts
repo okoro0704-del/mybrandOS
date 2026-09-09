@@ -1,0 +1,25 @@
+export const MYBRANDOS_VERSION = "0.17.0";
+export const MYBRANDOS_NAME = "mybrandOS";
+export const MYBRANDOS_PURPOSE = "Gateway to a person's Digital Life";
+
+export * from "./asset.js";
+export * from "./identity.js";
+export * from "./navigation.js";
+export * from "./brand.js";
+export * from "./gateway.js";
+export * from "./creation.js";
+export * from "./book.js";
+export * from "./course.js";
+export * from "./video.js";
+export * from "./music.js";
+export * from "./writing.js";
+export * from "./software.js";
+export * from "./collaboration.js";
+export * from "./presentation.js";
+export * from "./live.js";
+export * from "./intelligence.js";
+export * from "./primitives.js";
+export * from "./workstation.js";
+export * from "./operations.js";
+export * from "./commerce.js";
+export * from "./production.js";
