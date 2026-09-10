@@ -48,28 +48,37 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
       },
       false,
     );
-    const issued = await issueSession(identity, reply);
-    await updateBrandConfig(
-      identity,
-      {
-        displayName: body.displayName,
-        tagline: body.tagline ?? `${body.displayName} on mybrandOS`,
-        bio: body.bio ?? "",
-        slug,
-        publicEnabled: true,
-      },
-      primitives,
-    );
+    try {
+      const issued = await issueSession(identity, reply);
+      await updateBrandConfig(
+        identity,
+        {
+          displayName: body.displayName,
+          tagline: body.tagline ?? `${body.displayName} on mybrandOS`,
+          bio: body.bio ?? "",
+          slug,
+          publicEnabled: true,
+        },
+        primitives,
+      );
 
-    const origin = (config.publicOrigin || "https://mybrandos-production.up.railway.app").replace(/\/$/, "");
-    return reply.code(201).send({
-      ok: true,
-      trustId,
-      slug,
-      token: issued.token,
-      publicUrl: `${origin}/u/${slug}`,
-      adminUrl: `${origin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
-      studioUrl: `${origin}/`,
-    });
+      const origin = (config.publicOrigin || "https://mybrandos-production.up.railway.app").replace(/\/$/, "");
+      return reply.code(201).send({
+        ok: true,
+        trustId,
+        slug,
+        token: issued.token,
+        publicUrl: `${origin}/u/${slug}`,
+        adminUrl: `${origin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
+        studioUrl: `${origin}/`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "provision_failed";
+      req.log.error({ err }, "white-label provision failed");
+      return reply.code(500).send({
+        error: "internal_error",
+        message: message.slice(0, 400),
+      });
+    }
   });
 }
