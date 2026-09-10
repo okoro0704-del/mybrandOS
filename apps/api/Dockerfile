@@ -18,14 +18,23 @@ ENV WEB_DIST=/app/apps/web/dist
 ENV DATABASE_URL=file:/app/apps/api/data/prod.db
 WORKDIR /app/apps/api
 
-# Schema seed lives outside the volume mount path so empty volumes do not hide it.
+# Schema seed outside volume mount + initial data DB for non-volume boots.
 RUN mkdir -p /app/apps/api/schema-seed /app/apps/api/data \
   && DATABASE_URL="file:/app/apps/api/schema-seed/prod.db" npx prisma db push --skip-generate \
   && cp /app/apps/api/schema-seed/prod.db /app/apps/api/data/prod.db \
-  && test -s /app/apps/api/data/prod.db
-
-COPY apps/api/docker-entrypoint.sh /app/apps/api/docker-entrypoint.sh
-RUN chmod +x /app/apps/api/docker-entrypoint.sh
+  && test -s /app/apps/api/data/prod.db \
+  && printf '%s\n' \
+       '#!/bin/sh' \
+       'set -eu' \
+       'mkdir -p /app/apps/api/data' \
+       'if [ ! -s /app/apps/api/data/prod.db ]; then' \
+       '  echo "mybrandos: seeding empty data volume from schema-seed"' \
+       '  cp /app/apps/api/schema-seed/prod.db /app/apps/api/data/prod.db' \
+       'fi' \
+       'echo "mybrandos: starting api"' \
+       'exec node dist/index.js' \
+       > /app/apps/api/docker-entrypoint.sh \
+  && chmod +x /app/apps/api/docker-entrypoint.sh
 
 EXPOSE 8793
-CMD ["./docker-entrypoint.sh"]
+CMD ["node", "dist/index.js"]
