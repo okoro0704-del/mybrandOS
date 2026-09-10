@@ -54,7 +54,11 @@ export async function registerStaticWeb(app: FastifyInstance, publicOrigin: stri
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.raw.url ?? "";
-    if (req.method === "GET" && !url.startsWith("/api") && !url.startsWith("/health")) {
+    const pathOnly = url.split("?")[0] ?? "";
+    if (pathOnly.startsWith("/api") || pathOnly === "/health" || pathOnly.startsWith("/health/")) {
+      return reply.code(404).send({ error: "not_found" });
+    }
+    if (req.method === "GET") {
       return reply.type("text/html").sendFile("index.html");
     }
     return reply.code(404).send({ error: "not_found" });

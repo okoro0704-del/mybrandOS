@@ -52,14 +52,6 @@ const primitives = createPrimitiveContainer({
 
 const app = Fastify({ logger: true });
 
-/** Match Vite's /api → API rewrite so the SPA can call `/api/...` same-origin in production. */
-app.addHook("onRequest", async (request) => {
-  const raw = request.raw.url ?? "";
-  if (raw === "/api" || raw.startsWith("/api/") || raw.startsWith("/api?")) {
-    request.raw.url = raw.replace(/^\/api/, "") || "/";
-  }
-});
-
 const corsAllow = Array.from(
   new Set(
     [
@@ -100,7 +92,7 @@ app.setErrorHandler((err, _req, reply) => {
   return reply.code(status).send({ error: status === 415 ? "unsupported_media_type" : "internal_error" });
 });
 
-app.get("/health", async () => {
+async function healthPayload() {
   const registry = await collectPrimitiveHealth(primitives);
   return {
     ok: true,
@@ -120,27 +112,42 @@ app.get("/health", async () => {
       ai: primitives.ai.health(),
     },
   };
-});
+}
 
-registerAuthRoutes(app, primitives);
-registerAssetRoutes(app, primitives);
-registerImportRoutes(app, primitives);
-registerCreateRoutes(app, primitives);
-registerCreationRoutes(app, primitives);
-registerBookRoutes(app, primitives);
-registerCourseRoutes(app, primitives);
-registerVideoRoutes(app, primitives);
-registerMusicRoutes(app, primitives);
-registerWritingRoutes(app, primitives);
-registerSoftwareRoutes(app, primitives);
-registerLiveRoutes(app, primitives);
-registerIntelligenceRoutes(app, primitives);
-registerGatewayRoutes(app, primitives);
-registerCommerceRoutes(app, primitives);
-registerProductionRoutes(app, primitives);
-registerBrandRoutes(app, primitives);
-registerPublicRoutes(app, primitives);
-registerJobRoutes(app, primitives);
+/** Railway / ops health (no /api prefix). */
+app.get("/health", async () => healthPayload());
+
+/**
+ * Production SPA calls `/api/...` (same as Vite proxy). Dev API listens without the
+ * prefix on :8793 — register both so either surface works.
+ */
+async function registerApiSurface(instance: typeof app) {
+  instance.get("/health", async () => healthPayload());
+  registerAuthRoutes(instance, primitives);
+  registerAssetRoutes(instance, primitives);
+  registerImportRoutes(instance, primitives);
+  registerCreateRoutes(instance, primitives);
+  registerCreationRoutes(instance, primitives);
+  registerBookRoutes(instance, primitives);
+  registerCourseRoutes(instance, primitives);
+  registerVideoRoutes(instance, primitives);
+  registerMusicRoutes(instance, primitives);
+  registerWritingRoutes(instance, primitives);
+  registerSoftwareRoutes(instance, primitives);
+  registerLiveRoutes(instance, primitives);
+  registerIntelligenceRoutes(instance, primitives);
+  registerGatewayRoutes(instance, primitives);
+  registerCommerceRoutes(instance, primitives);
+  registerProductionRoutes(instance, primitives);
+  registerBrandRoutes(instance, primitives);
+  registerPublicRoutes(instance, primitives);
+  registerJobRoutes(instance, primitives);
+}
+
+await registerApiSurface(app);
+await app.register(async (scoped) => {
+  await registerApiSurface(scoped as typeof app);
+}, { prefix: "/api" });
 
 const publicOrigin =
   config.publicOrigin ||
