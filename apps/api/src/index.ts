@@ -117,8 +117,13 @@ async function healthPayload() {
   };
 }
 
-/** Railway / ops health (no /api prefix). */
-app.get("/health", async () => healthPayload());
+/** Railway / ops liveness — must stay local and fast (no remote primitive probes). */
+app.get("/health", async () => ({
+  ok: true,
+  service: "mybrandos-api",
+  name: MYBRANDOS_NAME,
+  version: MYBRANDOS_VERSION,
+}));
 
 /**
  * Production SPA calls `/api/...` (same as Vite proxy). Dev API also listens without the

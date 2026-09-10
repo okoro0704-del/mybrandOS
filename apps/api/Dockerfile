@@ -25,5 +25,6 @@ RUN mkdir -p /app/apps/api/schema-seed /app/apps/api/data \
   && test -s /app/apps/api/schema-seed/prod.db
 
 EXPOSE 8793
-# Seed once when the volume has no DB file. Do not run prisma (or sqlite3) on boot — both can hang.
-CMD ["sh", "-c", "mkdir -p /app/apps/api/data; DB=/app/apps/api/data/prod.db; SEED=/app/apps/api/schema-seed/prod.db; if [ ! -s \"$DB\" ]; then cp \"$SEED\" \"$DB\"; fi; exec node dist/index.js"]
+# Seed once when the volume has no DB file. Do not run prisma on boot (can hang on Railway).
+# Avoid shell $VARS in Railway start overrides — they get expanded before the container.
+CMD ["sh", "-c", "mkdir -p /app/apps/api/data && (test -s /app/apps/api/data/prod.db || cp /app/apps/api/schema-seed/prod.db /app/apps/api/data/prod.db) && exec node dist/index.js"]
