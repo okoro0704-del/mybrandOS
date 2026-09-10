@@ -118,11 +118,13 @@ async function healthPayload() {
 app.get("/health", async () => healthPayload());
 
 /**
- * Production SPA calls `/api/...` (same as Vite proxy). Dev API listens without the
+ * Production SPA calls `/api/...` (same as Vite proxy). Dev API also listens without the
  * prefix on :8793 — register both so either surface works.
  */
-async function registerApiSurface(instance: typeof app) {
-  instance.get("/health", async () => healthPayload());
+async function registerApiSurface(instance: typeof app, opts: { includeHealth?: boolean } = {}) {
+  if (opts.includeHealth !== false) {
+    instance.get("/health", async () => healthPayload());
+  }
   registerAuthRoutes(instance, primitives);
   registerAssetRoutes(instance, primitives);
   registerImportRoutes(instance, primitives);
@@ -144,7 +146,7 @@ async function registerApiSurface(instance: typeof app) {
   registerJobRoutes(instance, primitives);
 }
 
-await registerApiSurface(app);
+await registerApiSurface(app, { includeHealth: false });
 await app.register(async (scoped) => {
   await registerApiSurface(scoped as typeof app);
 }, { prefix: "/api" });
