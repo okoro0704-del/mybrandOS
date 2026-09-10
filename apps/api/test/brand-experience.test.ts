@@ -77,7 +77,7 @@ after(cleanup);
 test("creator navigation remains separate from public navigation", () => {
   assert.deepEqual(
     PRIMARY_NAV.map((item) => item.id),
-    ["home", "assets", "create", "live", "production", "distribute"],
+    ["home", "assets", "create", "live", "recording", "production", "distribute"],
   );
   assert.equal(SECONDARY_NAV.some((item) => item.id === "system"), true);
   assert.equal(DEFAULT_PUBLIC_NAV.some((item) => item.id === "system"), false);

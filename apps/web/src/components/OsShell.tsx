@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { DOCK_NAV, PRIMARY_NAV, SECONDARY_NAV } from "@mybrandos/shared";
+import { NavLink, Outlet, Link } from "react-router-dom";
+import { DOCK_NAV, OWNER_SURFACE_NAV, PRIMARY_NAV, SECONDARY_NAV } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { useOs } from "../state/os-store";
 import { Icons, type IconName } from "../nav/icons";
@@ -38,6 +38,14 @@ export function OsShell() {
             <span>Digital Life</span>
           </span>
         </a>
+        <nav className="nav-group">
+          <div className="nav-label">Surfaces</div>
+          {OWNER_SURFACE_NAV.map((item) => (
+            <Link key={item.id} to={item.path} className="nav-link" title={item.detail}>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
         <nav className="nav-group">
           <div className="nav-label">Digital Life</div>
           {PRIMARY_NAV.map((item) => (

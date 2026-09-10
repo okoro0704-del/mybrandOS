@@ -65,6 +65,12 @@ export const Icons = {
       <rect x="13" y="6" width="8" height="12" rx="1.5" />
     </Svg>
   ),
+  recording: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+    </Svg>
+  ),
 };
 
 export type IconName = keyof typeof Icons;

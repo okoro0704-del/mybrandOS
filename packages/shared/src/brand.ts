@@ -143,12 +143,22 @@ export interface PublicBrandExperience {
   theme: BrandTheme;
   cta: BrandCta | null;
   navigation: PublicNavItem[];
+  /** Adaptive Public App nav — hides empty collections unless alwaysShow. */
+  appNavigation: PublicNavItem[];
   featuredAssets: PublicAssetCard[];
   publishedAssets: PublicAssetCard[];
+  /** Chronological presentation over published work — not a social network backend. */
+  feed: import("./digital-life.js").PublicFeedItem[];
+  /** Published website pages only. */
+  websitePages: import("./digital-life.js").PublicWebsitePage[];
   publicLinks: PublicLink[];
   messaging: { available: boolean; detail: string };
   liveNow: PublicLiveNow | null;
   offers?: import("./commerce.js").PublicOfferCard[];
+  surfaces: {
+    appPath: string;
+    websitePath: string;
+  };
 }
 
 export interface BrandConfigPayload {
@@ -201,10 +211,11 @@ export const RESERVED_PUBLIC_SLUGS = [
   "search",
   "settings",
   "system",
-  "u",
-  "admin",
-  "login",
-  "logout",
+  "website",
+  "feed",
+  "store",
+  "recording",
+  "production",
 ] as const;
 
 export function normalizeSlug(raw: string): string {

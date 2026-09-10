@@ -1,4 +1,4 @@
-export const MYBRANDOS_VERSION = "0.17.0";
+export const MYBRANDOS_VERSION = "0.20.0";
 export const MYBRANDOS_NAME = "mybrandOS";
 export const MYBRANDOS_PURPOSE = "Gateway to a person's Digital Life";
 
@@ -23,3 +23,6 @@ export * from "./workstation.js";
 export * from "./operations.js";
 export * from "./commerce.js";
 export * from "./production.js";
+export * from "./recording.js";
+export * from "./camera-hardware.js";
+export * from "./digital-life.js";

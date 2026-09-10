@@ -16,14 +16,27 @@ export type ProductionDeviceKind = (typeof PRODUCTION_DEVICE_KINDS)[number];
 export const PRODUCTION_DEVICE_ROLES = [
   "PRIMARY_CAMERA",
   "SECONDARY_CAMERA",
+  "SIDE_CAMERA",
+  "OVERHEAD_CAMERA",
   "DOCUMENT_CAMERA",
   "PRESENTER_CAMERA",
+  "SCREEN_CAPTURE",
   "MICROPHONE",
+  "SECONDARY_MIC",
+  "AMBIENT_MIC",
   "REMOTE_CONTROL",
 ] as const;
 export type ProductionDeviceRole = (typeof PRODUCTION_DEVICE_ROLES)[number];
 
-export const PRODUCTION_DEVICE_STATUSES = ["PENDING", "READY", "UNAVAILABLE", "DISCONNECTED"] as const;
+export const PRODUCTION_DEVICE_STATUSES = [
+  "PENDING",
+  "READY",
+  "UNKNOWN",
+  "UNAVAILABLE",
+  "DENIED",
+  "DISCONNECTED",
+  "ERROR",
+] as const;
 export type ProductionDeviceStatus = (typeof PRODUCTION_DEVICE_STATUSES)[number];
 
 export const PRODUCTION_SOURCE_KINDS = [
@@ -49,11 +62,27 @@ export const PRODUCTION_SCENE_LABELS: Record<ProductionScene, string> = {
   DEMO: "Demo",
 };
 
+export type DeviceCapabilityValue =
+  | "READY"
+  | "PENDING"
+  | "UNKNOWN"
+  | "UNAVAILABLE"
+  | "DENIED"
+  | "DISCONNECTED"
+  | "ERROR"
+  | "camera_unavailable"
+  | "microphone_unavailable"
+  | "screen_capture_unavailable"
+  | "unknown";
+
 export interface DeviceCapabilityReport {
-  camera: "READY" | "camera_unavailable" | "unknown";
-  microphone: "READY" | "microphone_unavailable" | "unknown";
-  screen: "READY" | "screen_capture_unavailable" | "unknown";
+  camera: DeviceCapabilityValue;
+  microphone: DeviceCapabilityValue;
+  screen: DeviceCapabilityValue;
   battery: number | null;
+  /** Explicit spatial audio contract — never fabricate localization. */
+  audioDirectionality?: "SUPPORTED" | "UNSUPPORTED" | "UNKNOWN";
+  spatialPosition?: "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
 }
 
 export interface ProductionDevice {
@@ -147,6 +176,27 @@ export function defaultDeviceCapabilities(): DeviceCapabilityReport {
   };
 }
 
-export function capabilityIsReady(value: DeviceCapabilityReport["camera"] | DeviceCapabilityReport["microphone"] | DeviceCapabilityReport["screen"]) {
+export function capabilityIsReady(value: DeviceCapabilityValue) {
   return value === "READY";
+}
+
+export function normalizeCapability(value: unknown): DeviceCapabilityValue {
+  if (typeof value !== "string") return "UNKNOWN";
+  const upper = value.toUpperCase();
+  if (upper === "READY" || value === "READY") return "READY";
+  if (value === "camera_unavailable" || value === "microphone_unavailable" || value === "screen_capture_unavailable") {
+    return value;
+  }
+  if (value === "unknown") return "unknown";
+  if (
+    upper === "PENDING" ||
+    upper === "UNKNOWN" ||
+    upper === "UNAVAILABLE" ||
+    upper === "DENIED" ||
+    upper === "DISCONNECTED" ||
+    upper === "ERROR"
+  ) {
+    return upper as DeviceCapabilityValue;
+  }
+  return "UNKNOWN";
 }

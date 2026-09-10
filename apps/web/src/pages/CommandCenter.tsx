@@ -15,9 +15,13 @@ const KIND_LABEL = {
 
 export function CommandCenterPage() {
   const [data, setData] = useState<CommandCenterPayload | null>(null);
+  const [recordingHealth, setRecordingHealth] = useState<Array<{ id: string; title: string; status: string; detail: string }>>([]);
 
   useEffect(() => {
     void api<CommandCenterPayload>("/command-center").then(setData);
+    void api<{ sessions: Array<{ id: string; title: string; status: string; detail: string }> }>("/recording/sessions")
+      .then((res) => setRecordingHealth(res.sessions.slice(0, 5)))
+      .catch(() => setRecordingHealth([]));
   }, []);
 
   if (!data) return <section className="page"><p className="muted">Gathering attention…</p></section>;
@@ -33,6 +37,23 @@ export function CommandCenterPage() {
         <h1>Attention management</h1>
         <p>What is happening in this Digital Life, what needs attention, and what can safely happen next.</p>
       </header>
+
+      <article className="panel" style={{ marginBottom: 16 }}>
+        <div className="eyebrow">Production health</div>
+        {recordingHealth.length === 0 ? (
+          <p className="muted">No Recording Sessions. Open Recording Studio to capture.</p>
+        ) : (
+          recordingHealth.map((row) => (
+            <div className="list-row" key={row.id}>
+              <div>
+                <strong>{row.title}</strong>
+                <div className="small muted">{row.status} · {row.detail}</div>
+              </div>
+              <Link to={`/recording/${row.id}`}>Open</Link>
+            </div>
+          ))
+        )}
+      </article>
 
       <article className="panel" style={{ marginBottom: 16 }}>
         <div className="eyebrow">System vs AI</div>

@@ -57,7 +57,8 @@ export function CreatePage() {
         <h1>Start a project</h1>
         <p>
           Every type uses the same Creation Engine. Book, Course, Video, Music, Writing, and Software
-          open specialized studios. Work manually, or ask AI when you want help.
+          open specialized studios. Capture new media in{" "}
+          <a href="/recording">Recording Studio</a>. Work manually, or ask AI when you want help.
         </p>
       </header>
 

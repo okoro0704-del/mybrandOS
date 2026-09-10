@@ -1,0 +1,125 @@
+import type { PublicBrandExperience } from "@mybrandos/shared";
+import { Link } from "react-router-dom";
+import { Icons } from "../../nav/icons";
+import { assetsPath, profilePath } from "../routes";
+
+type Primary = "home" | "assets" | "website" | "profile" | string;
+
+export function DigitalLifeTopBar({
+  experience,
+  basePath,
+  mediaBase,
+  websiteBase,
+  primary,
+  menuOpen,
+  onToggleMenu,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  mediaBase: string;
+  websiteBase: string;
+  primary: Primary;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+}) {
+  const name = experience.identity.displayName || "Digital Life";
+  const links = [
+    { id: "home", label: "Home", to: basePath },
+    { id: "assets", label: "Assets", to: assetsPath(basePath) },
+    { id: "website", label: "Website", to: websiteBase },
+  ] as const;
+
+  return (
+    <header className="dl-topbar">
+      <div className="dl-topbar-inner">
+        <Link className="dl-brand" to={basePath} aria-label={name}>
+          {experience.identity.hasLogo ? (
+            <img src={`${mediaBase}/media/logo`} alt="" className="dl-brand-logo" />
+          ) : experience.identity.hasAvatar ? (
+            <img src={`${mediaBase}/media/avatar`} alt="" className="dl-brand-logo" />
+          ) : (
+            <span className="dl-brand-mark" aria-hidden>
+              {name.slice(0, 1)}
+            </span>
+          )}
+          <span className="dl-brand-name">{name}</span>
+        </Link>
+
+        <nav className="dl-top-nav" aria-label="Primary">
+          {links.map((item) => (
+            <Link key={item.id} className={primary === item.id ? "active" : ""} to={item.to}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="dl-top-actions">
+          <Link
+            className={`dl-profile-entry${primary === "profile" ? " active" : ""}`}
+            to={profilePath(basePath)}
+            aria-label="Profile"
+          >
+            {experience.identity.hasAvatar ? (
+              <img src={`${mediaBase}/media/avatar`} alt="" />
+            ) : experience.identity.hasLogo ? (
+              <img src={`${mediaBase}/media/logo`} alt="" />
+            ) : (
+              <Icons.audience size={18} />
+            )}
+            <span className="dl-profile-label">You</span>
+          </Link>
+          <button type="button" className="dl-menu-btn" aria-expanded={menuOpen} aria-label="Menu" onClick={onToggleMenu}>
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+      </div>
+      {menuOpen ? (
+        <nav className="dl-mobile-menu" aria-label="Menu">
+          {links.map((item) => (
+            <Link key={item.id} className={primary === item.id ? "active" : ""} to={item.to} onClick={onToggleMenu}>
+              {item.label}
+            </Link>
+          ))}
+          <Link className={primary === "profile" ? "active" : ""} to={profilePath(basePath)} onClick={onToggleMenu}>
+            Profile
+          </Link>
+        </nav>
+      ) : null}
+    </header>
+  );
+}
+
+export function DigitalLifeBottomNav({
+  basePath,
+  websiteBase,
+  primary,
+}: {
+  basePath: string;
+  websiteBase: string;
+  primary: Primary;
+}) {
+  const items = [
+    { id: "home", label: "Home", to: basePath, icon: Icons.home },
+    { id: "assets", label: "Assets", to: assetsPath(basePath), icon: Icons.assets },
+    { id: "website", label: "Website", to: websiteBase, icon: Icons.brand },
+    { id: "profile", label: "You", to: profilePath(basePath), icon: Icons.audience },
+  ] as const;
+
+  return (
+    <nav className="dl-bottom-nav" aria-label="Digital Life">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active =
+          primary === item.id || (item.id === "assets" && (primary === "asset" || primary === "collection"));
+        return (
+          <Link key={item.id} className={active ? "active" : ""} to={item.to}>
+            <Icon size={20} />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}

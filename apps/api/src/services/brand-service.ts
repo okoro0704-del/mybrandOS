@@ -2,12 +2,16 @@ import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { PrimitiveError } from "@mybrandos/integrations";
 import type { TrustIdIdentity } from "@mybrandos/shared";
 import {
+  DEFAULT_APP_NAV,
   DEFAULT_BRAND_THEME,
   DEFAULT_PUBLIC_NAV,
+  buildFeedFromAssets,
   emptyPublicPresentation,
   normalizeSlug,
   normalizeTheme,
   publicExperiencePath,
+  publicWebsitePath,
+  publishedWebsitePages,
   sortNav,
   isReservedSlug,
   parsePresentationTypes,
@@ -31,6 +35,7 @@ import { badRequest, conflict, notFound, unavailable } from "../lib/errors.js";
 import { listPublicEligible, listPublished } from "./asset-service.js";
 import { isDistributedLiveToLifeOs } from "../live/distributions.js";
 import type { Asset } from "@mybrandos/shared";
+import { parseWebsitePages } from "./website-service.js";
 
 const MEDIA_SLOTS: BrandMediaSlot[] = ["logo", "avatar", "cover"];
 
@@ -175,6 +180,7 @@ function projectNavigation(
   items: PublicNavItemConfig[],
   published: PublicAssetCard[],
   slug: string | null,
+  opts?: { offersCount?: number; liveNow?: boolean },
 ): PublicNavItem[] {
   return sortNav(items)
     .filter((item) => item.enabled)
@@ -185,12 +191,15 @@ function projectNavigation(
           : item.kind === "collection" && item.assetTypes?.length
             ? published.filter((asset) => item.assetTypes!.includes(asset.assetType))
             : published;
-      const available =
+      let available =
         item.alwaysShow ||
         item.kind === "home" ||
         item.kind === "about" ||
         item.kind === "contact" ||
         matching.length > 0;
+      if (item.id === "store") available = Boolean(item.alwaysShow) || (opts?.offersCount ?? 0) > 0 || matching.length > 0;
+      if (item.id === "live") available = Boolean(item.alwaysShow) || Boolean(opts?.liveNow);
+      if (item.id === "feed") available = true;
       return {
         ...item,
         href: navHref(slug, item),
@@ -462,6 +471,30 @@ async function experienceFrom(
   const featuredAssets = orderByIds(publishedAssets, featuredIds);
   const nav = parseNav(space.publicNav);
   const media = parseMedia(space.brandMedia);
+  const offers = await (await import("../commerce/offers.js")).listPublicOffers(
+    space.ownerId,
+    eligible.map((asset) => asset.id),
+    Boolean(primitives?.fundzMan.bound),
+  );
+  const pages = parseWebsitePages((space as { websitePages?: string }).websitePages);
+  const publicPages = publishedWebsitePages(pages);
+  const feedExtras =
+    liveNow && slug
+      ? [
+          {
+            id: `live:${liveNow.sessionId}`,
+            kind: "live_notice" as const,
+            title: liveNow.title,
+            summary: liveNow.watchLabel,
+            publishedAt: liveNow.startedAt,
+            href: publicExperiencePath(slug) + "/live",
+            assetId: null,
+            assetType: null,
+            coverAvailable: false,
+          },
+        ]
+      : [];
+  const navOpts = { offersCount: offers.length, liveNow: Boolean(liveNow) };
 
   return {
     slug,
@@ -477,17 +510,20 @@ async function experienceFrom(
     },
     theme: normalizeTheme(readJson<Partial<BrandTheme>>(space.theme, {})),
     cta: parseCta(space.cta),
-    navigation: projectNavigation(nav, publishedAssets, slug || null),
+    navigation: projectNavigation(nav, publishedAssets, slug || null, navOpts),
+    appNavigation: projectNavigation(DEFAULT_APP_NAV, publishedAssets, slug || null, navOpts),
     featuredAssets,
     publishedAssets,
+    feed: buildFeedFromAssets(slug || "preview", publishedAssets, feedExtras),
+    websitePages: publicPages,
     publicLinks: readJson<PublicLink[]>(space.links, []),
     messaging,
     liveNow,
-    offers: await (await import("../commerce/offers.js")).listPublicOffers(
-      space.ownerId,
-      eligible.map((asset) => asset.id),
-      Boolean(primitives?.fundzMan.bound),
-    ),
+    offers,
+    surfaces: {
+      appPath: slug ? publicExperiencePath(slug) : "/brand/preview",
+      websitePath: slug ? publicWebsitePath(slug) : "/brand/preview/website",
+    },
   };
 }
 
@@ -533,12 +569,19 @@ export async function buildBrandPreview(
       theme: DEFAULT_BRAND_THEME,
       cta: null,
       navigation: projectNavigation(DEFAULT_PUBLIC_NAV, [], null),
+      appNavigation: projectNavigation(DEFAULT_APP_NAV, [], null),
       featuredAssets: [],
       publishedAssets: [],
+      feed: [],
+      websitePages: [],
       publicLinks: [],
       messaging,
       liveNow: null,
       offers: [],
+      surfaces: {
+        appPath: "/brand/preview",
+        websitePath: "/brand/preview/website",
+      },
     };
   }
   const liveNow = await publicLiveNowForOwner(identity.trustId, space.displayName || identity.displayName);

@@ -4,6 +4,7 @@ import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicExperiencePath } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { ExperienceView } from "../experience/ExperienceView";
+import { parseDigitalLifePath } from "../digital-life/routes";
 
 export function BrandPreviewPage() {
   const { "*": rest } = useParams();
@@ -24,20 +25,26 @@ export function BrandPreviewPage() {
       </section>
     );
   }
-  if (!experience) return <section className="page"><p className="muted">Opening preview…</p></section>;
+  if (!experience) {
+    return (
+      <section className="page">
+        <p className="muted">Opening preview…</p>
+      </section>
+    );
+  }
 
-  const parts = (rest ?? "").split("/").filter(Boolean);
-  const assetId = parts[0] === "a" ? parts[1] : undefined;
-  const section = assetId ? undefined : parts[0];
-
+  const parsed = parseDigitalLifePath(rest);
   return (
     <ExperienceView
       experience={experience}
       basePath="/brand/preview"
       mediaBase="/api/brand"
       preview
-      section={section}
-      assetId={assetId}
+      section={parsed.section}
+      assetId={parsed.assetId}
+      surface={parsed.surface}
+      websitePageSlug={parsed.websitePageSlug}
+      primary={parsed.primary}
     />
   );
 }
@@ -52,28 +59,35 @@ export function PublicExperiencePage() {
     void api<PublicBrandExperience>(`/public/${slug}`)
       .then(setExperience)
       .catch((err: unknown) => {
-        const message = err instanceof ApiError && err.status === 404
-          ? "This branded experience is not available."
-          : "This branded experience could not be loaded.";
+        const message =
+          err instanceof ApiError && err.status === 404
+            ? "This branded experience is not available."
+            : "This branded experience could not be loaded.";
         setError(message);
       });
   }, [slug]);
 
   if (error) {
     return (
-      <div className="brand-exp" data-bg="ink" data-accent="gold">
-        <main className="be-main">
+      <div className="brand-exp digital-life-app" data-bg="ink" data-accent="gold">
+        <main className="dl-main be-main">
           <h1>Unavailable</h1>
           <p className="muted">{error}</p>
         </main>
       </div>
     );
   }
-  if (!experience || !slug) return <div className="brand-exp" data-bg="ink"><main className="be-main"><p className="muted">Opening branded experience…</p></main></div>;
+  if (!experience || !slug) {
+    return (
+      <div className="brand-exp digital-life-app" data-bg="ink">
+        <main className="dl-main be-main">
+          <p className="muted">Loading your Digital Life…</p>
+        </main>
+      </div>
+    );
+  }
 
-  const parts = (rest ?? "").split("/").filter(Boolean);
-  const assetId = parts[0] === "a" ? parts[1] : undefined;
-  const section = assetId ? undefined : parts[0];
+  const parsed = parseDigitalLifePath(rest);
   const basePath = publicExperiencePath(slug);
 
   return (
@@ -81,8 +95,11 @@ export function PublicExperiencePage() {
       experience={experience}
       basePath={basePath}
       mediaBase={`/api/public/${slug}`}
-      section={section}
-      assetId={assetId}
+      section={parsed.section}
+      assetId={parsed.assetId}
+      surface={parsed.surface}
+      websitePageSlug={parsed.websitePageSlug}
+      primary={parsed.primary}
     />
   );
 }

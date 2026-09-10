@@ -277,6 +277,7 @@ model PersonalSpace {
   publicNav         String   @default("[]")
   cta               String   @default("{}")
   brandMedia        String   @default("{}")
+  websitePages      String   @default("[]")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -782,3 +783,115 @@ model ProductionPairing {
   @@index([sessionId])
   @@index([ownerId])
 }
+
+/// Application-domain Recording Session — not an Asset, not a primitive.
+model RecordingSession {
+  id                   String   @id @default(cuid())
+  ownerId              String
+  title                String
+  mode                 String   @default("VIDEO")
+  status               String   @default("DRAFT")
+  productionSessionId  String?
+  projectId            String?
+  assetId              String?
+  audioEnabled         Boolean  @default(true)
+  scene                String   @default("CREATOR")
+  detail               String   @default("")
+  programMediaZoneId   String?
+  programMediaMime     String   @default("")
+  finalizeJobId        String?
+  extra                String   @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now()) @updatedAt
+  tracks               RecordingTrack[]
+  takes                RecordingTake[]
+  program              ProgramOutput?
+  previews             PreviewSession[]
+
+  @@index([ownerId, status])
+  @@index([productionSessionId])
+  @@index([projectId])
+}
+
+model RecordingTrack {
+  id             String   @id @default(cuid())
+  sessionId      String
+  session        RecordingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type           String
+  name           String
+  sourceKind     String   @default("")
+  deviceId       String?
+  position       Int      @default(0)
+  volume         Float    @default(1)
+  mute           Boolean  @default(false)
+  solo           Boolean  @default(false)
+  status         String   @default("EMPTY")
+  beatAssetId    String?
+  sourceAssetId  String?
+  selectedTakeId String?
+  spatialJson    String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  takes          RecordingTake[]
+
+  @@index([sessionId])
+}
+
+model RecordingTake {
+  id          String   @id @default(cuid())
+  trackId     String
+  track       RecordingTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  sessionId   String
+  session     RecordingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status      String   @default("READY")
+  startTime   DateTime?
+  durationMs  Int?
+  dataZoneId  String?
+  mimeType    String   @default("")
+  byteSize    Int?
+  createdBy   String
+  detail      String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([trackId])
+  @@index([sessionId])
+  @@index([dataZoneId])
+}
+
+model ProgramOutput {
+  id                   String   @id @default(cuid())
+  sessionId            String   @unique
+  session              RecordingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  state                String   @default("IDLE")
+  scene                String   @default("CREATOR")
+  activeVideoSourceId  String?
+  activeAudioSourceIds String   @default("[]")
+  layout               String   @default("single")
+  detail               String   @default("")
+  updatedAt            DateTime @default(now()) @updatedAt
+  createdAt            DateTime @default(now())
+}
+
+/// Scoped, revocable external preview — not an owner session.
+model PreviewSession {
+  id                   String    @id @default(cuid())
+  ownerId              String
+  recordingSessionId   String?
+  recordingSession     RecordingSession? @relation(fields: [recordingSessionId], references: [id], onDelete: Cascade)
+  productionSessionId  String?
+  code                 String    @unique
+  tokenHash            String
+  kind                 String    @default("PROGRAM")
+  status               String    @default("PREVIEW_READY")
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  detail               String    @default("")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  @@index([ownerId])
+  @@index([recordingSessionId])
+  @@index([tokenHash])
+}
+

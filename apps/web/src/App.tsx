@@ -18,10 +18,12 @@ import { PersonalSpacePage } from "./pages/PersonalSpace";
 import { ProjectsPage } from "./pages/Projects";
 import { ActivityPage } from "./pages/Activity";
 import { BrandPage } from "./pages/Brand";
+import { WebsitePage } from "./pages/Website";
 import { BrandPreviewPage, PublicExperiencePage } from "./pages/PublicExperience";
 import { LiveCenterPage } from "./pages/LiveCenter";
 import { ProductionJoinPage } from "./pages/ProductionJoin";
 import { ProductionListPage, ProductionStudioPage } from "./pages/Production";
+import { PreviewJoinPage, RecordingListPage, RecordingStudioPage } from "./pages/Recording";
 import { ProcessingPage } from "./pages/Processing";
 import { CameraCapabilityPage } from "./pages/CameraCapability";
 import {
@@ -52,11 +54,14 @@ export function App() {
           <Route path="/personal-space" element={<PersonalSpacePage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/live" element={<LiveCenterPage />} />
+          <Route path="/recording" element={<RecordingListPage />} />
+          <Route path="/recording/:id" element={<RecordingStudioPage />} />
           <Route path="/production" element={<ProductionListPage />} />
           <Route path="/production/:id" element={<ProductionStudioPage />} />
           <Route path="/processing" element={<ProcessingPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/brand" element={<BrandPage />} />
+          <Route path="/website" element={<WebsitePage />} />
           <Route path="/command-center" element={<CommandCenterPage />} />
           <Route path="/collaboration" element={<CollaborationPage />} />
           <Route path="/elfcom" element={<ElfComPage />} />
@@ -71,6 +76,7 @@ export function App() {
         <Route path="/brand/preview" element={<BrandPreviewPage />} />
         <Route path="/brand/preview/*" element={<BrandPreviewPage />} />
         <Route path="/production/join/:code" element={<ProductionJoinPage />} />
+        <Route path="/preview/:code" element={<PreviewJoinPage />} />
       </Route>
       <Route path="/u/:slug" element={<PublicExperiencePage />} />
       <Route path="/u/:slug/*" element={<PublicExperiencePage />} />

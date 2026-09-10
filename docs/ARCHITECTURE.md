@@ -111,3 +111,21 @@ Set `PRIMITIVES_MODE=remote` and the matching URLs to bind live engines.
 - Single-column collapse under 640px
 - Touch targets ≥ 42px
 - No hover-only actions
+
+## Digital Life Experience Layer
+
+Application/presentation layer (not a primitive). See `docs/digital-life-experience.md`.
+
+One Digital Life exposes three surfaces over the same records (`PersonalSpace` + `Asset` + Offers/Live):
+
+| Surface | Path | Audience |
+|---|---|---|
+| Public App Experience | `/u/:slug` | Visitors — experience the creator |
+| Public Website | `/u/:slug/website` | Visitors — official information |
+| Workstation | `/` (authenticated) | Owner — operate the Digital Life |
+
+Website pages are presentation config on `PersonalSpace.websitePages` (JSON). News/About/Press are not a separate CMS backend. The public feed is a chronological projection of published Assets.
+
+The branded public app shell (top bar, mobile bottom nav, Assets, Profile, PWA install) is documented in `docs/branded-digital-life-app.md`.
+
+The six primitives remain: `trust-id`, `elfcom`, `sovereign-drive`, `platform-jobs`, `master-distributor`, `fundzman`.

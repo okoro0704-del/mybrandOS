@@ -551,6 +551,14 @@ export function SoftwareStudio({ projectId }: { projectId: string }) {
           >
             Request preview build
           </button>
+          <p className="small muted" style={{ marginTop: 12 }}>
+            External Preview uses the Recording Studio Program path. Where no isolated runtime is
+            bound, the honest state remains <code>runtime_unavailable</code> — never execute
+            untrusted software in the main browser context.
+          </p>
+          <Link className="btn ghost" to="/recording">
+            Open Recording / Preview
+          </Link>
         </article>
       ) : null}
 

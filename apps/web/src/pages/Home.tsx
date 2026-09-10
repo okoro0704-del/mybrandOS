@@ -42,8 +42,42 @@ export function HomePage() {
       <header className="page-head">
         <div className="eyebrow">Digital Life</div>
         <h1>{home.greeting}</h1>
-        <p>What is happening in your Digital Life right now.</p>
+        <p>One Digital Life. Operate it here. Let visitors experience it publicly.</p>
       </header>
+
+      <div className="actions" style={{ marginBottom: 16 }}>
+        <Link className="btn" to="/brand/preview">
+          Preview My Digital Life
+        </Link>
+        <Link className="btn ghost" to="/website">
+          Website
+        </Link>
+        <Link className="btn ghost" to="/recording">
+          Recording Studio
+        </Link>
+      </div>
+
+      <article className="panel" style={{ marginBottom: 16 }}>
+        <div className="eyebrow">Your Digital Life</div>
+        <div className="grid grid-3">
+          <div>
+            <strong>Public Experience</strong>
+            <p className="small muted">{home.workstation?.brand.visibilityLabel ?? "PRIVATE"}</p>
+          </div>
+          <div>
+            <strong>Website</strong>
+            <p className="small muted">Manage official information in Website</p>
+          </div>
+          <div>
+            <strong>Needs attention</strong>
+            <p className="small muted">
+              {(home.workstation?.processing.filter((item) => item.status === "FAILED" || item.status === "PROCESSING").length ?? 0) +
+                (home.assets.draft ?? 0)}{" "}
+              from drafts/processing
+            </p>
+          </div>
+        </div>
+      </article>
 
       <SoftwareInvitations />
 

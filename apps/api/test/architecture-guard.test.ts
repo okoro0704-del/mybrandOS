@@ -32,8 +32,9 @@ const FORBIDDEN = [
   { id: "wallet-ledger", re: /class\s+(WalletLedger|DoubleEntryLedger|LocalWalletEngine|PaymentPrimitive|WalletPrimitive|CheckoutPrimitive|BillingPrimitive|MarketplaceEngine)\b/ },
   { id: "fake-fundzman", re: /class\s+(FakeFundzManAdapter|LocalPaymentEngine|BrowserPaidCheckout)\b/ },
   { id: "local-queue", re: /class\s+(LocalQueue|InMemoryQueue|BullWorker|JobWorker|LocalRenderQueue|InMemoryRenderQueue)\b/ },
-  { id: "duplicate-cms", re: /model\s+(BrandAsset|BrandContent|PublicContent|CourseAsset|BookAsset|VideoAsset|VideoContent|MediaAsset|HighlightAsset|MusicCMS|WritingCMS|SoftwareCMS|MusicAsset|WritingAsset|SoftwareAsset|CameraAsset|DeviceAsset)\b/ },
-  { id: "fake-engines", re: /class\s+(LiveEngine|StreamingEngine|BroadcastEngine|DistributionEngine|SocialEngine|RenderEngine|NotificationEngine|AnalyticsEngine|SearchEngine|InProcessMediaServer|FakeStreamingServer|LocalLiveEngine|LocalAudioEngine|LocalVideoEngine|LocalCodeExecutionEngine|OBSEngine|BroadcastSuite|FakeDeviceBridge|LocalStreamingBackend|ProductionPrimitive|DevicePrimitive|StreamingPrimitive)\b/ },
+  { id: "fake-engines", re: /class\s+(LiveEngine|StreamingEngine|BroadcastEngine|DistributionEngine|SocialEngine|RenderEngine|NotificationEngine|AnalyticsEngine|SearchEngine|InProcessMediaServer|FakeStreamingServer|LocalLiveEngine|LocalAudioEngine|LocalVideoEngine|LocalCodeExecutionEngine|OBSEngine|BroadcastSuite|FakeDeviceBridge|LocalStreamingBackend|ProductionPrimitive|DevicePrimitive|StreamingPrimitive|RecordingPrimitive|CameraPrimitive|AudioPrimitive|PreviewPrimitive|MediaPrimitive|RecordingService|CameraService|AudioService|StreamingService|PreviewService|PublicFeedBackend|WebsiteCMSBackend|CreatorSocialBackend|NewsBackend|PWADataBackend|OfflineCMS|PublicCheckoutBackend|StoreBackend|ConsumerContentDB|PublicContentDB|PublicSocialBackend|UniversalSocialGraph)\b/ },
+  { id: "duplicate-cms", re: /model\s+(BrandAsset|BrandContent|PublicContent|CourseAsset|BookAsset|VideoAsset|VideoContent|MediaAsset|HighlightAsset|MusicCMS|WritingCMS|SoftwareCMS|MusicAsset|WritingAsset|SoftwareAsset|CameraAsset|DeviceAsset|RecordingAsset|ProgramAsset|PodcastAsset|WebsiteAsset|PublicAsset|PublicContentDB|DigitalLifeAsset|AppAsset|ConsumerContentDB)\b/ },
+  { id: "duplicate-app-types", re: /class\s+(DigitalLifeAsset|AppAsset|PublicAsset|VideoAsset|MusicAsset|BookAsset|NewAssetType|NewPrimitive|SecondAuthenticationSystem|SecondSearchBackend|SecondCommerceBackend)\b/ },
   { id: "duplicate-destination-assets", re: /\b(FacebookReplayAsset|InstagramReplayAsset|YouTubeVideoAsset|YouTubeShortAsset|YouTubeReplayAsset)\b/ },
   { id: "external-source-of-truth", re: /class\s+(GitHubSourceOfTruth|NetlifySourceOfTruth)\b/ },
   { id: "credential-sharing", re: /class\s+(SharedOwnerCredentials|CredentialRelay)\b/ },
@@ -60,7 +61,7 @@ function walk(dir: string, files: string[] = []): string[] {
     const full = join(dir, entry);
     const stat = statSync(full);
     if (stat.isDirectory()) walk(full, files);
-    else if (extname(full) === ".ts" || extname(full) === ".prisma") files.push(full);
+    else if (extname(full) === ".ts" || extname(full) === ".tsx" || extname(full) === ".prisma") files.push(full);
   }
   return files;
 }

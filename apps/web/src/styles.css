@@ -751,3 +751,464 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .production-join { max-width: 420px; margin: 2rem auto; }
 
+.surface-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.35rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bos-muted) 18%, transparent);
+}
+.surface-toggle a {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.85rem;
+}
+.surface-toggle a.active {
+  background: color-mix(in srgb, var(--be-accent, var(--bos-accent)) 28%, transparent);
+  font-weight: 650;
+}
+.feed-list { display: grid; gap: 0.85rem; }
+.feed-item {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--bos-muted) 24%, transparent);
+  text-decoration: none;
+  color: inherit;
+}
+.feed-cover {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.website-body {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  margin-top: 1rem;
+}
+.digital-life-surface.surface-website .be-hero-inner h1 {
+  letter-spacing: 0.02em;
+}
+.brand-exp .nav-link span { font-size: 0.9rem; }
+
+.recording-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.recording-panel,
+.recording-tracks,
+.preview-card {
+  border: 1px solid color-mix(in srgb, var(--bos-muted) 28%, transparent);
+  border-radius: 16px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--bos-surface) 88%, transparent);
+}
+.device-card,
+.track-row {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--bos-muted) 18%, transparent);
+}
+.track-row {
+  grid-template-columns: 1.4fr auto auto auto;
+  align-items: center;
+}
+.program-frame {
+  position: relative;
+  min-height: 280px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0b0c10;
+}
+.program-video {
+  width: 100%;
+  height: min(52vh, 420px);
+  object-fit: cover;
+  display: block;
+  background: #0b0c10;
+}
+.program-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+}
+.program-placeholder {
+  min-height: 240px;
+  display: grid;
+  place-content: center;
+  gap: 0.4rem;
+  color: #d7dde8;
+  text-align: center;
+  padding: 1.5rem;
+}
+.recording-scenes,
+.recording-transport {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+.capability-strip { margin-top: 1rem; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+@media (max-width: 860px) {
+  .recording-grid { grid-template-columns: 1fr; }
+  .track-row { grid-template-columns: 1fr; }
+}
+
+/* —— Branded Digital Life app shell —— */
+.digital-life-app {
+  --dl-top: 3.4rem;
+  --dl-bottom: calc(4.1rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--dl-bottom);
+}
+.dl-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--be-bg, #0b0c10) 86%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 28%, transparent);
+}
+.dl-topbar-inner {
+  width: min(1080px, calc(100% - 1.5rem));
+  margin: 0 auto;
+  min-height: var(--dl-top);
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.dl-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+.dl-brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.dl-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--be-accent, #d4a24c) 22%, transparent);
+  color: var(--be-accent, #d4a24c);
+  font-weight: 700;
+}
+.dl-brand-name {
+  font-weight: 650;
+  font-size: 1.02rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-top-nav {
+  display: none;
+  gap: 0.35rem;
+}
+.dl-top-nav a,
+.dl-mobile-menu a {
+  color: var(--be-muted, #9a9284);
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+}
+.dl-top-nav a.active,
+.dl-mobile-menu a.active,
+.dl-profile-entry.active {
+  color: var(--be-text, #f4eee2);
+  background: color-mix(in srgb, var(--be-accent, #d4a24c) 18%, transparent);
+}
+.dl-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dl-profile-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: inherit;
+  text-decoration: none;
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+}
+.dl-profile-entry img {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.dl-profile-label { display: none; }
+.dl-menu-btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  gap: 5px;
+  place-content: center;
+  cursor: pointer;
+}
+.dl-menu-btn span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--be-text, #f4eee2);
+}
+.dl-mobile-menu {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 20%, transparent);
+}
+.dl-main {
+  padding-top: 1rem;
+  padding-bottom: 1.5rem;
+}
+.dl-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.15rem;
+  padding: 0.45rem 0.4rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--be-surface, #161922) 94%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 28%, transparent);
+  backdrop-filter: blur(14px);
+}
+.dl-bottom-nav a {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  text-decoration: none;
+  color: var(--be-muted, #9a9284);
+  font-size: 0.72rem;
+  padding: 0.35rem 0.2rem;
+  min-height: 44px;
+}
+.dl-bottom-nav a.active {
+  color: var(--be-accent, #d4a24c);
+  font-weight: 650;
+}
+.dl-hero {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--be-surface, #161922);
+  margin-bottom: 0.5rem;
+}
+.dl-hero-cover {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+.dl-hero-copy {
+  padding: 1.2rem 1.15rem 1.35rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.dl-hero-logo,
+.dl-hero-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+.dl-hero-actions,
+.dl-profile-actions,
+.dl-install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+.dl-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 35%, transparent);
+  color: inherit;
+  text-decoration: none;
+}
+.dl-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.dl-section-head a {
+  color: var(--be-accent, #d4a24c);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.dl-live-banner {
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--be-accent, #d4a24c) 14%, transparent);
+  display: grid;
+  gap: 0.35rem;
+}
+.dl-empty {
+  padding: 1.4rem 0.2rem;
+  color: var(--be-muted, #9a9284);
+  font-size: 1.05rem;
+}
+.dl-assets-toolbar {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+}
+.dl-search input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 35%, transparent);
+  background: var(--be-surface, #161922);
+  color: inherit;
+  padding: 0.55rem 0.85rem;
+}
+.dl-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.dl-filters button {
+  border: 0;
+  background: color-mix(in srgb, var(--be-muted, #9a9284) 16%, transparent);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+.dl-filters button.active {
+  background: color-mix(in srgb, var(--be-accent, #d4a24c) 24%, transparent);
+  font-weight: 650;
+}
+.dl-card-cta {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: var(--be-accent, #d4a24c);
+  font-size: 0.85rem;
+}
+.dl-grid-featured .be-card img,
+.dl-grid-featured .be-card-fallback {
+  height: 180px;
+}
+.dl-profile-hero {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: start;
+}
+.dl-profile-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  object-fit: cover;
+}
+.dl-website-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.5rem 0 1rem;
+}
+.dl-website-nav a {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--be-muted, #9a9284) 14%, transparent);
+  text-decoration: none;
+  color: inherit;
+}
+.dl-install-banner {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(var(--dl-bottom) + 0.55rem);
+  z-index: 45;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: var(--be-surface, #161922);
+  border: 1px solid color-mix(in srgb, var(--be-accent, #d4a24c) 35%, transparent);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+}
+.dl-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--be-muted, #9a9284);
+  cursor: pointer;
+  min-height: 42px;
+}
+.dl-install-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: end center;
+  padding: 1rem;
+}
+.dl-install-card {
+  width: min(420px, 100%);
+  background: var(--be-surface, #161922);
+  color: var(--be-text, #f4eee2);
+  border-radius: 18px 18px 12px 12px;
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.7rem;
+}
+.dl-home-foot { margin-top: 0.5rem; }
+@media (min-width: 860px) {
+  .digital-life-app { padding-bottom: 2rem; }
+  .dl-top-nav { display: inline-flex; }
+  .dl-profile-label { display: inline; }
+  .dl-menu-btn,
+  .dl-mobile-menu,
+  .dl-bottom-nav { display: none; }
+  .dl-topbar-inner { grid-template-columns: 1fr auto auto; }
+  .dl-hero-cover { height: 240px; }
+  .dl-install-banner {
+    left: auto;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    width: min(360px, calc(100% - 2rem));
+  }
+}
+@media (display-mode: standalone) {
+  .dl-install-banner { display: none; }
+}
+

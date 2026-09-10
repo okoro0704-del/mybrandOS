@@ -86,10 +86,48 @@ export function registerProductionRoutes(app: FastifyInstance, primitives: Primi
     if (!session) return;
     const body = z
       .object({
-        camera: z.enum(["READY", "camera_unavailable", "unknown"]).optional(),
-        microphone: z.enum(["READY", "microphone_unavailable", "unknown"]).optional(),
-        screen: z.enum(["READY", "screen_capture_unavailable", "unknown"]).optional(),
+        camera: z
+          .enum([
+            "READY",
+            "PENDING",
+            "UNKNOWN",
+            "UNAVAILABLE",
+            "DENIED",
+            "DISCONNECTED",
+            "ERROR",
+            "camera_unavailable",
+            "unknown",
+          ])
+          .optional(),
+        microphone: z
+          .enum([
+            "READY",
+            "PENDING",
+            "UNKNOWN",
+            "UNAVAILABLE",
+            "DENIED",
+            "DISCONNECTED",
+            "ERROR",
+            "microphone_unavailable",
+            "unknown",
+          ])
+          .optional(),
+        screen: z
+          .enum([
+            "READY",
+            "PENDING",
+            "UNKNOWN",
+            "UNAVAILABLE",
+            "DENIED",
+            "DISCONNECTED",
+            "ERROR",
+            "screen_capture_unavailable",
+            "unknown",
+          ])
+          .optional(),
         battery: z.number().min(0).max(100).nullable().optional(),
+        audioDirectionality: z.enum(["SUPPORTED", "UNSUPPORTED", "UNKNOWN"]).optional(),
+        spatialPosition: z.enum(["AVAILABLE", "UNAVAILABLE", "UNKNOWN"]).optional(),
       })
       .parse(req.body ?? {});
     return reportDeviceCapabilities(session.ownerId, (req.params as { id: string }).id, (req.params as { deviceId: string }).deviceId, body);
