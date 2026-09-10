@@ -11,7 +11,14 @@ import {
 } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
-import { assetDetailPath, assetsPath } from "../digital-life/routes";
+import {
+  assetDetailPath,
+  assetsPath,
+  communitiesPath,
+  favoritesPath,
+  managementPath,
+  specialtyChipsFor,
+} from "../digital-life/routes";
 
 export function ExperienceView({
   experience,
@@ -38,13 +45,16 @@ export function ExperienceView({
   const websiteBase = experience.surfaces?.websitePath || `${basePath}/website`;
   const appBase = experience.surfaces?.appPath || basePath;
   const collection = appNav.find((item) => item.id === section && item.kind === "collection");
-  const collectionAssets = collection?.presentationTypes?.length
-    ? experience.publishedAssets.filter((asset) =>
-        asset.presentationTypes.some((type) => collection.presentationTypes!.includes(type)),
-      )
-    : collection?.assetTypes?.length
-      ? experience.publishedAssets.filter((asset) => collection.assetTypes!.includes(asset.assetType))
-      : experience.publishedAssets;
+  const collectionAssets =
+    section === "podcasts"
+      ? experience.publishedAssets.filter((asset) => asset.isPodcast)
+      : collection?.presentationTypes?.length
+        ? experience.publishedAssets.filter((asset) =>
+            asset.presentationTypes.some((type) => collection.presentationTypes!.includes(type)),
+          )
+        : collection?.assetTypes?.length
+          ? experience.publishedAssets.filter((asset) => collection.assetTypes!.includes(asset.assetType))
+          : experience.publishedAssets;
 
   const asset = assetId ? experience.publishedAssets.find((item) => item.id === assetId) : undefined;
   const websitePages = experience.websitePages ?? [];
@@ -55,10 +65,14 @@ export function ExperienceView({
   const shellPrimary =
     surface === "website"
       ? "website"
-      : primary === "profile"
-        ? "profile"
-        : primary === "assets" || primary === "asset" || primary === "collection"
-          ? "assets"
+      : primary === "favorites" ||
+          primary === "management" ||
+          primary === "communities" ||
+          primary === "profile" ||
+          primary === "home"
+        ? primary
+        : primary === "assets" || primary === "asset" || primary === "collection" || primary === "feed"
+          ? "home"
           : "home";
 
   return (
@@ -79,6 +93,12 @@ export function ExperienceView({
         ) : (
           <p className="muted">This work is not available.</p>
         )
+      ) : primary === "favorites" || section === "favorites" ? (
+        <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+      ) : primary === "management" || section === "management" ? (
+        <ManagementBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
+      ) : primary === "communities" || section === "communities" ? (
+        <CommunitiesBody experience={experience} />
       ) : primary === "profile" || section === "profile" ? (
         <ProfileBody experience={experience} mediaBase={mediaBase} websiteBase={websiteBase} preview={preview} />
       ) : primary === "assets" || section === "assets" ? (
@@ -89,10 +109,10 @@ export function ExperienceView({
         <StoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
       ) : activeIs(section, "live") ? (
         <LiveBody experience={experience} />
-      ) : collection && section ? (
+      ) : (collection && section) || section === "podcasts" ? (
         <WorkGrid
-          title={collection.label}
-          empty={`No published ${collection.label.toLowerCase()} yet.`}
+          title={collection?.label || (section === "podcasts" ? "Podcasts" : "Work")}
+          empty={`No published ${(collection?.label || "podcasts").toLowerCase()} yet.`}
           assets={collectionAssets}
           basePath={appBase}
           mediaBase={mediaBase}
@@ -126,49 +146,53 @@ function AppHomeBody({
   websiteBase: string;
 }) {
   const name = experience.identity.displayName || "this Digital Life";
-  const feed = (experience.feed ?? []).slice(0, 8);
-  const byType = (type: AssetType) => experience.publishedAssets.filter((a) => a.assetType === type);
-  const groups: { title: string; type: AssetType; assets: PublicAssetCard[] }[] = (
-    [
-      ["Videos", "VIDEO"],
-      ["Music", "MUSIC"],
-      ["Books", "BOOK"],
-      ["Courses", "COURSE"],
-      ["Writing", "WRITING"],
-      ["Software", "SOFTWARE"],
-    ] as const
-  )
-    .map(([title, type]) => ({ title, type, assets: byType(type).slice(0, 6) }))
-    .filter((g) => g.assets.length > 0);
+  const chips = specialtyChipsFor(experience.publishedAssets, basePath);
+  const posts = experience.publishedAssets.filter((a) => a.presentationTypes.includes("POST")).slice(0, 8);
+  const videos = experience.publishedAssets
+    .filter((a) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"))
+    .slice(0, 8);
+  const reels = experience.publishedAssets.filter((a) => a.presentationTypes.includes("REEL")).slice(0, 8);
+  const audio = experience.publishedAssets.filter((a) => a.assetType === "MUSIC" && !a.isPodcast).slice(0, 8);
+  const podcasts = experience.publishedAssets.filter((a) => a.isPodcast).slice(0, 8);
+  const books = experience.publishedAssets.filter((a) => a.assetType === "BOOK").slice(0, 8);
+  const courses = experience.publishedAssets.filter((a) => a.assetType === "COURSE").slice(0, 8);
+  const writing = experience.publishedAssets
+    .filter((a) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"))
+    .slice(0, 8);
+  const software = experience.publishedAssets.filter((a) => a.assetType === "SOFTWARE").slice(0, 8);
+  const trending = (experience.favorites?.length ? experience.favorites : experience.publishedAssets).slice(0, 6);
 
-  const offers = experience.offers ?? [];
+  const sections: { title: string; href: string; assets: PublicAssetCard[] }[] = [
+    { title: "Posts", href: `${basePath}/posts`, assets: posts },
+    { title: "Videos", href: `${basePath}/videos`, assets: videos },
+    { title: "Reels", href: `${basePath}/reels`, assets: reels },
+    { title: "Audio", href: `${basePath}/music`, assets: audio },
+    { title: "Podcasts", href: `${basePath}/podcasts`, assets: podcasts },
+    { title: "Books", href: `${basePath}/books`, assets: books },
+    { title: "Courses", href: `${basePath}/courses`, assets: courses },
+    { title: "Writing", href: `${basePath}/writing`, assets: writing },
+    { title: "Software", href: `${basePath}/software`, assets: software },
+  ]
+    .filter((s) => s.assets.length > 0)
+    .sort((a, b) => b.assets.length - a.assets.length);
 
   return (
     <>
-      <section className="dl-hero">
-        {experience.identity.hasCover ? (
-          <img className="dl-hero-cover" src={`${mediaBase}/media/cover`} alt="" />
-        ) : null}
+      {chips.length ? (
+        <nav className="dl-specialty-chips" aria-label="Creator specialty">
+          {chips.map((chip) => (
+            <Link key={chip.id} to={chip.path}>
+              {chip.label}
+              <span>{chip.count}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+
+      <section className="dl-hero dl-hero-compact">
         <div className="dl-hero-copy">
-          {experience.identity.hasLogo ? (
-            <img className="dl-hero-logo" src={`${mediaBase}/media/logo`} alt="" />
-          ) : (
-            <div className="be-mark dl-hero-mark">{name.slice(0, 1)}</div>
-          )}
           <h1>{name}</h1>
-          {experience.identity.tagline || experience.identity.bio ? (
-            <p className="be-lead">{experience.identity.tagline || experience.identity.bio}</p>
-          ) : (
-            <p className="be-lead">Experience this Digital Life — watch, listen, read, and explore.</p>
-          )}
-          <div className="dl-hero-actions">
-            <Link className="be-btn" to={assetsPath(basePath)}>
-              Explore
-            </Link>
-            <Link className="dl-ghost-btn" to={websiteBase}>
-              Website
-            </Link>
-          </div>
+          {experience.identity.tagline ? <p className="be-lead">{experience.identity.tagline}</p> : null}
         </div>
       </section>
 
@@ -176,100 +200,181 @@ function AppHomeBody({
         <aside className="dl-live-banner">
           <div className="eyebrow">LIVE NOW</div>
           <h2>{experience.liveNow.title}</h2>
-          <p className="small muted">{experience.liveNow.watchLabel}</p>
           <Link className="be-btn" to={`${basePath}/live`}>
             Open live
           </Link>
         </aside>
       ) : null}
 
-      {experience.featuredAssets.length ? (
-        <section>
-          <h2>Featured</h2>
-          <WorkGrid
-            assets={experience.featuredAssets}
-            basePath={basePath}
-            mediaBase={mediaBase}
-            experience={experience}
-            large
-          />
-        </section>
+      {experience.publishedAssets.length === 0 ? (
+        <p className="dl-empty">{name} is getting ready.</p>
       ) : null}
 
-      <section>
-        <div className="dl-section-head">
-          <h2>Latest</h2>
-          <Link to={assetsPath(basePath)}>All assets</Link>
-        </div>
-        {feed.length === 0 ? (
-          <p className="dl-empty">{name} is getting ready.</p>
-        ) : (
-          <div className="feed-list">
-            {feed.map((item) => (
-              <Link
-                className="feed-item"
-                key={item.id}
-                to={
-                  item.href.startsWith("/u/")
-                    ? item.href.replace(/^\/u\/[^/]+/, basePath)
-                    : item.assetId
-                      ? assetDetailPath(basePath, item.assetId)
-                      : basePath
-                }
-              >
-                <div className="eyebrow">{item.kind}</div>
-                <strong>{item.title}</strong>
-                <p className="small muted">{item.summary || "Published work"}</p>
-              </Link>
-            ))}
+      {sections.map((section) => (
+        <section key={section.title}>
+          <div className="dl-section-head">
+            <h2>{section.title}</h2>
+            <Link to={section.href}>See all</Link>
           </div>
-        )}
-      </section>
+          <WorkGrid assets={section.assets} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+        </section>
+      ))}
 
-      {groups.map((group) => {
-        const href =
-          group.type === "VIDEO"
-            ? `${basePath}/videos`
-            : group.type === "MUSIC"
-              ? `${basePath}/music`
-              : group.type === "BOOK"
-                ? `${basePath}/books`
-                : group.type === "COURSE"
-                  ? `${basePath}/courses`
-                  : group.type === "WRITING"
-                    ? `${basePath}/writing`
-                    : `${basePath}/software`;
-        return (
-          <section key={group.type}>
-            <div className="dl-section-head">
-              <h2>{group.title}</h2>
-              <Link to={href}>Browse</Link>
-            </div>
-            <WorkGrid assets={group.assets} basePath={basePath} mediaBase={mediaBase} experience={experience} />
-          </section>
-        );
-      })}
-
-      {offers.length ? (
+      {trending.length ? (
         <section>
-          <h2>Available</h2>
-          <WorkGrid
-            assets={offers
-              .map((o) => experience.publishedAssets.find((a) => a.id === o.assetId))
-              .filter(Boolean) as PublicAssetCard[]}
-            basePath={basePath}
-            mediaBase={mediaBase}
-            experience={experience}
-          />
+          <div className="dl-section-head">
+            <h2>Trending</h2>
+            <Link to={favoritesPath(basePath)}>Favorites</Link>
+          </div>
+          <WorkGrid assets={trending} basePath={basePath} mediaBase={mediaBase} experience={experience} />
         </section>
       ) : null}
 
-      <p className="dl-home-foot">
-        <Link className="be-btn" to={websiteBase}>
-          Official Website
-        </Link>
-      </p>
+      <section className="dl-home-destinations">
+        <h2>Explore</h2>
+        <div className="dl-dest-grid">
+          <Link className="dl-dest-card" to={communitiesPath(basePath)}>
+            <strong>Communities</strong>
+            <span className="small muted">People and channels around this Digital Life</span>
+          </Link>
+          <Link className="dl-dest-card" to={managementPath(basePath)}>
+            <strong>Management</strong>
+            <span className="small muted">Offers, profile, and Digital Life controls</span>
+          </Link>
+          <Link className="dl-dest-card" to={websiteBase}>
+            <strong>Website</strong>
+            <span className="small muted">Official information</span>
+          </Link>
+        </div>
+      </section>
     </>
+  );
+}
+
+function FavoritesBody({
+  experience,
+  basePath,
+  mediaBase,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  mediaBase: string;
+}) {
+  const ranked = experience.favorites?.length ? experience.favorites : experience.publishedAssets;
+  const videos = ranked.filter((a) => a.assetType === "VIDEO");
+  return (
+    <section>
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Favorites</p>
+          <h1>Most watched & trending</h1>
+          <p className="be-lead">Assets people interact with the most in this Digital Life.</p>
+        </div>
+      </header>
+      {ranked.length === 0 ? (
+        <p className="dl-empty">No public interactions yet. Published work will rise here as people watch and play.</p>
+      ) : (
+        <>
+          {videos.length ? (
+            <>
+              <h2>Trending videos</h2>
+              <WorkGrid assets={videos.slice(0, 12)} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+            </>
+          ) : null}
+          <h2>All favorites</h2>
+          <WorkGrid assets={ranked} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function ManagementBody({
+  experience,
+  basePath,
+  websiteBase,
+  preview,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  websiteBase: string;
+  preview?: boolean;
+}) {
+  const offers = experience.offers ?? [];
+  return (
+    <section className="dl-management">
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Management</p>
+          <h1>Digital Life controls</h1>
+          <p className="be-lead">Offers, profile, and official surfaces — not the private Workstation.</p>
+        </div>
+      </header>
+      <div className="dl-dest-grid">
+        <Link className="dl-dest-card" to={`${basePath}/store`}>
+          <strong>Offers</strong>
+          <span className="small muted">
+            {offers.length ? `${offers.length} available` : "No active offers"}
+          </span>
+        </Link>
+        <Link className="dl-dest-card" to={`${basePath}/profile`}>
+          <strong>Profile</strong>
+          <span className="small muted">{experience.identity.displayName}</span>
+        </Link>
+        <Link className="dl-dest-card" to={websiteBase}>
+          <strong>Website</strong>
+          <span className="small muted">Official information</span>
+        </Link>
+        <Link className="dl-dest-card" to={assetsPath(basePath)}>
+          <strong>All assets</strong>
+          <span className="small muted">{experience.publishedAssets.length} published</span>
+        </Link>
+      </div>
+      {preview ? (
+        <div className="panel" style={{ marginTop: 20 }}>
+          <div className="eyebrow">Owner</div>
+          <p>Open the Workstation to publish, produce, and manage this Digital Life.</p>
+          <Link className="be-btn" to="/">
+            Open Workstation
+          </Link>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function CommunitiesBody({ experience }: { experience: PublicBrandExperience }) {
+  return (
+    <section>
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Communities</p>
+          <h1>Around {experience.identity.displayName || "this Digital Life"}</h1>
+          <p className="be-lead">Channels and messaging when available — not a separate social network.</p>
+        </div>
+      </header>
+      {experience.messaging.available ? (
+        <article className="panel">
+          <div className="eyebrow">Messaging</div>
+          <p>ElfCom messaging is available for this Digital Life.</p>
+        </article>
+      ) : (
+        <p className="placeholder-note">{experience.messaging.detail || "Communities open when this Digital Life enables them."}</p>
+      )}
+      {experience.publicLinks.length ? (
+        <>
+          <h2>Channels & links</h2>
+          {experience.publicLinks.map((link) => (
+            <div className="list-row" key={link.id}>
+              <span>{link.label}</span>
+              <a href={link.url} target="_blank" rel="noreferrer">
+                Open
+              </a>
+            </div>
+          ))}
+        </>
+      ) : null}
+    </section>
   );
 }
 

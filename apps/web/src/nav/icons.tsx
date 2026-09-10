@@ -71,6 +71,26 @@ export const Icons = {
       <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
     </Svg>
   ),
+  favorites: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M12 3.5 14.6 9l6 .5-4.6 3.9 1.5 5.8L12 16.8 6.5 19.2l1.5-5.8L3.4 9.5l6-.5L12 3.5Z" />
+    </Svg>
+  ),
+  management: (p: IconProps) => (
+    <Svg {...p}>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <path d="M14 16h5M16.5 13.5v5" />
+    </Svg>
+  ),
+  communities: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="9" cy="9" r="3" />
+      <circle cx="16" cy="10" r="2.4" />
+      <path d="M4 19c.7-3 2.8-4.8 5-4.8s4.3 1.8 5 4.8M14 19c.3-1.7 1.4-2.8 2.8-2.8S19.4 17.3 20 19" />
+    </Svg>
+  ),
 };
 
 export type IconName = keyof typeof Icons;

@@ -35,13 +35,17 @@ Primary destinations:
 | Destination | Path |
 |---|---|
 | Home | `/u/:slug` |
-| Assets | `/u/:slug/assets` |
+| Favorites | `/u/:slug/favorites` |
+| Management | `/u/:slug/management` |
+| Communities | `/u/:slug/communities` |
 | Website | `/u/:slug/website` |
-| Profile | `/u/:slug/profile` |
 | Asset detail | `/u/:slug/a/:assetId` |
 
-Mobile: sticky top bar + bottom navigation (Home / Assets / Website / You).  
-Desktop: sticky top bar with primary links; bottom nav hidden.
+Mobile bottom nav: **Home · Favorites · Management · Communities · Website**.
+
+Home opens on published assets immediately. Adaptive specialty chips (Posts, Videos, Reels, Audio, Podcasts, Books, …) appear only for categories the creator publishes, ordered by volume.
+
+Favorites ranks published Assets by existing `Asset.analytics` engagement (views/plays) — no separate social/trending backend.
 
 ## Brand-first chrome
 

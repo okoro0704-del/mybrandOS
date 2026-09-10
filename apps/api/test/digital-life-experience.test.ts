@@ -7,6 +7,8 @@ import {
   buildFeedFromAssets,
   parseDigitalLifePath,
   publishedWebsitePages,
+  rankFavorites,
+  specialtyChipsFor,
   type PublicAssetCard,
 } from "@mybrandos/shared";
 import { createPrimitiveContainer } from "@mybrandos/integrations";
@@ -42,7 +44,7 @@ function primitives() {
 }
 
 test("digital life version and six primitives", () => {
-  assert.equal(MYBRANDOS_VERSION, "0.20.0");
+  assert.equal(MYBRANDOS_VERSION, "0.21.0");
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 
@@ -144,6 +146,8 @@ test("feed builder is presentation-only", () => {
       coverAvailable: false,
       presentationTypes: ["WATCH"],
       isLiveReplay: false,
+      engagement: { views: 0, plays: 0, score: 0 },
+      isPodcast: false,
       presentation: {
         artist: "",
         author: "",
@@ -175,6 +179,98 @@ test("branded app routes parse Home Assets Website Profile", () => {
   assert.equal(parseDigitalLifePath("website/about").websitePageSlug, "about");
   assert.equal(parseDigitalLifePath("profile").primary, "profile");
   assert.equal(parseDigitalLifePath("music/track1").assetId, "track1");
+  assert.equal(parseDigitalLifePath("favorites").primary, "favorites");
+  assert.equal(parseDigitalLifePath("management").primary, "management");
+  assert.equal(parseDigitalLifePath("communities").primary, "communities");
+});
+
+test("favorites rank by engagement and specialty chips adapt", () => {
+  const assets: PublicAssetCard[] = [
+    {
+      id: "v1",
+      title: "Quiet",
+      description: "",
+      assetType: "VIDEO",
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      coverAvailable: false,
+      presentationTypes: ["WATCH"],
+      isLiveReplay: false,
+      engagement: { views: 2, plays: 0, score: 2 },
+      isPodcast: false,
+      presentation: {
+        artist: "",
+        author: "",
+        playAvailable: false,
+        body: "",
+        version: "",
+        developer: "",
+        license: "",
+        documentationUrl: "",
+        repositoryUrl: "",
+        websiteUrl: "",
+        downloadAvailable: false,
+        storeAvailable: false,
+      },
+    },
+    {
+      id: "v2",
+      title: "Hit",
+      description: "",
+      assetType: "VIDEO",
+      publishedAt: "2026-01-02T00:00:00.000Z",
+      coverAvailable: false,
+      presentationTypes: ["REEL"],
+      isLiveReplay: false,
+      engagement: { views: 10, plays: 5, score: 25 },
+      isPodcast: false,
+      presentation: {
+        artist: "",
+        author: "",
+        playAvailable: false,
+        body: "",
+        version: "",
+        developer: "",
+        license: "",
+        documentationUrl: "",
+        repositoryUrl: "",
+        websiteUrl: "",
+        downloadAvailable: false,
+        storeAvailable: false,
+      },
+    },
+    {
+      id: "m1",
+      title: "Song",
+      description: "",
+      assetType: "MUSIC",
+      publishedAt: "2026-01-03T00:00:00.000Z",
+      coverAvailable: false,
+      presentationTypes: [],
+      isLiveReplay: false,
+      engagement: { views: 1, plays: 1, score: 4 },
+      isPodcast: false,
+      presentation: {
+        artist: "",
+        author: "",
+        playAvailable: true,
+        body: "",
+        version: "",
+        developer: "",
+        license: "",
+        documentationUrl: "",
+        repositoryUrl: "",
+        websiteUrl: "",
+        downloadAvailable: false,
+        storeAvailable: false,
+      },
+    },
+  ];
+  assert.equal(rankFavorites(assets)[0]?.id, "v2");
+  const chips = specialtyChipsFor(assets, "/u/ada");
+  assert.deepEqual(
+    chips.map((c) => c.id).sort(),
+    ["audio", "reels", "videos"],
+  );
 });
 
 test("cleanup digital life fixtures", async () => {

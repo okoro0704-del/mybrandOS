@@ -93,13 +93,16 @@ export const DEFAULT_APP_NAV: PublicNavItemConfig[] = [
   { id: "home", kind: "home", label: "Home", enabled: true, order: 0, alwaysShow: true },
   { id: "feed", kind: "collection", label: "Feed", enabled: true, order: 1, alwaysShow: true },
   { id: "videos", kind: "collection", label: "Videos", enabled: true, order: 2, assetTypes: ["VIDEO"] },
-  { id: "music", kind: "collection", label: "Music", enabled: true, order: 3, assetTypes: ["MUSIC"] },
-  { id: "books", kind: "collection", label: "Books", enabled: true, order: 4, assetTypes: ["BOOK"] },
-  { id: "courses", kind: "collection", label: "Courses", enabled: true, order: 5, assetTypes: ["COURSE"] },
-  { id: "writing", kind: "collection", label: "Writing", enabled: true, order: 6, assetTypes: ["WRITING"] },
-  { id: "software", kind: "collection", label: "Software", enabled: true, order: 7, assetTypes: ["SOFTWARE"] },
-  { id: "live", kind: "collection", label: "Live", enabled: true, order: 8, alwaysShow: true },
-  { id: "store", kind: "collection", label: "Store", enabled: true, order: 9, alwaysShow: true },
+  { id: "reels", kind: "collection", label: "Reels", enabled: true, order: 3, presentationTypes: ["REEL"] },
+  { id: "posts", kind: "collection", label: "Posts", enabled: true, order: 4, presentationTypes: ["POST"] },
+  { id: "music", kind: "collection", label: "Music", enabled: true, order: 5, assetTypes: ["MUSIC"] },
+  { id: "podcasts", kind: "collection", label: "Podcasts", enabled: true, order: 6 },
+  { id: "books", kind: "collection", label: "Books", enabled: true, order: 7, assetTypes: ["BOOK"] },
+  { id: "courses", kind: "collection", label: "Courses", enabled: true, order: 8, assetTypes: ["COURSE"] },
+  { id: "writing", kind: "collection", label: "Writing", enabled: true, order: 9, assetTypes: ["WRITING"] },
+  { id: "software", kind: "collection", label: "Software", enabled: true, order: 10, assetTypes: ["SOFTWARE"] },
+  { id: "live", kind: "collection", label: "Live", enabled: true, order: 11, alwaysShow: true },
+  { id: "store", kind: "collection", label: "Store", enabled: true, order: 12, alwaysShow: true },
 ];
 
 export const WEBSITE_PAGE_TYPE_LABELS: Record<WebsitePageType, string> = {
@@ -183,6 +186,9 @@ export function normalizePageSlug(raw: string): string {
 
 export type DigitalLifeRoutePrimary =
   | "home"
+  | "favorites"
+  | "management"
+  | "communities"
   | "assets"
   | "website"
   | "profile"
@@ -200,7 +206,18 @@ export type DigitalLifeRoute = {
   primary: DigitalLifeRoutePrimary;
 };
 
-const TYPE_PREFIXES = new Set(["music", "video", "videos", "book", "course", "writing", "software"]);
+const TYPE_PREFIXES = new Set([
+  "music",
+  "video",
+  "videos",
+  "book",
+  "course",
+  "writing",
+  "software",
+  "reels",
+  "posts",
+  "podcasts",
+]);
 
 /** Parse `/u/:slug/*` splat into Digital Life destinations. */
 export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute {
@@ -219,6 +236,16 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
       return { surface: "app", assetId: parts[1], primary: "asset", section: "assets" };
     }
     return { surface: "app", section: "assets", primary: "assets" };
+  }
+
+  if (parts[0] === "favorites" || parts[0] === "trending") {
+    return { surface: "app", section: "favorites", primary: "favorites" };
+  }
+  if (parts[0] === "management" || parts[0] === "manage") {
+    return { surface: "app", section: "management", primary: "management" };
+  }
+  if (parts[0] === "communities" || parts[0] === "community") {
+    return { surface: "app", section: "communities", primary: "communities" };
   }
 
   if (parts[0] === "profile" || parts[0] === "you") {
@@ -248,6 +275,75 @@ export function assetsPath(basePath: string) {
   return `${basePath}/assets`;
 }
 
+export function favoritesPath(basePath: string) {
+  return `${basePath}/favorites`;
+}
+
+export function managementPath(basePath: string) {
+  return `${basePath}/management`;
+}
+
+export function communitiesPath(basePath: string) {
+  return `${basePath}/communities`;
+}
+
 export function profilePath(basePath: string) {
   return `${basePath}/profile`;
+}
+
+/** Rank published Assets by public engagement — Favorites / trending. */
+export function rankFavorites(assets: PublicAssetCard[]): PublicAssetCard[] {
+  return [...assets].sort((a, b) => {
+    const scoreDiff = (b.engagement?.score ?? 0) - (a.engagement?.score ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    const playDiff = (b.engagement?.plays ?? 0) - (a.engagement?.plays ?? 0);
+    if (playDiff !== 0) return playDiff;
+    const viewDiff = (b.engagement?.views ?? 0) - (a.engagement?.views ?? 0);
+    if (viewDiff !== 0) return viewDiff;
+    return b.publishedAt.localeCompare(a.publishedAt);
+  });
+}
+
+export type SpecialtyChip = {
+  id: string;
+  label: string;
+  path: string;
+  count: number;
+};
+
+/**
+ * LifeOS-style specialty chips at the top of Home.
+ * Only categories with published work appear, ordered by volume (creator specialty first).
+ */
+export function specialtyChipsFor(assets: PublicAssetCard[], basePath: string): SpecialtyChip[] {
+  const groups: Array<{ id: string; label: string; path: string; match: (a: PublicAssetCard) => boolean }> = [
+    { id: "posts", label: "Posts", path: `${basePath}/posts`, match: (a) => a.presentationTypes.includes("POST") },
+    {
+      id: "videos",
+      label: "Videos",
+      path: `${basePath}/videos`,
+      match: (a) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"),
+    },
+    { id: "reels", label: "Reels", path: `${basePath}/reels`, match: (a) => a.presentationTypes.includes("REEL") },
+    {
+      id: "audio",
+      label: "Audio",
+      path: `${basePath}/music`,
+      match: (a) => a.assetType === "MUSIC" && !a.isPodcast,
+    },
+    { id: "podcasts", label: "Podcasts", path: `${basePath}/podcasts`, match: (a) => a.isPodcast },
+    { id: "books", label: "Books", path: `${basePath}/books`, match: (a) => a.assetType === "BOOK" },
+    { id: "courses", label: "Courses", path: `${basePath}/courses`, match: (a) => a.assetType === "COURSE" },
+    {
+      id: "writing",
+      label: "Writing",
+      path: `${basePath}/writing`,
+      match: (a) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"),
+    },
+    { id: "software", label: "Software", path: `${basePath}/software`, match: (a) => a.assetType === "SOFTWARE" },
+  ];
+  return groups
+    .map((g) => ({ id: g.id, label: g.label, path: g.path, count: assets.filter(g.match).length }))
+    .filter((g) => g.count > 0)
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }

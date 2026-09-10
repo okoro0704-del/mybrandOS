@@ -1,9 +1,9 @@
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
-import { assetsPath, profilePath } from "../routes";
+import { communitiesPath, favoritesPath, managementPath, profilePath } from "../routes";
 
-type Primary = "home" | "assets" | "website" | "profile" | string;
+type Primary = "home" | "favorites" | "management" | "communities" | "website" | "profile" | string;
 
 export function DigitalLifeTopBar({
   experience,
@@ -25,7 +25,9 @@ export function DigitalLifeTopBar({
   const name = experience.identity.displayName || "Digital Life";
   const links = [
     { id: "home", label: "Home", to: basePath },
-    { id: "assets", label: "Assets", to: assetsPath(basePath) },
+    { id: "favorites", label: "Favorites", to: favoritesPath(basePath) },
+    { id: "management", label: "Management", to: managementPath(basePath) },
+    { id: "communities", label: "Communities", to: communitiesPath(basePath) },
     { id: "website", label: "Website", to: websiteBase },
   ] as const;
 
@@ -102,9 +104,10 @@ export function DigitalLifeBottomNav({
 }) {
   const items = [
     { id: "home", label: "Home", to: basePath, icon: Icons.home },
-    { id: "assets", label: "Assets", to: assetsPath(basePath), icon: Icons.assets },
+    { id: "favorites", label: "Favorites", to: favoritesPath(basePath), icon: Icons.favorites },
+    { id: "management", label: "Management", to: managementPath(basePath), icon: Icons.management },
+    { id: "communities", label: "Communities", to: communitiesPath(basePath), icon: Icons.communities },
     { id: "website", label: "Website", to: websiteBase, icon: Icons.brand },
-    { id: "profile", label: "You", to: profilePath(basePath), icon: Icons.audience },
   ] as const;
 
   return (
@@ -112,7 +115,8 @@ export function DigitalLifeBottomNav({
       {items.map((item) => {
         const Icon = item.icon;
         const active =
-          primary === item.id || (item.id === "assets" && (primary === "asset" || primary === "collection"));
+          primary === item.id ||
+          (item.id === "home" && (primary === "asset" || primary === "collection" || primary === "feed"));
         return (
           <Link key={item.id} className={active ? "active" : ""} to={item.to}>
             <Icon size={20} />

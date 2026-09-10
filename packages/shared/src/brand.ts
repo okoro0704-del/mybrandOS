@@ -117,6 +117,14 @@ export interface PublicAssetCard {
   coverAvailable: boolean;
   presentationTypes: PresentationType[];
   isLiveReplay: boolean;
+  /** Derived from Asset.analytics — public-safe engagement only. */
+  engagement: {
+    views: number;
+    plays: number;
+    score: number;
+  };
+  /** Podcast episode published as MUSIC/VIDEO with podcast metadata — not a new Asset type. */
+  isPodcast: boolean;
   presentation: PublicAssetPresentation;
 }
 
@@ -147,6 +155,8 @@ export interface PublicBrandExperience {
   appNavigation: PublicNavItem[];
   featuredAssets: PublicAssetCard[];
   publishedAssets: PublicAssetCard[];
+  /** Most engaged published Assets (views/plays) — Favorites / trending. */
+  favorites: PublicAssetCard[];
   /** Chronological presentation over published work — not a social network backend. */
   feed: import("./digital-life.js").PublicFeedItem[];
   /** Published website pages only. */
@@ -286,6 +296,8 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "coverAvailable",
     "presentationTypes",
     "isLiveReplay",
+    "engagement",
+    "isPodcast",
     "presentation",
   ];
 }

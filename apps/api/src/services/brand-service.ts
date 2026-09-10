@@ -12,6 +12,7 @@ import {
   publicExperiencePath,
   publicWebsitePath,
   publishedWebsitePages,
+  rankFavorites,
   sortNav,
   isReservedSlug,
   parsePresentationTypes,
@@ -67,6 +68,15 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
   const music = (asset.metadata?.music ?? {}) as Record<string, unknown>;
   const writing = (asset.metadata?.writing ?? {}) as Record<string, unknown>;
   const software = (asset.metadata?.software ?? {}) as Record<string, unknown>;
+  const views = Number(asset.analytics?.views ?? 0) || 0;
+  const plays = Number(asset.analytics?.plays ?? 0) || 0;
+  const score =
+    Number(asset.analytics?.engagementScore ?? 0) || views + plays * 3;
+  const isPodcast =
+    Boolean(asset.metadata?.podcast) ||
+    String(asset.metadata?.recordingMode ?? "").toUpperCase() === "PODCAST" ||
+    String(music.format ?? "").toLowerCase() === "podcast" ||
+    String(music.kind ?? "").toLowerCase() === "podcast";
   const presentation = emptyPublicPresentation();
   if (asset.assetType === "MUSIC") {
     presentation.artist = typeof music.artistName === "string" ? music.artistName : "";
@@ -100,6 +110,8 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
           : Boolean(asset.dataZoneId),
     presentationTypes: [...presentationTypes],
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
+    engagement: { views, plays, score },
+    isPodcast,
     presentation,
   };
 }
@@ -200,6 +212,7 @@ function projectNavigation(
       if (item.id === "store") available = Boolean(item.alwaysShow) || (opts?.offersCount ?? 0) > 0 || matching.length > 0;
       if (item.id === "live") available = Boolean(item.alwaysShow) || Boolean(opts?.liveNow);
       if (item.id === "feed") available = true;
+      if (item.id === "podcasts") available = published.some((asset) => asset.isPodcast);
       return {
         ...item,
         href: navHref(slug, item),
@@ -514,6 +527,7 @@ async function experienceFrom(
     appNavigation: projectNavigation(DEFAULT_APP_NAV, publishedAssets, slug || null, navOpts),
     featuredAssets,
     publishedAssets,
+    favorites: rankFavorites(publishedAssets),
     feed: buildFeedFromAssets(slug || "preview", publishedAssets, feedExtras),
     websitePages: publicPages,
     publicLinks: readJson<PublicLink[]>(space.links, []),
@@ -572,6 +586,7 @@ export async function buildBrandPreview(
       appNavigation: projectNavigation(DEFAULT_APP_NAV, [], null),
       featuredAssets: [],
       publishedAssets: [],
+      favorites: [],
       feed: [],
       websitePages: [],
       publicLinks: [],
@@ -618,6 +633,7 @@ export async function getPublicAsset(slug: string, assetId: string): Promise<Pub
   const experience = await getPublicBrandExperience(slug);
   const card = experience.publishedAssets.find((asset) => asset.id === assetId);
   if (!card) throw notFound("This work is not available.");
+  await bumpPublicEngagement(assetId, "view");
   return {
     ...card,
     brandName: experience.identity.displayName,
@@ -666,6 +682,7 @@ export async function getPublicAssetCover(slug: string, assetId: string, primiti
 
 export async function getPublicAssetMedia(slug: string, assetId: string, primitives: PrimitiveBindings) {
   await getPublicAsset(slug, assetId);
+  await bumpPublicEngagement(assetId, "play");
   const space = await prisma.personalSpace.findUnique({ where: { slug: normalizeSlug(slug) } });
   if (!space || !space.publicEnabled) throw notFound("This work is not available.");
   const asset = await prisma.asset.findFirst({
@@ -685,6 +702,28 @@ export async function getPublicAssetMedia(slug: string, assetId: string, primiti
   }
   if (!asset?.dataZoneId) throw notFound("This work is not available.");
   return readAssetCover(asset.dataZoneId, primitives);
+}
+
+/** Record public view/play on existing Asset.analytics — no separate engagement backend. */
+async function bumpPublicEngagement(assetId: string, kind: "view" | "play") {
+  const row = await prisma.asset.findUnique({ where: { id: assetId }, select: { analytics: true } });
+  if (!row) return;
+  const analytics = readJson<Record<string, number>>(row.analytics, {});
+  const views = Number(analytics.views ?? 0) + (kind === "view" ? 1 : 0);
+  const plays = Number(analytics.plays ?? 0) + (kind === "play" ? 1 : 0);
+  const completions = Number(analytics.completions ?? 0);
+  await prisma.asset.update({
+    where: { id: assetId },
+    data: {
+      analytics: writeJson({
+        ...analytics,
+        views,
+        plays,
+        completions,
+        engagementScore: views + plays * 3 + completions * 5,
+      }),
+    },
+  });
 }
 
 export function assertPublicProjection(experience: PublicBrandExperience) {
