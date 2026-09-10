@@ -9,6 +9,12 @@ build
 apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 apps/api/prisma/dev.db-wal
+apps/api/prisma/data/
+apps/api/data/
+*.db
+*.db-journal
+*.db-wal
+apps/api/scripts/enter-debug.png
 apps/web/dist
 coverage
 .DS_Store

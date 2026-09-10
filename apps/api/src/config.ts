@@ -57,4 +57,6 @@ export const config = {
   liveBroadcastUrl: env("LIVE_BROADCAST_URL"),
   liveBroadcastToken: env("LIVE_BROADCAST_TOKEN"),
   largeImportBytes: Number(env("LARGE_IMPORT_BYTES", String(8 * 1024 * 1024))),
+  /** Public browser origin for cookies, Trust ID redirect, and os-shell manifest. */
+  publicOrigin: env("PUBLIC_ORIGIN", env("RAILWAY_PUBLIC_DOMAIN") ? `https://${env("RAILWAY_PUBLIC_DOMAIN")}` : ""),
 };

@@ -27,6 +27,7 @@ import { registerPublicRoutes } from "./routes/public.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerCommerceRoutes } from "./routes/commerce.js";
 import { registerProductionRoutes } from "./routes/production.js";
+import { registerStaticWeb } from "./static-web.js";
 
 const primitives = createPrimitiveContainer({
   nodeEnv: config.nodeEnv,
@@ -51,8 +52,24 @@ const primitives = createPrimitiveContainer({
 
 const app = Fastify({ logger: true });
 
+/** Match Vite's /api → API rewrite so the SPA can call `/api/...` same-origin in production. */
+app.addHook("onRequest", async (request) => {
+  const raw = request.raw.url ?? "";
+  if (raw === "/api" || raw.startsWith("/api/") || raw.startsWith("/api?")) {
+    request.raw.url = raw.replace(/^\/api/, "") || "/";
+  }
+});
+
+const corsAllow = Array.from(
+  new Set(
+    [
+      ...config.corsOrigins,
+      config.publicOrigin ? config.publicOrigin.replace(/\/$/, "") : "",
+    ].filter(Boolean),
+  ),
+);
 await app.register(cors, {
-  origin: config.corsOrigins,
+  origin: corsAllow.length ? corsAllow : true,
   credentials: true,
 });
 await app.register(cookie, { secret: config.cookieSecret });
@@ -124,6 +141,13 @@ registerProductionRoutes(app, primitives);
 registerBrandRoutes(app, primitives);
 registerPublicRoutes(app, primitives);
 registerJobRoutes(app, primitives);
+
+const publicOrigin =
+  config.publicOrigin ||
+  (config.corsOrigins[0] && !config.corsOrigins[0].includes("localhost") ? config.corsOrigins[0] : "") ||
+  "http://127.0.0.1:5176";
+
+await registerStaticWeb(app, publicOrigin);
 
 const shutdown = async () => {
   await app.close();
