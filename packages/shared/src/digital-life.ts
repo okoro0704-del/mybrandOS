@@ -311,39 +311,154 @@ export type SpecialtyChip = {
   count: number;
 };
 
-/**
- * LifeOS-style specialty chips at the top of Home.
- * Only categories with published work appear, ordered by volume (creator specialty first).
- */
-export function specialtyChipsFor(assets: PublicAssetCard[], basePath: string): SpecialtyChip[] {
-  const groups: Array<{ id: string; label: string; path: string; match: (a: PublicAssetCard) => boolean }> = [
-    { id: "posts", label: "Posts", path: `${basePath}/posts`, match: (a) => a.presentationTypes.includes("POST") },
+export type CreatorSpecialty =
+  | "music"
+  | "video"
+  | "software"
+  | "writer"
+  | "educator"
+  | "mixed";
+
+const SPECIALTY_ORDER: Record<CreatorSpecialty, string[]> = {
+  music: ["posts", "audio", "podcasts", "videos", "reels", "books", "courses", "writing", "software"],
+  video: ["posts", "videos", "reels", "audio", "podcasts", "books", "courses", "writing", "software"],
+  software: ["posts", "software", "courses", "videos", "writing", "books", "audio", "podcasts", "reels"],
+  writer: ["posts", "writing", "books", "courses", "videos", "audio", "podcasts", "reels", "software"],
+  educator: ["posts", "courses", "books", "videos", "writing", "audio", "podcasts", "reels", "software"],
+  mixed: ["posts", "videos", "reels", "audio", "podcasts", "books", "courses", "writing", "software"],
+};
+
+function chipMatchers(basePath: string) {
+  return [
+    {
+      id: "posts",
+      label: "Posts",
+      path: `${basePath}/posts`,
+      match: (a: PublicAssetCard) =>
+        a.presentationTypes.includes("POST") ||
+        (a.assetType === "WRITING" && a.presentationTypes.length === 0),
+    },
     {
       id: "videos",
       label: "Videos",
       path: `${basePath}/videos`,
-      match: (a) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"),
+      match: (a: PublicAssetCard) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"),
     },
-    { id: "reels", label: "Reels", path: `${basePath}/reels`, match: (a) => a.presentationTypes.includes("REEL") },
+    {
+      id: "reels",
+      label: "Reels",
+      path: `${basePath}/reels`,
+      match: (a: PublicAssetCard) => a.presentationTypes.includes("REEL"),
+    },
     {
       id: "audio",
       label: "Audio",
       path: `${basePath}/music`,
-      match: (a) => a.assetType === "MUSIC" && !a.isPodcast,
+      match: (a: PublicAssetCard) => a.assetType === "MUSIC" && !a.isPodcast,
     },
-    { id: "podcasts", label: "Podcasts", path: `${basePath}/podcasts`, match: (a) => a.isPodcast },
-    { id: "books", label: "Books", path: `${basePath}/books`, match: (a) => a.assetType === "BOOK" },
-    { id: "courses", label: "Courses", path: `${basePath}/courses`, match: (a) => a.assetType === "COURSE" },
+    {
+      id: "podcasts",
+      label: "Podcasts",
+      path: `${basePath}/podcasts`,
+      match: (a: PublicAssetCard) => a.isPodcast,
+    },
+    { id: "books", label: "Books", path: `${basePath}/books`, match: (a: PublicAssetCard) => a.assetType === "BOOK" },
+    {
+      id: "courses",
+      label: "Courses",
+      path: `${basePath}/courses`,
+      match: (a: PublicAssetCard) => a.assetType === "COURSE",
+    },
     {
       id: "writing",
       label: "Writing",
       path: `${basePath}/writing`,
-      match: (a) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"),
+      match: (a: PublicAssetCard) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"),
     },
-    { id: "software", label: "Software", path: `${basePath}/software`, match: (a) => a.assetType === "SOFTWARE" },
-  ];
-  return groups
-    .map((g) => ({ id: g.id, label: g.label, path: g.path, count: assets.filter(g.match).length }))
-    .filter((g) => g.count > 0)
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    {
+      id: "software",
+      label: "Software",
+      path: `${basePath}/software`,
+      match: (a: PublicAssetCard) => a.assetType === "SOFTWARE",
+    },
+  ] as const;
+}
+
+/** Infer creator specialty from published mix + optional brand copy (singer → audio, developer → software). */
+export function inferCreatorSpecialty(
+  assets: PublicAssetCard[],
+  hints?: { tagline?: string; bio?: string; displayName?: string },
+): CreatorSpecialty {
+  const text = `${hints?.displayName ?? ""} ${hints?.tagline ?? ""} ${hints?.bio ?? ""}`.toLowerCase();
+  if (/sing|music|artist|band|dj|rapper|producer|song/.test(text)) return "music";
+  if (/develop|engineer|software|coder|programmer|saas|app builder/.test(text)) return "software";
+  if (/author|writer|poet|novel|essay|journalist/.test(text)) return "writer";
+  if (/teach|coach|course|tutor|educator|instructor|academy/.test(text)) return "educator";
+  if (/creator|youtub|film|video|vlog|content|streamer|reel/.test(text)) return "video";
+
+  const counts = {
+    music: assets.filter((a) => a.assetType === "MUSIC" || a.isPodcast).length,
+    video: assets.filter((a) => a.assetType === "VIDEO").length,
+    software: assets.filter((a) => a.assetType === "SOFTWARE").length,
+    writer: assets.filter((a) => a.assetType === "WRITING" || a.assetType === "BOOK").length,
+    educator: assets.filter((a) => a.assetType === "COURSE").length,
+  };
+  const ranked = (Object.entries(counts) as Array<[Exclude<CreatorSpecialty, "mixed">, number]>).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const [top, topCount] = ranked[0] ?? ["mixed", 0];
+  const second = ranked[1]?.[1] ?? 0;
+  if (!topCount) return "mixed";
+  if (topCount >= second * 1.25) return top;
+  return "mixed";
+}
+
+/**
+ * LifeOS-style Home section bar.
+ * Posts stays first when available; the next tabs follow the creator's specialty
+ * (singer → Audio, content creator → Videos, developer → Software).
+ */
+export function specialtyChipsFor(
+  assets: PublicAssetCard[],
+  basePath: string,
+  hints?: { tagline?: string; bio?: string; displayName?: string },
+): SpecialtyChip[] {
+  const specialty = inferCreatorSpecialty(assets, hints);
+  const order = SPECIALTY_ORDER[specialty];
+  const groups = chipMatchers(basePath);
+  const scored = groups
+    .map((g) => ({
+      id: g.id,
+      label: g.label,
+      path: g.path,
+      count: assets.filter(g.match).length,
+    }))
+    .filter((g) => g.count > 0 || (g.id === "posts" && assets.length > 0));
+
+  // Posts always leads when present; remaining follow specialty order then volume.
+  const posts = scored.filter((g) => g.id === "posts");
+  const rest = scored
+    .filter((g) => g.id !== "posts")
+    .sort((a, b) => {
+      const ai = order.indexOf(a.id);
+      const bi = order.indexOf(b.id);
+      const ao = ai === -1 ? 999 : ai;
+      const bo = bi === -1 ? 999 : bi;
+      if (ao !== bo) return ao - bo;
+      return b.count - a.count || a.label.localeCompare(b.label);
+    });
+
+  return [...posts, ...rest];
+}
+
+export function assetsForSpecialtyChip(assets: PublicAssetCard[], chipId: string): PublicAssetCard[] {
+  const matchers = chipMatchers("");
+  const group = matchers.find((g) => g.id === chipId);
+  if (!group) return assets;
+  if (chipId === "posts") {
+    const posts = assets.filter(group.match);
+    // LifeOS Posts = posts when they exist; otherwise the chronological stream.
+    return posts.length ? posts : [...assets].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  }
+  return assets.filter(group.match);
 }

@@ -1035,6 +1035,39 @@ button, input, select, textarea { font: inherit; color: inherit; }
   color: var(--be-muted, #9a9284);
   font-weight: 500;
 }
+.dl-section-bar {
+  position: sticky;
+  top: var(--dl-top, 3.4rem);
+  z-index: 20;
+  display: flex;
+  gap: 0.15rem;
+  overflow-x: auto;
+  margin: 0 -0.25rem 0.75rem;
+  padding: 0.35rem 0.25rem 0;
+  background: color-mix(in srgb, var(--be-bg, #0b0c10) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, var(--be-muted, #9a9284) 22%, transparent);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dl-section-bar::-webkit-scrollbar { display: none; }
+.dl-section-bar button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--be-muted, #9a9284);
+  font: inherit;
+  font-weight: 650;
+  font-size: 0.95rem;
+  padding: 0.65rem 0.85rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.dl-section-bar button.active {
+  color: var(--be-text, #f4eee2);
+  border-bottom-color: var(--be-accent, #d4a24c);
+}
 .dl-hero-compact .dl-hero-copy { padding-top: 0.35rem; }
 .dl-dest-grid {
   display: grid;

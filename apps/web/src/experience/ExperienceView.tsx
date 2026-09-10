@@ -14,6 +14,7 @@ import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
 import {
   assetDetailPath,
   assetsPath,
+  assetsForSpecialtyChip,
   communitiesPath,
   favoritesPath,
   managementPath,
@@ -146,45 +147,31 @@ function AppHomeBody({
   websiteBase: string;
 }) {
   const name = experience.identity.displayName || "this Digital Life";
-  const chips = specialtyChipsFor(experience.publishedAssets, basePath);
-  const posts = experience.publishedAssets.filter((a) => a.presentationTypes.includes("POST")).slice(0, 8);
-  const videos = experience.publishedAssets
-    .filter((a) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"))
-    .slice(0, 8);
-  const reels = experience.publishedAssets.filter((a) => a.presentationTypes.includes("REEL")).slice(0, 8);
-  const audio = experience.publishedAssets.filter((a) => a.assetType === "MUSIC" && !a.isPodcast).slice(0, 8);
-  const podcasts = experience.publishedAssets.filter((a) => a.isPodcast).slice(0, 8);
-  const books = experience.publishedAssets.filter((a) => a.assetType === "BOOK").slice(0, 8);
-  const courses = experience.publishedAssets.filter((a) => a.assetType === "COURSE").slice(0, 8);
-  const writing = experience.publishedAssets
-    .filter((a) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"))
-    .slice(0, 8);
-  const software = experience.publishedAssets.filter((a) => a.assetType === "SOFTWARE").slice(0, 8);
-  const trending = (experience.favorites?.length ? experience.favorites : experience.publishedAssets).slice(0, 6);
+  const chips = specialtyChipsFor(experience.publishedAssets, basePath, {
+    displayName: experience.identity.displayName,
+    tagline: experience.identity.tagline,
+    bio: experience.identity.bio,
+  });
+  const defaultChip = chips.find((c) => c.id === "posts")?.id ?? chips[0]?.id ?? "posts";
+  const [activeChip, setActiveChip] = useState(defaultChip);
 
-  const sections: { title: string; href: string; assets: PublicAssetCard[] }[] = [
-    { title: "Posts", href: `${basePath}/posts`, assets: posts },
-    { title: "Videos", href: `${basePath}/videos`, assets: videos },
-    { title: "Reels", href: `${basePath}/reels`, assets: reels },
-    { title: "Audio", href: `${basePath}/music`, assets: audio },
-    { title: "Podcasts", href: `${basePath}/podcasts`, assets: podcasts },
-    { title: "Books", href: `${basePath}/books`, assets: books },
-    { title: "Courses", href: `${basePath}/courses`, assets: courses },
-    { title: "Writing", href: `${basePath}/writing`, assets: writing },
-    { title: "Software", href: `${basePath}/software`, assets: software },
-  ]
-    .filter((s) => s.assets.length > 0)
-    .sort((a, b) => b.assets.length - a.assets.length);
+  const selected = chips.some((c) => c.id === activeChip) ? activeChip : defaultChip;
+  const stream = assetsForSpecialtyChip(experience.publishedAssets, selected);
+  const trending = (experience.favorites?.length ? experience.favorites : experience.publishedAssets).slice(0, 6);
 
   return (
     <>
       {chips.length ? (
-        <nav className="dl-specialty-chips" aria-label="Creator specialty">
+        <nav className="dl-section-bar" aria-label="Content sections">
           {chips.map((chip) => (
-            <Link key={chip.id} to={chip.path}>
+            <button
+              key={chip.id}
+              type="button"
+              className={selected === chip.id ? "active" : ""}
+              onClick={() => setActiveChip(chip.id)}
+            >
               {chip.label}
-              <span>{chip.count}</span>
-            </Link>
+            </button>
           ))}
         </nav>
       ) : null}
@@ -206,21 +193,23 @@ function AppHomeBody({
         </aside>
       ) : null}
 
-      {experience.publishedAssets.length === 0 ? (
-        <p className="dl-empty">{name} is getting ready.</p>
-      ) : null}
+      <section>
+        <div className="dl-section-head">
+          <h2>{chips.find((c) => c.id === selected)?.label ?? "Posts"}</h2>
+          {chips.find((c) => c.id === selected)?.path ? (
+            <Link to={chips.find((c) => c.id === selected)!.path}>See all</Link>
+          ) : null}
+        </div>
+        {experience.publishedAssets.length === 0 ? (
+          <p className="dl-empty">{name} is getting ready.</p>
+        ) : stream.length === 0 ? (
+          <p className="muted">Nothing in this section yet.</p>
+        ) : (
+          <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+        )}
+      </section>
 
-      {sections.map((section) => (
-        <section key={section.title}>
-          <div className="dl-section-head">
-            <h2>{section.title}</h2>
-            <Link to={section.href}>See all</Link>
-          </div>
-          <WorkGrid assets={section.assets} basePath={basePath} mediaBase={mediaBase} experience={experience} />
-        </section>
-      ))}
-
-      {trending.length ? (
+      {trending.length && selected === "posts" ? (
         <section>
           <div className="dl-section-head">
             <h2>Trending</h2>

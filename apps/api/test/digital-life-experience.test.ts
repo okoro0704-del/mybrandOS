@@ -9,6 +9,7 @@ import {
   publishedWebsitePages,
   rankFavorites,
   specialtyChipsFor,
+  inferCreatorSpecialty,
   type PublicAssetCard,
 } from "@mybrandos/shared";
 import { createPrimitiveContainer } from "@mybrandos/integrations";
@@ -44,7 +45,7 @@ function primitives() {
 }
 
 test("digital life version and six primitives", () => {
-  assert.equal(MYBRANDOS_VERSION, "0.21.0");
+  assert.equal(MYBRANDOS_VERSION, "0.21.1");
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 
@@ -266,11 +267,13 @@ test("favorites rank by engagement and specialty chips adapt", () => {
     },
   ];
   assert.equal(rankFavorites(assets)[0]?.id, "v2");
-  const chips = specialtyChipsFor(assets, "/u/ada");
-  assert.deepEqual(
-    chips.map((c) => c.id).sort(),
-    ["audio", "reels", "videos"],
-  );
+  const singerChips = specialtyChipsFor(assets, "/u/ada", { tagline: "Singer and songwriter" });
+  assert.equal(singerChips[0]?.id, "posts");
+  assert.equal(singerChips[1]?.id, "audio");
+  assert.equal(inferCreatorSpecialty(assets, { tagline: "Full-stack developer" }), "software");
+  const creatorChips = specialtyChipsFor(assets, "/u/ada", { bio: "YouTube content creator" });
+  assert.equal(creatorChips[0]?.id, "posts");
+  assert.equal(creatorChips[1]?.id, "videos");
 });
 
 test("cleanup digital life fixtures", async () => {

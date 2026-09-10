@@ -7,8 +7,11 @@ export {
   communitiesPath,
   profilePath,
   specialtyChipsFor,
+  assetsForSpecialtyChip,
+  inferCreatorSpecialty,
   rankFavorites,
   type DigitalLifeRoute,
   type DigitalLifeRoutePrimary,
   type SpecialtyChip,
+  type CreatorSpecialty,
 } from "@mybrandos/shared";
