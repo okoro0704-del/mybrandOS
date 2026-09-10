@@ -32,6 +32,8 @@ import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
 import { registerStaticWeb } from "./static-web.js";
 
+console.log("mybrandos: boot", { node: process.version, cwd: process.cwd(), port: config.port });
+
 const primitives = createPrimitiveContainer({
   nodeEnv: config.nodeEnv,
   primitivesMode: config.primitivesMode,

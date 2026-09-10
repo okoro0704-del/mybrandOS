@@ -18,13 +18,14 @@ ENV WEB_DIST=/app/apps/web/dist
 ENV DATABASE_URL=file:/app/apps/api/data/prod.db
 WORKDIR /app/apps/api
 
-# Bake schema-only SQLite outside the volume mount path.
-# Empty Railway volumes mount over /data and would hide a build-time DB there.
+# Schema seed lives outside the volume mount path so empty volumes do not hide it.
 RUN mkdir -p /app/apps/api/schema-seed /app/apps/api/data \
   && DATABASE_URL="file:/app/apps/api/schema-seed/prod.db" npx prisma db push --skip-generate \
-  && test -s /app/apps/api/schema-seed/prod.db
+  && cp /app/apps/api/schema-seed/prod.db /app/apps/api/data/prod.db \
+  && test -s /app/apps/api/data/prod.db
+
+COPY apps/api/docker-entrypoint.sh /app/apps/api/docker-entrypoint.sh
+RUN chmod +x /app/apps/api/docker-entrypoint.sh
 
 EXPOSE 8793
-# Seed once when the volume has no DB file. Do not run prisma on boot (can hang on Railway).
-# Avoid shell $VARS in Railway start overrides — they get expanded before the container.
-CMD ["sh", "-c", "mkdir -p /app/apps/api/data && (test -s /app/apps/api/data/prod.db || cp /app/apps/api/schema-seed/prod.db /app/apps/api/data/prod.db) && exec node dist/index.js"]
+CMD ["./docker-entrypoint.sh"]
