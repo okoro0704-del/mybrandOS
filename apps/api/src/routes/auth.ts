@@ -29,10 +29,11 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
   });
 
   app.post("/auth/dev-session", async (req, reply) => {
-    if (!config.isDev || config.primitivesMode !== "local" || primitives.trustId.bound) {
+    const bypassAllowed = config.authBypass || (config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound);
+    if (!bypassAllowed) {
       return reply.code(403).send({
         error: "trust_id_required",
-        message: "Use Trust ID OAuth. TD-LOCAL-MYBRANDOS is development-only.",
+        message: "Use Trust ID OAuth. Local enter is disabled unless AUTH_BYPASS=true.",
       });
     }
     const body = z
@@ -53,11 +54,16 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
         displayName: body.displayName ?? proof?.displayName ?? (trustId === "TD-LOCAL-MYBRANDOS" ? "Ada" : trustId),
         status: "local",
       },
-      primitives.trustId.bound,
+      primitives.trustId.bound && !config.authBypass,
     );
     const issued = await issueSession(identity, reply);
-    return { token: issued.token, user: identity };
+    return { token: issued.token, user: identity, authBypass: config.authBypass };
   });
+
+  app.get("/auth/bypass", async () => ({
+    enabled: config.authBypass,
+    trustIdBound: primitives.trustId.bound,
+  }));
 
   app.get("/auth/trustid/start", async (_req, reply) => {
     if (!primitives.trustId.bound) {

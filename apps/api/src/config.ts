@@ -59,4 +59,10 @@ export const config = {
   largeImportBytes: Number(env("LARGE_IMPORT_BYTES", String(8 * 1024 * 1024))),
   /** Public browser origin for cookies, Trust ID redirect, and os-shell manifest. */
   publicOrigin: env("PUBLIC_ORIGIN", env("RAILWAY_PUBLIC_DOMAIN") ? `https://${env("RAILWAY_PUBLIC_DOMAIN")}` : ""),
+  /** When true, local/dev-session enter works even in production (testing / Portal white-label). */
+  authBypass:
+    env("AUTH_BYPASS").toLowerCase() === "true" ||
+    env("BYPASS_TRUST_ID").toLowerCase() === "true",
+  /** Shared secret for Portal → mybrandOS white-label provision. */
+  whiteLabelSecret: env("WHITE_LABEL_SECRET") || env("INTERNAL_PROVISION_TOKEN"),
 };

@@ -27,6 +27,7 @@ import { registerPublicRoutes } from "./routes/public.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerCommerceRoutes } from "./routes/commerce.js";
 import { registerProductionRoutes } from "./routes/production.js";
+import { registerWhiteLabelRoutes } from "./routes/white-label.js";
 import { registerStaticWeb } from "./static-web.js";
 
 const primitives = createPrimitiveContainer({
@@ -144,6 +145,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerBrandRoutes(instance, primitives);
   registerPublicRoutes(instance, primitives);
   registerJobRoutes(instance, primitives);
+  registerWhiteLabelRoutes(instance, primitives);
 }
 
 await registerApiSurface(app, { includeHealth: false });

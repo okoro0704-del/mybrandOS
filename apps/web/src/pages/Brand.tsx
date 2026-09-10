@@ -114,6 +114,10 @@ export function BrandPage() {
         )}
         <Link className="btn ghost" to="/personal-space">Personal Space</Link>
       </div>
+      <p className="small muted" style={{ marginBottom: 16 }}>
+        Edit branding here. Link or buy a custom domain from your LifeOS Portal install page after
+        white-label download.
+      </p>
 
       <div className="grid grid-2">
         <article className="panel">
