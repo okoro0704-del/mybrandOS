@@ -17,9 +17,9 @@ ENV NODE_ENV=production
 ENV WEB_DIST=/app/apps/web/dist
 ENV DATABASE_URL=file:/app/apps/api/data/prod.db
 WORKDIR /app/apps/api
-RUN mkdir -p /app/apps/api/data \
-  && npx prisma db push --accept-data-loss
+RUN mkdir -p /app/apps/api/data
 
 EXPOSE 8793
-# Schema is applied at image build so cold start is just Node (avoids prisma hang on boot).
-CMD ["node", "dist/index.js"]
+# Apply schema at start so a mounted volume (empty or existing) gets tables without wiping data.
+# Do not use --accept-data-loss in production.
+CMD ["sh", "-c", "mkdir -p /app/apps/api/data && npx prisma db push && node dist/index.js"]
