@@ -10,10 +10,10 @@ try {
     await prisma.$disconnect();
     process.exit(1);
   }
-  const cols = (await prisma.$queryRawUnsafe(
-    "PRAGMA table_info(PersonalSpace)",
-  )) as Array<{ name?: string }>;
-  const names = cols.map((c) => String(c.name ?? ""));
+  const cols = await prisma.$queryRawUnsafe("PRAGMA table_info(PersonalSpace)");
+  const names = Array.isArray(cols)
+    ? cols.map((c) => String(c && typeof c === "object" && "name" in c ? c.name : ""))
+    : [];
   await prisma.$disconnect();
   process.exit(names.includes("presentationConfig") ? 0 : 2);
 } catch {
