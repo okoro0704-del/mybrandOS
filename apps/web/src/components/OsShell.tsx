@@ -1,4 +1,4 @@
-import { NavLink, Outlet, Link } from "react-router-dom";
+import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import { DOCK_NAV, OWNER_SURFACE_NAV, PRIMARY_NAV, SECONDARY_NAV } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { useOs } from "../state/os-store";
@@ -27,6 +27,7 @@ function Item({
 export function OsShell() {
   const { user, logout } = useIdentity();
   const { moreOpen, setMoreOpen } = useOs();
+  const location = useLocation();
 
   return (
     <div className="os">
@@ -76,7 +77,14 @@ export function OsShell() {
         {DOCK_NAV.map((item) => {
           const Icon = Icons[item.icon as IconName];
           return (
-            <NavLink key={item.id} to={item.path} className={({ isActive }) => (isActive ? "active" : "")} end={item.path === "/"}>
+            <NavLink
+              key={item.id}
+              to={item.path}
+              className={({ isActive }) =>
+                isActive || (item.id === "publish" && location.pathname.startsWith("/publish")) ? "active" : ""
+              }
+              end={item.path === "/"}
+            >
               <Icon size={18} />
               {item.label}
             </NavLink>

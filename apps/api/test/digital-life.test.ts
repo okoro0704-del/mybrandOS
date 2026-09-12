@@ -88,7 +88,7 @@ after(cleanup);
 test("navigation is Digital Life oriented", () => {
   assert.deepEqual(
     PRIMARY_NAV.map((item) => item.id),
-    ["home", "assets", "create", "live", "recording", "production", "distribute"],
+    ["home", "create", "publish", "assets", "live", "recording", "production", "distribute"],
   );
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });

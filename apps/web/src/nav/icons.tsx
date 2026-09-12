@@ -41,6 +41,12 @@ export const Icons = {
   distribute: (p: IconProps) => (
     <Svg {...p}><circle cx="6" cy="12" r="2" /><circle cx="18" cy="6" r="2" /><circle cx="18" cy="18" r="2" /><path d="M8 12h8M16.2 7.5 8.8 11M16.2 16.5 8.8 13" /></Svg>
   ),
+  publish: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M4 12h16M12 4c2.4 2.4 3.6 5 3.6 8S14.4 17.6 12 20C9.6 17.6 8.4 15 8.4 12S9.6 6.4 12 4Z" />
+    </Svg>
+  ),
   ai: (p: IconProps) => (
     <Svg {...p}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.2 6.2l2 2M15.8 15.8l2 2M17.8 6.2l-2 2M8.2 15.8l-2 2" /><circle cx="12" cy="12" r="3.2" /></Svg>
   ),

@@ -30,6 +30,7 @@ import { registerCommerceRoutes } from "./routes/commerce.js";
 import { registerProductionRoutes } from "./routes/production.js";
 import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
+import { registerPublishRoutes } from "./routes/publish.js";
 import { registerStaticWeb } from "./static-web.js";
 
 console.log("mybrandos: boot", { node: process.version, cwd: process.cwd(), port: config.port });
@@ -168,6 +169,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerPublicRoutes(instance, primitives);
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
+  registerPublishRoutes(instance, primitives);
 }
 
 await registerApiSurface(app, { includeHealth: false });

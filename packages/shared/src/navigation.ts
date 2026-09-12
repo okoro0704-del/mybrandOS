@@ -1,8 +1,9 @@
 /** Creator/admin navigation inside mybrandOS. Public branded nav is configured in `brand.ts`. */
 export const PRIMARY_NAV = [
   { id: "home", label: "Home", path: "/", icon: "home" },
-  { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
   { id: "create", label: "Create", path: "/create", icon: "create" },
+  { id: "publish", label: "Publish", path: "/publish", icon: "publish" },
+  { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
   { id: "live", label: "Live", path: "/live", icon: "live" },
   { id: "recording", label: "Recording", path: "/recording", icon: "recording" },
   { id: "production", label: "Production", path: "/production", icon: "production" },
@@ -25,9 +26,9 @@ export const OWNER_SURFACE_NAV = [
 
 export const DOCK_NAV = [
   { id: "home", label: "Home", path: "/", icon: "home" },
-  { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
   { id: "create", label: "Create", path: "/create", icon: "create" },
-  { id: "live", label: "Live", path: "/live", icon: "live" },
+  { id: "publish", label: "Publish", path: "/publish", icon: "publish" },
+  { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
 ] as const;
 
 export const COMMAND_CENTER_PATH = "/command-center";

@@ -26,6 +26,7 @@ import { ProductionJoinPage } from "./pages/ProductionJoin";
 import { ProductionListPage, ProductionStudioPage } from "./pages/Production";
 import { PreviewJoinPage, RecordingListPage, RecordingStudioPage } from "./pages/Recording";
 import { ProcessingPage } from "./pages/Processing";
+import { PublishCenterPage } from "./pages/PublishCenter";
 import { CameraCapabilityPage } from "./pages/CameraCapability";
 import {
   AiPage,
@@ -81,6 +82,8 @@ function WorkstationRoutes() {
           <Route path="/elfcom" element={<ElfComPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/money" element={<MoneyPage />} />
+          <Route path="/publish" element={<PublishCenterPage />} />
+          <Route path="/publish/*" element={<PublishCenterPage />} />
           <Route path="/distribution" element={<DistributionPage />} />
           <Route path="/ai" element={<AiPage />} />
           <Route path="/system" element={<SettingsPage />} />

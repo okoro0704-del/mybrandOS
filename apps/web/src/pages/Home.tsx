@@ -140,6 +140,7 @@ export function HomePage() {
         <div className="actions">
           <Link className="btn" to="/command-center">Open Command Center</Link>
           <Link className="btn ghost" to="/live">Live</Link>
+          <Link className="btn ghost" to="/publish">Publish</Link>
           <Link className="btn ghost" to="/distribution">Distribute</Link>
           <Link className="btn ghost" to="/processing">Processing</Link>
           <Link className="btn ghost" to="/collaboration">Collaboration</Link>

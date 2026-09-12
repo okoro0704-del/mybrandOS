@@ -151,7 +151,7 @@ export function commandCenterActions(snapshot: WorkstationSnapshot): CommandCent
   return [
     { id: "create", label: "Create", path: "/create", detail: "Start a Book, Course, Video, Music, Software, or Writing project.", available: true, category: "create", severity: "info", target: "/create", requiredCapability: "create", authorization: "signed-in" },
     { id: "import", label: "Import", path: "/import", detail: "Imported work is first-class. Origin is metadata.", available: true, category: "create", severity: "info", target: "/import", requiredCapability: "import", authorization: "signed-in" },
-    { id: "publish", label: "Publish", path: "/assets", detail: "Open an asset and publish it into your Digital Life.", available: true, category: "publish", severity: "info", target: "/assets", requiredCapability: "publish", authorization: "owner-or-granted" },
+    { id: "publish", label: "Publish", path: "/publish", detail: "Publish existing content into your Digital Life.", available: true, category: "publish", severity: "info", target: "/publish", requiredCapability: "publish", authorization: "owner-or-granted" },
     {
       id: "live",
       label: "Go Live",
