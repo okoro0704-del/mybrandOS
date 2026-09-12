@@ -9,9 +9,9 @@ After every completed production cycle (feature mission, fix mission, or release
 
 1. **Push to GitHub** for the repo that changed (`git push -u origin HEAD` on the working branch). Do not skip this unless the user explicitly says not to push.
 2. **Deploy the live surfaces**:
-   - **mybrandOS** → Railway production (project/service already linked; prefer Railway MCP `deploy` or GitHub-triggered deploy). Confirm deployment health.
-   - **Public branded delivery** → Netlify on **LIFEOS PORTAL** when Portal config/proxy/edge changed, or when a Netlify rebuild is needed so `*.getlifeos.app` picks up upstream changes. If only mybrandOS backend/app changed and Portal is unchanged, Railway deploy is enough for app runtime; still note Netlify status.
-3. Report the **GitHub commit URL / SHA**, **Railway deployment status**, and **Netlify status** (or “unchanged / not required”) in the wrap-up.
-4. Never force-push `main`/`master`. Never deploy secrets in commit messages.
+   - **mybrandOS** → Railway production (`ea82c9cd-7108-456b-8cdb-f7e242f7d4a4` / service `98c496fc-8170-479a-9caf-439c11052cfb`). Prefer Railway MCP `deploy`. Confirm `/health`.
+   - **Public branded delivery** → Netlify site **lifeos-portal1** (`6fe10d54-6f94-4326-8933-ec5a383ec188`, `getlifeos.app`) so `*.getlifeos.app` edge proxy stays current. Trigger with `netlify api createSiteBuild --data "{\"site_id\":\"6fe10d54-6f94-4326-8933-ec5a383ec188\"}"` from LIFEOS PORTAL context (or after Portal GitHub push when Portal code changed).
+3. Report **GitHub SHA**, **Railway deployment status**, and **Netlify deploy status** in the wrap-up.
+4. Never force-push `main`/`master`. Never put secrets in commit messages.
 
-This is standing user preference: ship after every production circle, not only when asked mid-cycle.
+Standing preference: ship after every production circle, not only when asked mid-cycle.
