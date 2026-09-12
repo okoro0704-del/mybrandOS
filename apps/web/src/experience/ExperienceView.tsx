@@ -62,7 +62,11 @@ export function ExperienceView({
             asset.presentationTypes.some((type) => collection.presentationTypes!.includes(type)),
           )
         : collection?.assetTypes?.length
-          ? experience.publishedAssets.filter((asset) => collection.assetTypes!.includes(asset.assetType))
+          ? experience.publishedAssets.filter((asset) => {
+              if (!collection.assetTypes!.includes(asset.assetType)) return false;
+              if (collection.id === "writing" && asset.presentationTypes.includes("POST")) return false;
+              return true;
+            })
           : experience.publishedAssets;
 
   const asset = assetId ? experience.publishedAssets.find((item) => item.id === assetId) : undefined;
@@ -917,9 +921,11 @@ function PublicAssetBody({
         <img className="be-asset-cover" src={`${mediaBase}/assets/${asset.id}/cover`} alt="" />
       ) : null}
       <div className="eyebrow">
-        {asset.assetType === "VIDEO" && asset.presentationTypes[0]
-          ? `▶ ${PRESENTATION_TYPE_LABELS[asset.presentationTypes[0]]}`
-          : ASSET_TYPE_LABELS[asset.assetType]}
+        {asset.presentationTypes.includes("POST")
+          ? PRESENTATION_TYPE_LABELS.POST
+          : asset.assetType === "VIDEO" && asset.presentationTypes[0]
+            ? `▶ ${PRESENTATION_TYPE_LABELS[asset.presentationTypes[0]]}`
+            : ASSET_TYPE_LABELS[asset.assetType]}
       </div>
       <h1>{asset.title}</h1>
       {asset.assetType === "MUSIC" ? (

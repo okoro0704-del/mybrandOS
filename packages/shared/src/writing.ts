@@ -1,4 +1,5 @@
 export const WRITING_FORMS = [
+  "POST",
   "ARTICLE",
   "ESSAY",
   "STORY",
@@ -11,6 +12,7 @@ export const WRITING_FORMS = [
 export type WritingForm = (typeof WRITING_FORMS)[number];
 
 export const WRITING_FORM_LABELS: Record<WritingForm, string> = {
+  POST: "Post",
   ARTICLE: "Article",
   ESSAY: "Essay",
   STORY: "Story",

@@ -47,7 +47,7 @@ function primitives() {
 }
 
 test("digital life version and six primitives", () => {
-  assert.equal(MYBRANDOS_VERSION, "0.21.1");
+  assert.equal(MYBRANDOS_VERSION, "0.23.0");
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 

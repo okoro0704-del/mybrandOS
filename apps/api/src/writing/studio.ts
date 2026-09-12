@@ -2,7 +2,7 @@ import type { ContentBlock, WritingImportReport, WritingStudioPayload } from "@m
 import { parseWritingForm } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { prisma } from "../lib/prisma.js";
-import { readJson } from "../lib/json.js";
+import { readJson, writeJson } from "../lib/json.js";
 import { requireAction } from "../creation/access.js";
 import { getWorkspace, updateProject } from "../creation/project-service.js";
 import { listBlocks } from "../creation/block-service.js";
@@ -55,6 +55,9 @@ export async function updateWritingMetadata(
     });
   }
   const existing = await prisma.writingMetadata.findUnique({ where: { projectId } });
+  const nextForm = patch.form ? parseWritingForm(patch.form) : existing?.form;
+  const extra = readJson<Record<string, unknown>>(existing?.extra, {});
+  if (nextForm === "POST") extra.lifeOsPresentation = "POST";
   const row = await prisma.writingMetadata.update({
     where: { projectId },
     data: {
@@ -63,7 +66,8 @@ export async function updateWritingMetadata(
       description: patch.description ?? existing?.description,
       language: patch.language ?? existing?.language,
       genre: patch.genre ?? existing?.genre,
-      form: patch.form ? parseWritingForm(patch.form) : existing?.form,
+      form: nextForm,
+      extra: writeJson(extra),
     },
   });
   return toWritingMetadata(row);

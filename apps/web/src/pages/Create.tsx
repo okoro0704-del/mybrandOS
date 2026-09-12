@@ -18,15 +18,21 @@ const MODE_LABELS: Record<CreateMode, string> = {
 
 export function CreatePage() {
   const [mode, setMode] = useState<CreateMode>("MANUAL");
-  const [busy, setBusy] = useState<CreateLauncherType | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  async function launch(projectType: CreateLauncherType) {
-    setBusy(projectType);
+  async function launch(projectType: CreateLauncherType, writingForm?: "POST") {
+    const busyKey = writingForm === "POST" ? "POST" : projectType;
+    setBusy(busyKey);
     try {
       const data = await api<{ project: { id: string } | null; redirect?: string }>("/create/projects", {
         method: "POST",
-        body: JSON.stringify({ projectType, mode }),
+        body: JSON.stringify({
+          projectType,
+          mode,
+          ...(writingForm ? { writingForm } : {}),
+          ...(writingForm === "POST" ? { title: "New Post" } : {}),
+        }),
       });
       if (mode === "IMPORT" || data.redirect === "/import") {
         navigate(
@@ -39,12 +45,20 @@ export function CreatePage() {
                 : projectType === "MUSIC"
                   ? "/import?as=music"
                   : projectType === "WRITING"
-                    ? "/import?as=writing"
+                    ? writingForm === "POST"
+                      ? "/import?as=writing"
+                      : "/import?as=writing"
                     : projectType === "SOFTWARE"
                       ? "/import?as=software"
                       : "/import",
         );
-      } else if (data.project) navigate(`/create/${data.project.id}${mode === "AI" ? "?ai=1" : ""}`);
+      } else if (data.redirect?.startsWith("/create/")) {
+        navigate(`${data.redirect}${mode === "AI" && !data.redirect.includes("?") ? "?ai=1" : mode === "AI" ? "&ai=1" : ""}`);
+      } else if (data.project) {
+        navigate(
+          `/create/${data.project.id}${writingForm === "POST" ? "?post=1" : ""}${mode === "AI" ? (writingForm === "POST" ? "&ai=1" : "?ai=1") : ""}`,
+        );
+      }
     } finally {
       setBusy(null);
     }
@@ -56,7 +70,7 @@ export function CreatePage() {
         <div className="eyebrow">Create</div>
         <h1>Start a project</h1>
         <p>
-          Every type uses the same Creation Engine. Book, Course, Video, Music, Writing, and Software
+          Every type uses the same Creation Engine. Post, Book, Course, Video, Music, Writing, and Software
           open specialized studios. Capture new media in{" "}
           <a href="/recording">Recording Studio</a>. Work manually, or ask AI when you want help.
         </p>
@@ -73,6 +87,20 @@ export function CreatePage() {
       </div>
 
       <div className="launch-grid">
+        <button
+          className="launch"
+          onClick={() => void launch("WRITING", "POST")}
+          disabled={busy === "POST"}
+        >
+          <b>Post</b>
+          <span className="small muted">
+            {mode === "IMPORT"
+              ? "Import text into a Post draft."
+              : mode === "AI"
+                ? "Open Post Studio. AI is optional."
+                : "Write and publish a LifeOS Post."}
+          </span>
+        </button>
         {CREATE_LAUNCHER_TYPES.map((type) => (
           <button key={type} className="launch" onClick={() => void launch(type)} disabled={busy === type}>
             <b>{PROJECT_TYPE_LABELS[type]}</b>
@@ -89,35 +117,35 @@ export function CreatePage() {
                     : mode === "AI"
                       ? "Open Course Studio with an optional outline."
                       : "Open Course Studio."
-                : type === "VIDEO"
-                  ? mode === "IMPORT"
-                    ? "Import a video into Video Studio."
-                    : mode === "AI"
-                      ? "Open Video Studio. AI is optional."
-                      : "Open Video Studio."
-                  : type === "MUSIC"
+                  : type === "VIDEO"
                     ? mode === "IMPORT"
-                      ? "Import audio into Music Studio."
+                      ? "Import a video into Video Studio."
                       : mode === "AI"
-                        ? "Open Music Studio. AI is optional."
-                        : "Open Music Studio."
-                    : type === "WRITING"
+                        ? "Open Video Studio. AI is optional."
+                        : "Open Video Studio."
+                    : type === "MUSIC"
                       ? mode === "IMPORT"
-                        ? "Import text or Markdown into Writing Studio."
+                        ? "Import audio into Music Studio."
                         : mode === "AI"
-                          ? "Open Writing Studio. AI is optional."
-                          : "Open Writing Studio."
-                      : type === "SOFTWARE"
+                          ? "Open Music Studio. AI is optional."
+                          : "Open Music Studio."
+                      : type === "WRITING"
                         ? mode === "IMPORT"
-                          ? "Import project files into Software Studio."
+                          ? "Import text or Markdown into Writing Studio."
                           : mode === "AI"
-                            ? "Open Software Studio. AI is optional."
-                            : "Open Software Studio."
-                : mode === "IMPORT"
-                  ? "Import as a first-class project."
-                  : mode === "AI"
-                    ? "Open the workspace with AI ready."
-                    : "Open a blank workspace."}
+                            ? "Open Writing Studio. AI is optional."
+                            : "Open Writing Studio."
+                        : type === "SOFTWARE"
+                          ? mode === "IMPORT"
+                            ? "Import project files into Software Studio."
+                            : mode === "AI"
+                              ? "Open Software Studio. AI is optional."
+                              : "Open Software Studio."
+                          : mode === "IMPORT"
+                            ? "Import as a first-class project."
+                            : mode === "AI"
+                              ? "Open the workspace with AI ready."
+                              : "Open a blank workspace."}
             </span>
           </button>
         ))}

@@ -203,7 +203,11 @@ function projectNavigation(
         item.kind === "collection" && item.presentationTypes?.length
           ? published.filter((asset) => asset.presentationTypes.some((type) => item.presentationTypes!.includes(type)))
           : item.kind === "collection" && item.assetTypes?.length
-            ? published.filter((asset) => item.assetTypes!.includes(asset.assetType))
+            ? published.filter((asset) => {
+                if (!item.assetTypes!.includes(asset.assetType)) return false;
+                if (item.id === "writing" && asset.presentationTypes.includes("POST")) return false;
+                return true;
+              })
             : published;
       let available =
         item.alwaysShow ||

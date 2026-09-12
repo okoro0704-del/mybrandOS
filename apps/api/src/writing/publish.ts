@@ -31,6 +31,18 @@ export async function publishWriting(userId: string, projectId: string, primitiv
   const asset = await prisma.asset.findUnique({ where: { id: published.assetId } });
   if (asset) {
     const existing = readJson<Record<string, unknown>>(asset.metadata, {});
+    const isPost = metadata.form === "POST" || metadata.extra?.lifeOsPresentation === "POST";
+    const presentationTypes = Array.isArray(existing.presentationTypes)
+      ? [...(existing.presentationTypes as string[])]
+      : [];
+    if (isPost && !presentationTypes.includes("POST")) presentationTypes.push("POST");
+
+    const files = await prisma.projectFile.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+    });
+    const imageFile = files.find((file) => file.mimeType.toLowerCase().startsWith("image/"));
+
     await prisma.asset.update({
       where: { id: asset.id },
       data: {
@@ -38,10 +50,13 @@ export async function publishWriting(userId: string, projectId: string, primitiv
         description: metadata.description || metadata.subtitle || asset.description,
         status: "PUBLISHED",
         visibility: "public",
+        ...(imageFile ? { dataZoneId: imageFile.dataZoneId } : {}),
         metadata: writeJson({
           ...existing,
           sourceProjectId: projectId,
           projectType: "WRITING",
+          ...(presentationTypes.length ? { presentationTypes } : {}),
+          ...(isPost ? { postBody: body } : {}),
           writing: {
             subtitle: metadata.subtitle,
             authorName: metadata.authorName,

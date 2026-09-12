@@ -9,11 +9,15 @@ export async function launchCreation(input: {
   projectType?: string;
   mode: CreateMode;
   title?: string;
+  /** When WRITING, optional form such as POST for LifeOS Post presentation. */
+  writingForm?: string;
 }) {
   const projectType = input.projectType || (input.assetType ? projectTypeFromAsset(input.assetType) : "OTHER");
   const title =
     input.title?.trim() ||
-    `Untitled ${input.assetType ? ASSET_TYPE_LABELS[input.assetType] : projectType}`;
+    (input.writingForm === "POST"
+      ? "New Post"
+      : `Untitled ${input.assetType ? ASSET_TYPE_LABELS[input.assetType] : projectType}`);
 
   if (input.mode === "IMPORT") {
     return { project: null, redirect: "/import" as const };
@@ -47,8 +51,11 @@ export async function launchCreation(input: {
 
   if (projectType === "WRITING") {
     const { ensureWriting } = await import("../writing/ensure.js");
-    await ensureWriting(project.id);
-    return { project, redirect: `/create/${project.id}` as const };
+    await ensureWriting(project.id, { form: input.writingForm });
+    return {
+      project,
+      redirect: `/create/${project.id}${input.writingForm === "POST" ? "?post=1" : ""}` as const,
+    };
   }
 
   if (projectType === "SOFTWARE") {

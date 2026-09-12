@@ -16,6 +16,7 @@ export function registerCreateRoutes(app: FastifyInstance, primitives: Primitive
         projectType: z.string().optional(),
         mode: z.enum(CREATE_MODES),
         title: z.string().optional(),
+        writingForm: z.string().optional(),
       })
       .refine((v) => v.assetType || v.projectType, { message: "projectType or assetType required" })
       .parse(req.body);
@@ -25,6 +26,7 @@ export function registerCreateRoutes(app: FastifyInstance, primitives: Primitive
       projectType: body.projectType,
       mode: body.mode,
       title: body.title,
+      writingForm: body.writingForm,
     });
     if (result.redirect === "/import") {
       return reply.code(201).send({ redirect: "/import", project: null });

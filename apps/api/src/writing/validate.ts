@@ -9,9 +9,14 @@ export async function validateWriting(userId: string, projectId: string): Promis
   const { project, metadata } = await ensureWriting(projectId);
   const issues: WritingValidationIssue[] = [];
 
+  const isPost = metadata.form === "POST" || metadata.extra?.lifeOsPresentation === "POST";
   const titleOk = Boolean(project.title.trim()) && !/^untitled/i.test(project.title.trim());
   if (!titleOk) {
-    issues.push({ code: "title_required", message: "The writing needs a title.", severity: "error" });
+    issues.push({
+      code: "title_required",
+      message: isPost ? "The post needs a title." : "The writing needs a title.",
+      severity: "error",
+    });
   }
   const authorOk = Boolean(metadata.authorName.trim());
   if (!authorOk) {
@@ -25,7 +30,11 @@ export async function validateWriting(userId: string, projectId: string): Promis
     .trim();
   const bodyOk = body.length > 0;
   if (!bodyOk) {
-    issues.push({ code: "body_required", message: "Write at least one block before publishing.", severity: "error" });
+    issues.push({
+      code: "body_required",
+      message: isPost ? "Write your post before publishing." : "Write at least one block before publishing.",
+      severity: "error",
+    });
   }
 
   const metadataOk = titleOk;

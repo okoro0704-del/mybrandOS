@@ -48,7 +48,7 @@ function primitives() {
 
 test("recording domain keeps six primitives and version bump", () => {
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
-  assert.equal(MYBRANDOS_VERSION, "0.21.1");
+  assert.equal(MYBRANDOS_VERSION, "0.23.0");
   assert.ok(RECORDING_SESSION_STATUSES.includes("RECORDING"));
   const camera = unboundMyBrandOsCameraContract();
   assert.equal(camera.available, false);
