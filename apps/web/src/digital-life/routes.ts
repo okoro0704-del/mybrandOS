@@ -10,6 +10,8 @@ export {
   assetsForSpecialtyChip,
   inferCreatorSpecialty,
   rankFavorites,
+  joinPublicPath,
+  publicHomePath,
   type DigitalLifeRoute,
   type DigitalLifeRoutePrimary,
   type SpecialtyChip,

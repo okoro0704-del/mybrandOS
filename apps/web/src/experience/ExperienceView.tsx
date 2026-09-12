@@ -4,6 +4,9 @@ import {
   ASSET_TYPE_LABELS,
   PRESENTATION_TYPE_LABELS,
   WEBSITE_PAGE_TYPE_LABELS,
+  brandSlugFromHost,
+  joinPublicPath,
+  publicHomePath,
   type AssetType,
   type PublicAssetCard,
   type PublicBrandExperience,
@@ -43,8 +46,13 @@ export function ExperienceView({
   primary?: string;
 }) {
   const appNav = experience.appNavigation?.length ? experience.appNavigation : experience.navigation;
-  const websiteBase = experience.surfaces?.websitePath || `${basePath}/website`;
-  const appBase = experience.surfaces?.appPath || basePath;
+  const onBrandHost =
+    brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null) ===
+    experience.slug;
+  const appBase = onBrandHost ? basePath : experience.surfaces?.appPath || basePath;
+  const websiteBase = onBrandHost
+    ? joinPublicPath(basePath, "website")
+    : experience.surfaces?.websitePath || joinPublicPath(basePath, "website");
   const collection = appNav.find((item) => item.id === section && item.kind === "collection");
   const collectionAssets =
     section === "podcasts"
@@ -187,7 +195,7 @@ function AppHomeBody({
         <aside className="dl-live-banner">
           <div className="eyebrow">LIVE NOW</div>
           <h2>{experience.liveNow.title}</h2>
-          <Link className="be-btn" to={`${basePath}/live`}>
+          <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
             Open live
           </Link>
         </aside>
@@ -300,13 +308,13 @@ function ManagementBody({
         </div>
       </header>
       <div className="dl-dest-grid">
-        <Link className="dl-dest-card" to={`${basePath}/store`}>
+        <Link className="dl-dest-card" to={joinPublicPath(basePath, "store")}>
           <strong>Offers</strong>
           <span className="small muted">
             {offers.length ? `${offers.length} available` : "No active offers"}
           </span>
         </Link>
-        <Link className="dl-dest-card" to={`${basePath}/profile`}>
+        <Link className="dl-dest-card" to={joinPublicPath(basePath, "profile")}>
           <strong>Profile</strong>
           <span className="small muted">{experience.identity.displayName}</span>
         </Link>
@@ -554,7 +562,7 @@ function StoreBody({
         {offers.map((offer) => {
           const asset = experience.publishedAssets.find((item) => item.id === offer.assetId);
           return (
-            <Link className="be-card" key={offer.id} to={asset ? `${basePath}/a/${asset.id}` : basePath}>
+            <Link className="be-card" key={offer.id} to={asset ? assetDetailPath(basePath, asset.id) : publicHomePath(basePath)}>
               <div className="be-card-fallback">
                 {offer.price} {offer.currency}
               </div>

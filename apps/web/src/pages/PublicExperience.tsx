@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
-import { publicExperiencePath } from "@mybrandos/shared";
+import { publicExperienceBasePath } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { ExperienceView } from "../experience/ExperienceView";
 import { parseDigitalLifePath } from "../digital-life/routes";
@@ -49,8 +49,10 @@ export function BrandPreviewPage() {
   );
 }
 
-export function PublicExperiencePage() {
-  const { slug, "*": rest } = useParams();
+export function PublicExperiencePage(props?: { slugOverride?: string; restOverride?: string }) {
+  const params = useParams();
+  const slug = props?.slugOverride || params.slug;
+  const rest = props?.restOverride !== undefined ? props.restOverride : params["*"];
   const [experience, setExperience] = useState<PublicBrandExperience | null>(null);
   const [error, setError] = useState("");
 
@@ -88,7 +90,7 @@ export function PublicExperiencePage() {
   }
 
   const parsed = parseDigitalLifePath(rest);
-  const basePath = publicExperiencePath(slug);
+  const basePath = publicExperienceBasePath(slug, window.location.hostname);
 
   return (
     <ExperienceView

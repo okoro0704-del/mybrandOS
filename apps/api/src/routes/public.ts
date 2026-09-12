@@ -33,7 +33,15 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
   app.get("/public/:slug/manifest.webmanifest", async (req, reply) => {
     const { slug } = req.params as { slug: string };
     const experience = await getPublicBrandExperience(slug, primitives);
-    const origin = (config.publicOrigin || "").replace(/\/$/, "") || "";
+    const forwardedHost = String(req.headers["x-forwarded-host"] || req.headers.host || "")
+      .split(",")[0]
+      ?.trim()
+      .toLowerCase();
+    const onBrandHost = forwardedHost === `${slug}.getlifeos.app`;
+    const origin = onBrandHost
+      ? `https://${slug}.getlifeos.app`
+      : (config.publicOrigin || "").replace(/\/$/, "") || "";
+    const startPath = onBrandHost ? "/" : `/u/${slug}/`;
     const name = experience.identity.displayName || slug;
     const iconSrc = experience.identity.hasLogo
       ? `${origin}/api/public/${slug}/media/logo`
@@ -45,9 +53,9 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
         name,
         short_name: name.slice(0, 24),
         description: experience.identity.tagline || `${name} Digital Life`,
-        start_url: `/u/${slug}/`,
-        scope: `/u/${slug}/`,
-        id: `/u/${slug}/`,
+        start_url: startPath,
+        scope: onBrandHost ? "/" : `/u/${slug}/`,
+        id: onBrandHost ? `https://${slug}.getlifeos.app/` : `/u/${slug}/`,
         display: "standalone",
         orientation: "any",
         background_color: BG_HEX[experience.theme.background] ?? "#0b0c10",

@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { brandSlugFromHost } from "@mybrandos/shared";
 import { OsShell } from "./components/OsShell";
 import { RequireAuth } from "./components/RequireAuth";
 import { AssetDetailPage } from "./pages/AssetDetail";
@@ -35,7 +36,20 @@ import {
   SettingsPage,
 } from "./pages/SystemPages";
 
-export function App() {
+function BrandAdminEnter({ slug }: { slug: string }) {
+  const trustId = `TD-WL-${slug.toUpperCase().replace(/-/g, "")}`.slice(0, 80);
+  const to = `/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(slug)}`;
+  return <Navigate to={to} replace />;
+}
+
+function BrandHostPublic() {
+  const { "*": rest } = useParams();
+  const slug = brandSlugFromHost(window.location.hostname);
+  if (!slug) return <Navigate to="/" replace />;
+  return <PublicExperiencePage slugOverride={slug} restOverride={rest} />;
+}
+
+function WorkstationRoutes() {
   return (
     <Routes>
       <Route path="/enter" element={<EnterPage />} />
@@ -83,4 +97,27 @@ export function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+}
+
+/**
+ * On `{slug}.getlifeos.app` the public Digital Life is the product at `/`.
+ * Workstation stays on the Railway origin (or /enter on this host for admin).
+ */
+export function App() {
+  const brandSlug = brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null);
+  if (brandSlug) {
+    return (
+      <Routes>
+        <Route path="/enter" element={<EnterPage />} />
+        <Route path="/auth/callback" element={<CallbackPage />} />
+        <Route path="/admin" element={<BrandAdminEnter slug={brandSlug} />} />
+        <Route path="/admin/*" element={<BrandAdminEnter slug={brandSlug} />} />
+        <Route path="/u/:slug" element={<PublicExperiencePage />} />
+        <Route path="/u/:slug/*" element={<PublicExperiencePage />} />
+        <Route path="/" element={<PublicExperiencePage slugOverride={brandSlug} restOverride="" />} />
+        <Route path="/*" element={<BrandHostPublic />} />
+      </Routes>
+    );
+  }
+  return <WorkstationRoutes />;
 }

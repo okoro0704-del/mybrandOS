@@ -62,15 +62,23 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
         primitives,
       );
 
-      const origin = (config.publicOrigin || "https://mybrandos-production.up.railway.app").replace(/\/$/, "");
+      const railwayOrigin = (config.publicOrigin || "https://mybrandos-production.up.railway.app").replace(
+        /\/$/,
+        "",
+      );
+      const brandOrigin = `https://${slug}.getlifeos.app`;
       return reply.code(201).send({
         ok: true,
         trustId,
         slug,
         token: issued.token,
-        publicUrl: `${origin}/u/${slug}`,
-        adminUrl: `${origin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
-        studioUrl: `${origin}/`,
+        publicUrl: `${brandOrigin}/`,
+        adminUrl: `${brandOrigin}/admin`,
+        studioUrl: `${brandOrigin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
+        /** Upstream origins for Portal/Netlify proxy (not user-facing deliverables). */
+        upstreamPublicUrl: `${railwayOrigin}/u/${slug}`,
+        upstreamAdminUrl: `${railwayOrigin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
+        upstreamStudioUrl: `${railwayOrigin}/`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "provision_failed";

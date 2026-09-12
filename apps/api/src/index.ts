@@ -66,7 +66,18 @@ const corsAllow = Array.from(
   ),
 );
 await app.register(cors, {
-  origin: corsAllow.length ? corsAllow : true,
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (corsAllow.length === 0) return cb(null, true);
+    if (corsAllow.includes(origin)) return cb(null, true);
+    try {
+      const host = new URL(origin).hostname.toLowerCase();
+      if (host === "getlifeos.app" || host.endsWith(".getlifeos.app")) return cb(null, true);
+    } catch {
+      /* ignore */
+    }
+    return cb(null, false);
+  },
   credentials: true,
 });
 await app.register(cookie, { secret: config.cookieSecret });

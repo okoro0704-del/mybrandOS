@@ -1,4 +1,5 @@
 import type { PublicBrandExperience } from "@mybrandos/shared";
+import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
 import { communitiesPath, favoritesPath, managementPath, profilePath } from "../routes";
@@ -23,8 +24,9 @@ export function DigitalLifeTopBar({
   onToggleMenu: () => void;
 }) {
   const name = experience.identity.displayName || "Digital Life";
+  const home = publicHomePath(basePath);
   const links = [
-    { id: "home", label: "Home", to: basePath },
+    { id: "home", label: "Home", to: home },
     { id: "favorites", label: "Favorites", to: favoritesPath(basePath) },
     { id: "management", label: "Management", to: managementPath(basePath) },
     { id: "communities", label: "Communities", to: communitiesPath(basePath) },
@@ -34,7 +36,7 @@ export function DigitalLifeTopBar({
   return (
     <header className="dl-topbar">
       <div className="dl-topbar-inner">
-        <Link className="dl-brand" to={basePath} aria-label={name}>
+        <Link className="dl-brand" to={home} aria-label={name}>
           {experience.identity.hasLogo ? (
             <img src={`${mediaBase}/media/logo`} alt="" className="dl-brand-logo" />
           ) : experience.identity.hasAvatar ? (
@@ -103,7 +105,7 @@ export function DigitalLifeBottomNav({
   primary: Primary;
 }) {
   const items = [
-    { id: "home", label: "Home", to: basePath, icon: Icons.home },
+    { id: "home", label: "Home", to: publicHomePath(basePath), icon: Icons.home },
     { id: "favorites", label: "Favorites", to: favoritesPath(basePath), icon: Icons.favorites },
     { id: "management", label: "Management", to: managementPath(basePath), icon: Icons.management },
     { id: "communities", label: "Communities", to: communitiesPath(basePath), icon: Icons.communities },

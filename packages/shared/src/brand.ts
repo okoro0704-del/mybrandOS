@@ -245,6 +245,35 @@ export function publicExperiencePath(slug: string): string {
   return `/u/${slug}`;
 }
 
+const BRAND_ROOT_DOMAIN = "getlifeos.app";
+const RESERVED_BRAND_HOST_LABELS = new Set([
+  "www",
+  "admin",
+  "hospitality",
+  "trust",
+  "business",
+  "api",
+  "transportation",
+  "e-commerce",
+  "ecommerce",
+]);
+
+/** Brand slug when the page is served on `{slug}.getlifeos.app` (first-party white-label). */
+export function brandSlugFromHost(hostname?: string | null): string | null {
+  const host = (hostname ?? "").split(":")[0]?.toLowerCase() ?? "";
+  if (!host.endsWith(`.${BRAND_ROOT_DOMAIN}`)) return null;
+  const label = host.slice(0, -(BRAND_ROOT_DOMAIN.length + 1));
+  if (!label || RESERVED_BRAND_HOST_LABELS.has(label)) return null;
+  return label;
+}
+
+/** Public base path: `/` on the brand subdomain, otherwise `/u/{slug}`. */
+export function publicExperienceBasePath(slug: string, hostname?: string | null): string {
+  const hostSlug = brandSlugFromHost(hostname);
+  if (hostSlug && hostSlug === slug.trim().toLowerCase()) return "";
+  return publicExperiencePath(slug);
+}
+
 export function sortNav(items: PublicNavItemConfig[]): PublicNavItemConfig[] {
   return [...items].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }

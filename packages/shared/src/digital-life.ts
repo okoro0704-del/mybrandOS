@@ -268,27 +268,40 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
 }
 
 export function assetDetailPath(basePath: string, assetId: string) {
-  return `${basePath}/a/${assetId}`;
+  return joinPublicPath(basePath, "a", assetId);
 }
 
 export function assetsPath(basePath: string) {
-  return `${basePath}/assets`;
+  return joinPublicPath(basePath, "assets");
 }
 
 export function favoritesPath(basePath: string) {
-  return `${basePath}/favorites`;
+  return joinPublicPath(basePath, "favorites");
 }
 
 export function managementPath(basePath: string) {
-  return `${basePath}/management`;
+  return joinPublicPath(basePath, "management");
 }
 
 export function communitiesPath(basePath: string) {
-  return `${basePath}/communities`;
+  return joinPublicPath(basePath, "communities");
 }
 
 export function profilePath(basePath: string) {
-  return `${basePath}/profile`;
+  return joinPublicPath(basePath, "profile");
+}
+
+/** Join base (`/u/slug` or ``) with path segments without producing `//`. */
+export function joinPublicPath(basePath: string, ...segments: string[]) {
+  const base = (basePath || "").replace(/\/$/, "");
+  const rest = segments.filter(Boolean).join("/");
+  if (!base) return `/${rest}`.replace(/\/{2,}/g, "/") || "/";
+  return `${base}/${rest}`.replace(/\/{2,}/g, "/");
+}
+
+export function publicHomePath(basePath: string) {
+  const base = (basePath || "").replace(/\/$/, "");
+  return base || "/";
 }
 
 /** Rank published Assets by public engagement — Favorites / trending. */
@@ -333,7 +346,7 @@ function chipMatchers(basePath: string) {
     {
       id: "posts",
       label: "Posts",
-      path: `${basePath}/posts`,
+      path: joinPublicPath(basePath, "posts"),
       match: (a: PublicAssetCard) =>
         a.presentationTypes.includes("POST") ||
         (a.assetType === "WRITING" && a.presentationTypes.length === 0),
@@ -341,44 +354,44 @@ function chipMatchers(basePath: string) {
     {
       id: "videos",
       label: "Videos",
-      path: `${basePath}/videos`,
+      path: joinPublicPath(basePath, "videos"),
       match: (a: PublicAssetCard) => a.assetType === "VIDEO" && !a.presentationTypes.includes("REEL"),
     },
     {
       id: "reels",
       label: "Reels",
-      path: `${basePath}/reels`,
+      path: joinPublicPath(basePath, "reels"),
       match: (a: PublicAssetCard) => a.presentationTypes.includes("REEL"),
     },
     {
       id: "audio",
       label: "Audio",
-      path: `${basePath}/music`,
+      path: joinPublicPath(basePath, "music"),
       match: (a: PublicAssetCard) => a.assetType === "MUSIC" && !a.isPodcast,
     },
     {
       id: "podcasts",
       label: "Podcasts",
-      path: `${basePath}/podcasts`,
+      path: joinPublicPath(basePath, "podcasts"),
       match: (a: PublicAssetCard) => a.isPodcast,
     },
-    { id: "books", label: "Books", path: `${basePath}/books`, match: (a: PublicAssetCard) => a.assetType === "BOOK" },
+    { id: "books", label: "Books", path: joinPublicPath(basePath, "books"), match: (a: PublicAssetCard) => a.assetType === "BOOK" },
     {
       id: "courses",
       label: "Courses",
-      path: `${basePath}/courses`,
+      path: joinPublicPath(basePath, "courses"),
       match: (a: PublicAssetCard) => a.assetType === "COURSE",
     },
     {
       id: "writing",
       label: "Writing",
-      path: `${basePath}/writing`,
+      path: joinPublicPath(basePath, "writing"),
       match: (a: PublicAssetCard) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"),
     },
     {
       id: "software",
       label: "Software",
-      path: `${basePath}/software`,
+      path: joinPublicPath(basePath, "software"),
       match: (a: PublicAssetCard) => a.assetType === "SOFTWARE",
     },
   ] as const;
