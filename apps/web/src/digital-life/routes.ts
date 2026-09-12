@@ -12,8 +12,13 @@ export {
   rankFavorites,
   joinPublicPath,
   publicHomePath,
+  buildStickyLandingPlan,
+  favoritesDiscoveryLanes,
+  normalizePresentation,
   type DigitalLifeRoute,
   type DigitalLifeRoutePrimary,
   type SpecialtyChip,
   type CreatorSpecialty,
+  type StickyLandingPlan,
+  type PublicExperiencePresentation,
 } from "@mybrandos/shared";

@@ -7,6 +7,7 @@ import {
   DEFAULT_PUBLIC_NAV,
   buildFeedFromAssets,
   emptyPublicPresentation,
+  normalizePresentation,
   normalizeSlug,
   normalizeTheme,
   publicExperiencePath,
@@ -25,6 +26,7 @@ import {
   type PublicAssetCard,
   type PublicAssetDetail,
   type PublicBrandExperience,
+  type PublicExperiencePresentation,
   type PublicLink,
   type PublicLiveNow,
   type PublicNavItem,
@@ -263,6 +265,12 @@ export async function getBrandConfig(
     publishedAssets: eligibleCards,
     messaging: await messagingFor(ownerId, primitives),
     liveNow: await publicLiveNowForOwner(ownerId, space?.displayName || identity.displayName),
+    presentation: normalizePresentation(
+      readJson<Partial<PublicExperiencePresentation>>(
+        (space as { presentationConfig?: string } | null)?.presentationConfig,
+        {},
+      ),
+    ),
   };
 }
 
@@ -279,6 +287,7 @@ export async function updateBrandConfig(
     cta?: BrandCta | null;
     links?: PublicLink[];
     featuredAssetIds?: string[];
+    presentation?: Partial<PublicExperiencePresentation>;
   },
   primitives?: PrimitiveBindings,
 ): Promise<BrandConfigPayload> {
@@ -328,6 +337,16 @@ export async function updateBrandConfig(
       : patch.cta && patch.cta.label.trim() && patch.cta.href.trim()
         ? { label: patch.cta.label.trim(), href: patch.cta.href.trim() }
         : {};
+  const presentation =
+    patch.presentation === undefined
+      ? undefined
+      : normalizePresentation({
+          ...readJson<Partial<PublicExperiencePresentation>>(
+            (existing as { presentationConfig?: string } | null)?.presentationConfig,
+            {},
+          ),
+          ...patch.presentation,
+        });
 
   await prisma.personalSpace.upsert({
     where: { ownerId },
@@ -343,6 +362,7 @@ export async function updateBrandConfig(
       cta: writeJson(cta ?? {}),
       links: writeJson(patch.links ?? []),
       featuredAssetIds: writeJson(featuredAssetIds ?? []),
+      presentationConfig: writeJson(presentation ?? normalizePresentation({})),
     },
     update: {
       ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
@@ -355,6 +375,7 @@ export async function updateBrandConfig(
       ...(cta !== undefined ? { cta: writeJson(cta) } : {}),
       ...(patch.links ? { links: writeJson(patch.links) } : {}),
       ...(featuredAssetIds !== undefined ? { featuredAssetIds: writeJson(featuredAssetIds) } : {}),
+      ...(presentation !== undefined ? { presentationConfig: writeJson(presentation) } : {}),
     },
   });
 
@@ -534,6 +555,12 @@ async function experienceFrom(
     messaging,
     liveNow,
     offers,
+    presentation: normalizePresentation(
+      readJson<Partial<PublicExperiencePresentation>>(
+        (space as { presentationConfig?: string }).presentationConfig,
+        {},
+      ),
+    ),
     surfaces: {
       appPath: slug ? publicExperiencePath(slug) : "/brand/preview",
       websitePath: slug ? publicWebsitePath(slug) : "/brand/preview/website",
@@ -593,6 +620,7 @@ export async function buildBrandPreview(
       messaging,
       liveNow: null,
       offers: [],
+      presentation: normalizePresentation({}),
       surfaces: {
         appPath: "/brand/preview",
         websitePath: "/brand/preview/website",

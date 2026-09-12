@@ -1069,6 +1069,43 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-bottom-color: var(--be-accent, #d4a24c);
 }
 .dl-hero-compact .dl-hero-copy { padding-top: 0.35rem; }
+.dl-hero-sticky { display: grid; gap: 1rem; margin: 0.75rem 0 1.25rem; }
+.dl-hero-feature {
+  display: grid;
+  gap: 0.85rem;
+  align-items: stretch;
+}
+@media (min-width: 720px) {
+  .dl-hero-feature { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+.dl-hero-cover {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--be-accent, #d4a24c) 18%, transparent);
+}
+.dl-hero-cover-fallback { min-height: 160px; }
+.dl-hero-feature-copy { display: grid; gap: 0.55rem; align-content: start; }
+.dl-hero-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+.be-btn-ghost {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+}
+.dl-continue { display: grid; gap: 1.25rem; margin-top: 1.5rem; }
+.dl-continue-lane { display: grid; gap: 0.5rem; }
+button.linkish {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dl-section-bar { scroll-behavior: auto; }
+}
 .dl-dest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

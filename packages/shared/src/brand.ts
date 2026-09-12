@@ -165,6 +165,8 @@ export interface PublicBrandExperience {
   messaging: { available: boolean; detail: string };
   liveNow: PublicLiveNow | null;
   offers?: import("./commerce.js").PublicOfferCard[];
+  /** Owner presentation preferences for creator-aware public landing. */
+  presentation?: import("./digital-life.js").PublicExperiencePresentation;
   surfaces: {
     appPath: string;
     websitePath: string;
@@ -191,6 +193,7 @@ export interface BrandConfigPayload {
   publishedAssets: PublicAssetCard[];
   messaging: { available: boolean; detail: string };
   liveNow: PublicLiveNow | null;
+  presentation?: import("./digital-life.js").PublicExperiencePresentation;
 }
 
 export const RESERVED_PUBLIC_SLUGS = [

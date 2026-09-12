@@ -278,6 +278,7 @@ model PersonalSpace {
   cta               String   @default("{}")
   brandMedia        String   @default("{}")
   websitePages      String   @default("[]")
+  presentationConfig String @default("{}")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

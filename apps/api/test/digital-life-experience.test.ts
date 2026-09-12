@@ -5,6 +5,8 @@ import {
   LIFEOS_PRIMITIVE_IDS,
   MYBRANDOS_VERSION,
   buildFeedFromAssets,
+  buildStickyLandingPlan,
+  favoritesDiscoveryLanes,
   parseDigitalLifePath,
   publishedWebsitePages,
   rankFavorites,
@@ -268,12 +270,88 @@ test("favorites rank by engagement and specialty chips adapt", () => {
   ];
   assert.equal(rankFavorites(assets)[0]?.id, "v2");
   const singerChips = specialtyChipsFor(assets, "/u/ada", { tagline: "Singer and songwriter" });
-  assert.equal(singerChips[0]?.id, "posts");
-  assert.equal(singerChips[1]?.id, "audio");
+  assert.equal(singerChips[0]?.id, "audio");
+  assert.ok(singerChips.some((c) => c.id === "videos") || singerChips.some((c) => c.id === "reels"));
   assert.equal(inferCreatorSpecialty(assets, { tagline: "Full-stack developer" }), "software");
   const creatorChips = specialtyChipsFor(assets, "/u/ada", { bio: "YouTube content creator" });
-  assert.equal(creatorChips[0]?.id, "posts");
-  assert.equal(creatorChips[1]?.id, "videos");
+  assert.equal(creatorChips[0]?.id, "videos");
+  assert.ok(!creatorChips.find((c) => c.id === "posts") || creatorChips[0]?.id !== "posts" || assets.some(() => false));
+});
+
+test("creator-aware sticky landing respects preference and hides empty sections", () => {
+  const assets: PublicAssetCard[] = [
+    {
+      id: "b1",
+      title: "Novel",
+      description: "",
+      assetType: "BOOK",
+      publishedAt: "2026-02-01T00:00:00.000Z",
+      coverAvailable: false,
+      presentationTypes: [],
+      isLiveReplay: false,
+      engagement: { views: 3, plays: 0, score: 3 },
+      isPodcast: false,
+      presentation: {
+        artist: "",
+        author: "Ada",
+        playAvailable: false,
+        body: "",
+        version: "",
+        developer: "",
+        license: "",
+        documentationUrl: "",
+        repositoryUrl: "",
+        websiteUrl: "",
+        downloadAvailable: false,
+        storeAvailable: false,
+      },
+    },
+  ];
+  const plan = buildStickyLandingPlan({
+    assets,
+    featuredAssets: assets,
+    basePath: "/u/ada",
+    hints: { tagline: "Author of novels" },
+  });
+  assert.equal(plan.specialty, "writer");
+  assert.equal(plan.primaryChipId, "books");
+  assert.equal(plan.heroAsset?.id, "b1");
+  assert.ok(!plan.sections.some((s) => s.id === "software"));
+
+  const overridden = buildStickyLandingPlan({
+    assets,
+    basePath: "/u/ada",
+    hints: { tagline: "Author of novels" },
+    presentation: { primaryChip: "software" },
+  });
+  // Preference cannot surface unavailable software.
+  assert.equal(overridden.primaryChipId, "books");
+
+  const preferBooks = buildStickyLandingPlan({
+    assets: [
+      ...assets,
+      {
+        ...assets[0]!,
+        id: "v9",
+        title: "Talk",
+        assetType: "VIDEO",
+        presentationTypes: ["WATCH"],
+        engagement: { views: 1, plays: 0, score: 1 },
+        presentation: { ...assets[0]!.presentation, author: "" },
+      },
+    ],
+    basePath: "/u/ada",
+    presentation: { primaryChip: "books", specialtyOverride: "writer" },
+  });
+  assert.equal(preferBooks.primaryChipId, "books");
+
+  const empty = buildStickyLandingPlan({ assets: [], basePath: "/u/ada" });
+  assert.equal(empty.heroAsset, null);
+  assert.equal(empty.sections.length, 0);
+
+  const lanes = favoritesDiscoveryLanes({ assets, basePath: "/u/ada" });
+  assert.ok(lanes.some((l) => l.id === "books"));
+  assert.ok(!lanes.some((l) => l.id === "videos"));
 });
 
 test("cleanup digital life fixtures", async () => {

@@ -309,6 +309,87 @@ export function BrandPage() {
       </article>
 
       <article className="panel" style={{ marginTop: 16 }}>
+        <div className="eyebrow">Creator-aware public landing</div>
+        <p className="small muted">
+          Choose what visitors experience first. Unavailable sections stay hidden. Preference never invents content.
+        </p>
+        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+          <label className="field">
+            Primary experience
+            <select
+              value={brand.presentation?.primaryChip ?? ""}
+              onChange={(e) =>
+                void patch({
+                  presentation: {
+                    ...(brand.presentation ?? {}),
+                    primaryChip: e.target.value || null,
+                  },
+                })
+              }
+            >
+              <option value="">Auto (from published work)</option>
+              <option value="audio">Audio</option>
+              <option value="videos">Video</option>
+              <option value="reels">Reels</option>
+              <option value="posts">Post</option>
+              <option value="books">Books</option>
+              <option value="writing">Writing</option>
+              <option value="courses">Courses / School</option>
+              <option value="software">Software</option>
+              <option value="products">Products</option>
+              <option value="live">Live</option>
+            </select>
+          </label>
+          <label className="field">
+            Creator type hint
+            <select
+              value={brand.presentation?.specialtyOverride ?? ""}
+              onChange={(e) =>
+                void patch({
+                  presentation: {
+                    ...(brand.presentation ?? {}),
+                    specialtyOverride: (e.target.value || null) as
+                      | "music"
+                      | "video"
+                      | "software"
+                      | "writer"
+                      | "educator"
+                      | "commerce"
+                      | "mixed"
+                      | null,
+                  },
+                })
+              }
+            >
+              <option value="">Auto</option>
+              <option value="music">Singer / Music</option>
+              <option value="video">Video creator</option>
+              <option value="writer">Author / Writer</option>
+              <option value="educator">Teacher / Educator</option>
+              <option value="software">Software creator</option>
+              <option value="commerce">Business / Products</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </label>
+        </div>
+        <label className="field" style={{ marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={brand.presentation?.homeShowFeatured !== false}
+            onChange={(e) =>
+              void patch({
+                presentation: {
+                  ...(brand.presentation ?? {}),
+                  homeShowFeatured: e.target.checked,
+                },
+              })
+            }
+          />{" "}
+          Prefer featured Assets in the sticky landing hero
+        </label>
+      </article>
+
+      <article className="panel" style={{ marginTop: 16 }}>
         <div className="eyebrow">Public availability</div>
         <p className="small muted">
           {brand.publicEnabled

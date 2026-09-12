@@ -50,6 +50,17 @@ const brandPatch = z.object({
   cta: z.object({ label: z.string(), href: z.string() }).nullable().optional(),
   links: z.array(z.object({ id: z.string(), label: z.string(), url: z.string() })).optional(),
   featuredAssetIds: z.array(z.string()).optional(),
+  presentation: z
+    .object({
+      primaryChip: z.string().nullable().optional(),
+      specialtyOverride: z
+        .enum(["music", "video", "software", "writer", "educator", "commerce", "mixed"])
+        .nullable()
+        .optional(),
+      sectionOrder: z.array(z.string()).nullable().optional(),
+      homeShowFeatured: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export function registerBrandRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {

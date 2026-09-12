@@ -3,11 +3,19 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 try {
-  const rows = await prisma.$queryRawUnsafe(
+  const tables = await prisma.$queryRawUnsafe(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='PersonalSpace' LIMIT 1",
   );
+  if (!Array.isArray(tables) || tables.length === 0) {
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+  const cols = (await prisma.$queryRawUnsafe(
+    "PRAGMA table_info(PersonalSpace)",
+  )) as Array<{ name?: string }>;
+  const names = cols.map((c) => String(c.name ?? ""));
   await prisma.$disconnect();
-  process.exit(Array.isArray(rows) && rows.length > 0 ? 0 : 1);
+  process.exit(names.includes("presentationConfig") ? 0 : 2);
 } catch {
   try {
     await prisma.$disconnect();

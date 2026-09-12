@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ASSET_TYPE_LABELS,
@@ -18,10 +18,10 @@ import {
   assetDetailPath,
   assetsPath,
   assetsForSpecialtyChip,
+  buildStickyLandingPlan,
   communitiesPath,
+  favoritesDiscoveryLanes,
   favoritesPath,
-  managementPath,
-  specialtyChipsFor,
 } from "../digital-life/routes";
 
 export function ExperienceView({
@@ -155,27 +155,62 @@ function AppHomeBody({
   websiteBase: string;
 }) {
   const name = experience.identity.displayName || "this Digital Life";
-  const chips = specialtyChipsFor(experience.publishedAssets, basePath, {
-    displayName: experience.identity.displayName,
-    tagline: experience.identity.tagline,
-    bio: experience.identity.bio,
-  });
-  const defaultChip = chips.find((c) => c.id === "posts")?.id ?? chips[0]?.id ?? "posts";
-  const [activeChip, setActiveChip] = useState(defaultChip);
+  const plan = useMemo(
+    () =>
+      buildStickyLandingPlan({
+        assets: experience.publishedAssets,
+        featuredAssets: experience.featuredAssets,
+        basePath,
+        hints: {
+          displayName: experience.identity.displayName,
+          tagline: experience.identity.tagline,
+          bio: experience.identity.bio,
+        },
+        presentation: experience.presentation,
+        liveNow: Boolean(experience.liveNow),
+        offersCount: experience.offers?.length ?? 0,
+      }),
+    [experience, basePath],
+  );
+  const [activeChip, setActiveChip] = useState(plan.primaryChipId);
+  useEffect(() => {
+    setActiveChip(plan.primaryChipId);
+  }, [plan.primaryChipId, experience.slug]);
 
-  const selected = chips.some((c) => c.id === activeChip) ? activeChip : defaultChip;
-  const stream = assetsForSpecialtyChip(experience.publishedAssets, selected);
-  const trending = (experience.favorites?.length ? experience.favorites : experience.publishedAssets).slice(0, 6);
+  const sections = plan.sections;
+  const selected = sections.some((c) => c.id === activeChip) ? activeChip : plan.primaryChipId;
+  const stream =
+    selected === "live" || selected === "products"
+      ? []
+      : assetsForSpecialtyChip(experience.publishedAssets, selected);
+  const hero = selected === plan.primaryChipId ? plan.heroAsset : stream[0] || null;
+  const heroActionLabel =
+    plan.heroAction === "watch"
+      ? "Watch"
+      : plan.heroAction === "listen"
+        ? "Listen"
+        : plan.heroAction === "read"
+          ? "Read"
+          : plan.heroAction === "learn"
+            ? "Learn"
+            : plan.heroAction === "open"
+              ? "Open"
+              : plan.heroAction === "shop"
+                ? "Shop"
+                : plan.heroAction === "live"
+                  ? "Join live"
+                  : "Explore";
 
   return (
     <>
-      {chips.length ? (
-        <nav className="dl-section-bar" aria-label="Content sections">
-          {chips.map((chip) => (
+      {sections.length ? (
+        <nav className="dl-section-bar" aria-label="Creator experiences">
+          {sections.map((chip) => (
             <button
               key={chip.id}
               type="button"
               className={selected === chip.id ? "active" : ""}
+              aria-current={selected === chip.id ? "true" : undefined}
               onClick={() => setActiveChip(chip.id)}
             >
               {chip.label}
@@ -184,59 +219,106 @@ function AppHomeBody({
         </nav>
       ) : null}
 
-      <section className="dl-hero dl-hero-compact">
+      <section className="dl-hero dl-hero-sticky">
         <div className="dl-hero-copy">
+          <p className="eyebrow">{plan.specialty === "mixed" ? "Digital Life" : plan.specialty}</p>
           <h1>{name}</h1>
           {experience.identity.tagline ? <p className="be-lead">{experience.identity.tagline}</p> : null}
         </div>
+        {experience.liveNow && (selected === "live" || selected === plan.primaryChipId) ? (
+          <aside className="dl-live-banner">
+            <div className="eyebrow">LIVE NOW</div>
+            <h2>{experience.liveNow.title}</h2>
+            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
+              Join live
+            </Link>
+          </aside>
+        ) : hero ? (
+          <article className="dl-hero-feature">
+            {hero.coverAvailable ? (
+              <img src={`${mediaBase}/assets/${hero.id}/cover`} alt="" className="dl-hero-cover" />
+            ) : (
+              <div className="dl-hero-cover dl-hero-cover-fallback" aria-hidden />
+            )}
+            <div className="dl-hero-feature-copy">
+              <div className="eyebrow">Featured</div>
+              <h2>{hero.title}</h2>
+              {hero.description ? <p className="muted">{hero.description.slice(0, 160)}</p> : null}
+              <div className="dl-hero-actions">
+                <Link className="be-btn" to={assetDetailPath(basePath, hero.id)}>
+                  {heroActionLabel}
+                </Link>
+                {experience.cta ? (
+                  <a className="be-btn be-btn-ghost" href={experience.cta.href}>
+                    {experience.cta.label}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </article>
+        ) : experience.publishedAssets.length === 0 ? (
+          <p className="dl-empty">{name} is getting ready. Check back soon.</p>
+        ) : null}
       </section>
 
-      {experience.liveNow ? (
-        <aside className="dl-live-banner">
-          <div className="eyebrow">LIVE NOW</div>
-          <h2>{experience.liveNow.title}</h2>
-          <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
-            Open live
-          </Link>
-        </aside>
-      ) : null}
-
-      <section>
-        <div className="dl-section-head">
-          <h2>{chips.find((c) => c.id === selected)?.label ?? "Posts"}</h2>
-          {chips.find((c) => c.id === selected)?.path ? (
-            <Link to={chips.find((c) => c.id === selected)!.path}>See all</Link>
-          ) : null}
-        </div>
-        {experience.publishedAssets.length === 0 ? (
-          <p className="dl-empty">{name} is getting ready.</p>
-        ) : stream.length === 0 ? (
-          <p className="muted">Nothing in this section yet.</p>
-        ) : (
-          <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} />
-        )}
-      </section>
-
-      {trending.length && selected === "posts" ? (
+      {selected === "products" ? (
+        <StoreBody experience={experience} basePath={basePath} mediaBase={mediaBase} />
+      ) : selected === "live" ? (
+        <section>
+          <h2>Live</h2>
+          {experience.liveNow ? (
+            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
+              Open live session
+            </Link>
+          ) : (
+            <p className="muted">Nothing live right now.</p>
+          )}
+        </section>
+      ) : (
         <section>
           <div className="dl-section-head">
-            <h2>Trending</h2>
-            <Link to={favoritesPath(basePath)}>Favorites</Link>
+            <h2>{sections.find((c) => c.id === selected)?.label ?? "Experience"}</h2>
+            {sections.find((c) => c.id === selected)?.path ? (
+              <Link to={sections.find((c) => c.id === selected)!.path}>See all</Link>
+            ) : null}
           </div>
-          <WorkGrid assets={trending} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+          {experience.publishedAssets.length === 0 ? (
+            <p className="dl-empty">{name} has not published work yet.</p>
+          ) : stream.length === 0 ? (
+            <p className="muted">Nothing in this section yet.</p>
+          ) : (
+            <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+          )}
+        </section>
+      )}
+
+      {plan.continueSections.length && selected === plan.primaryChipId ? (
+        <section className="dl-continue">
+          <h2>Continue exploring</h2>
+          {plan.continueSections.map((lane) => (
+            <div key={lane.id} className="dl-continue-lane">
+              <div className="dl-section-head">
+                <h3>{lane.label}</h3>
+                <button type="button" className="linkish" onClick={() => setActiveChip(lane.id)}>
+                  Open
+                </button>
+              </div>
+              <WorkGrid assets={lane.assets} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+            </div>
+          ))}
         </section>
       ) : null}
 
       <section className="dl-home-destinations">
-        <h2>Explore</h2>
+        <h2>More of this world</h2>
         <div className="dl-dest-grid">
-          <Link className="dl-dest-card" to={communitiesPath(basePath)}>
-            <strong>Communities</strong>
-            <span className="small muted">People and channels around this Digital Life</span>
+          <Link className="dl-dest-card" to={favoritesPath(basePath)}>
+            <strong>Favorites</strong>
+            <span className="small muted">What people engage with most</span>
           </Link>
-          <Link className="dl-dest-card" to={managementPath(basePath)}>
-            <strong>Management</strong>
-            <span className="small muted">Offers, profile, and Digital Life controls</span>
+          <Link className="dl-dest-card" to={communitiesPath(basePath)}>
+            <strong>Community</strong>
+            <span className="small muted">People around this Digital Life</span>
           </Link>
           <Link className="dl-dest-card" to={websiteBase}>
             <strong>Website</strong>
@@ -257,29 +339,78 @@ function FavoritesBody({
   basePath: string;
   mediaBase: string;
 }) {
-  const ranked = experience.favorites?.length ? experience.favorites : experience.publishedAssets;
-  const videos = ranked.filter((a) => a.assetType === "VIDEO");
+  const lanes = useMemo(
+    () =>
+      favoritesDiscoveryLanes({
+        assets: experience.publishedAssets,
+        basePath,
+        liveNow: Boolean(experience.liveNow),
+      }),
+    [experience.publishedAssets, experience.liveNow, basePath],
+  );
+  const [active, setActive] = useState(lanes[0]?.id ?? "videos");
+  useEffect(() => {
+    if (!lanes.some((l) => l.id === active)) setActive(lanes[0]?.id ?? "videos");
+  }, [lanes, active]);
+
+  const selected = lanes.find((l) => l.id === active) ?? lanes[0];
+
   return (
     <section>
       <header className="dl-section-head">
         <div>
           <p className="eyebrow">Favorites</p>
-          <h1>Most watched & trending</h1>
-          <p className="be-lead">Assets people interact with the most in this Digital Life.</p>
+          <h1>Discover what is compelling now</h1>
+          <p className="be-lead">
+            Ranked from real engagement when available — never fabricated popularity.
+          </p>
         </div>
       </header>
-      {ranked.length === 0 ? (
+
+      {lanes.length ? (
+        <nav className="dl-section-bar" aria-label="Favorites discovery">
+          {lanes.map((lane) => (
+            <button
+              key={lane.id}
+              type="button"
+              className={selected?.id === lane.id ? "active" : ""}
+              aria-current={selected?.id === lane.id ? "true" : undefined}
+              onClick={() => setActive(lane.id)}
+            >
+              {lane.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      {!lanes.length ? (
         <p className="dl-empty">No public interactions yet. Published work will rise here as people watch and play.</p>
+      ) : selected?.id === "live" ? (
+        experience.liveNow ? (
+          <aside className="dl-live-banner">
+            <div className="eyebrow">LIVE NOW</div>
+            <h2>{experience.liveNow.title}</h2>
+            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
+              Join live
+            </Link>
+          </aside>
+        ) : (
+          <p className="muted">Nothing live right now.</p>
+        )
       ) : (
         <>
-          {videos.length ? (
-            <>
-              <h2>Trending videos</h2>
-              <WorkGrid assets={videos.slice(0, 12)} basePath={basePath} mediaBase={mediaBase} experience={experience} />
-            </>
-          ) : null}
-          <h2>All favorites</h2>
-          <WorkGrid assets={ranked} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+          <div className="dl-section-head">
+            <h2>{selected?.label}</h2>
+            <span className="small muted">
+              {selected?.signal === "engagement" ? "From real views & plays" : "Newest published"}
+            </span>
+          </div>
+          <WorkGrid
+            assets={selected?.assets ?? []}
+            basePath={basePath}
+            mediaBase={mediaBase}
+            experience={experience}
+          />
         </>
       )}
     </section>
