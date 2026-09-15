@@ -226,6 +226,40 @@ export function PublishCenterPage() {
     }
   }
 
+  async function uploadPhoto(file: File) {
+    setBusy(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const data = await api<{ assets: Array<{ id: string; title: string; assetType: string; status: string; visibility: string; origin: string; dataZoneId?: string | null; createdAt?: string; updatedAt?: string }> }>(
+        "/import/file",
+        { method: "POST", body: form },
+      );
+      const asset = data.assets?.[0];
+      if (!asset) throw new Error("Upload did not create an Asset.");
+      chooseCandidate({
+        id: asset.id,
+        title: asset.title,
+        assetType: asset.assetType as PublishCandidate["assetType"],
+        status: asset.status ?? "DRAFT",
+        visibility: asset.visibility ?? "private",
+        origin: asset.origin ?? "IMPORTED_FILE",
+        createdAt: asset.createdAt ?? new Date().toISOString(),
+        updatedAt: asset.updatedAt ?? new Date().toISOString(),
+        coverAvailable: Boolean(asset.dataZoneId),
+        sourceProjectId: null,
+        dataZoneId: asset.dataZoneId ?? null,
+        presentationTypes: [],
+        detail: "Uploaded photo",
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Photo upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function publish() {
     if (!selected || !category) return;
     setBusy(true);
@@ -419,6 +453,23 @@ export function PublishCenterPage() {
 
       {step === "select" ? (
         <div className="publish-select">
+          {format === "photo" ? (
+            <article className="panel" style={{ marginBottom: 12 }}>
+              <div className="eyebrow">Upload photo</div>
+              <p className="small muted">Select an image. It becomes a draft Asset in DataZone, then you publish it as a Post.</p>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadPhoto(file);
+                  e.currentTarget.value = "";
+                }}
+              />
+            </article>
+          ) : null}
+
           {source === "external" ? (
             <article className="panel">
               <div className="eyebrow">From External</div>

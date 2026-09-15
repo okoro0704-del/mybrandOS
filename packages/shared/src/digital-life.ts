@@ -125,19 +125,22 @@ export function publicAppPath(slug: string): string {
 }
 
 export function feedKindForAsset(asset: PublicAssetCard): FeedItemKind {
+  if (asset.presentationTypes.includes("POST")) return "post";
   switch (asset.assetType) {
     case "VIDEO":
       return "video";
     case "MUSIC":
       return "music";
     case "WRITING":
-      return asset.presentationTypes.includes("POST") ? "post" : "writing";
+      return "writing";
     case "BOOK":
       return "book";
     case "COURSE":
       return "course";
     case "SOFTWARE":
       return "software";
+    case "DESIGN":
+      return asset.coverAvailable ? "post" : "announcement";
     default:
       return "announcement";
   }

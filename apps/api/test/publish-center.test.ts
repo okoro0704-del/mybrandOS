@@ -9,7 +9,7 @@ import {
   LocalTrustIdAdapter,
   UnboundPlatformJobsAdapter,
 } from "@mybrandos/integrations";
-import { DOCK_NAV, MYBRANDOS_VERSION, publicAssetKeys } from "@mybrandos/shared";
+import { DOCK_NAV, MYBRANDOS_VERSION, assetsForSpecialtyChip, publicAssetKeys } from "@mybrandos/shared";
 import { prisma } from "../src/lib/prisma.js";
 import { HttpError } from "../src/lib/errors.js";
 import { createAsset } from "../src/services/asset-service.js";
@@ -72,7 +72,7 @@ test("dock navigation is Home / Create / Publish / Assets / More", () => {
     ["home", "create", "publish", "assets"],
   );
   assert.equal(DOCK_NAV.find((item) => item.id === "publish")?.path, "/publish");
-  assert.equal(MYBRANDOS_VERSION, "0.26.0");
+  assert.equal(MYBRANDOS_VERSION, "0.27.0");
 });
 
 test("publish categories and sources are honest", async () => {
@@ -254,6 +254,88 @@ test("unauthorized user cannot publish another creator asset", async () => {
       ),
     (err: unknown) => err instanceof HttpError && err.statusCode === 404,
   );
+});
+
+test("photo publish creates POST presentation, public projection, and LifeOS intent once", async () => {
+  const dz = new LocalDataZoneAdapter();
+  const stored = await dz.storeBytes({
+    filename: "test-01.png",
+    mimeType: "image/png",
+    bytes: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+  const marker = `TEST-01 PHOTO PUBLISH ${Date.now()}`;
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Photo Draft",
+    description: "",
+    assetType: "DESIGN",
+    origin: "IMPORTED_FILE",
+    status: "DRAFT",
+    visibility: "private",
+    dataZoneId: stored.dataZoneId,
+    metadata: { mimeType: "image/png", filename: "test-01.png" },
+  });
+  const first = await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Photo Post",
+      writeup: marker,
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "photo",
+    },
+    primitives(),
+  );
+  assert.equal(first.status, "PUBLISHED");
+  const row = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
+  const meta = JSON.parse(row.metadata) as { presentationTypes?: string[]; postBody?: string };
+  assert.ok(meta.presentationTypes?.includes("POST"));
+  assert.equal(meta.postBody, marker);
+  assert.equal(row.visibility, "public");
+  assert.equal(row.dataZoneId, stored.dataZoneId);
+
+  const second = await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Photo Post",
+      writeup: marker,
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "photo",
+    },
+    primitives(),
+  );
+  assert.equal(second.assetId, first.assetId);
+  const intents = await prisma.distributionIntent.findMany({
+    where: { ownerId: OWNER, assetId: draft.id, mode: "LIFEOS_POST" },
+  });
+  assert.equal(intents.length, 1);
+
+  await updateBrandConfig(identity(), {
+    slug: "publish-center-life",
+    publicEnabled: true,
+    displayName: "Publish Creator",
+  });
+  const experience = await getPublicBrandExperience("publish-center-life");
+  const card = experience.publishedAssets.find((item) => item.id === draft.id);
+  assert.ok(card);
+  assert.ok(card!.presentationTypes.includes("POST"));
+  assert.match(card!.description, /TEST-01 PHOTO PUBLISH/);
+  assert.equal(card!.coverAvailable, true);
+  const posts = assetsForSpecialtyChip(experience.publishedAssets, "posts");
+  assert.ok(posts.some((item) => item.id === draft.id));
+
+  const summary = await buildDistributionSummary(OWNER, draft.id, primitives());
+  assert.ok(summary.items.some((item) => item.id === "lifeos" && item.state === "published"));
 });
 
 test("distribution summary stays honest and external site can be configured", async () => {

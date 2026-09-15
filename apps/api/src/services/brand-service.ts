@@ -59,13 +59,13 @@ async function messagingFor(ownerId: string, primitives?: PrimitiveBindings) {
 }
 
 export function toPublicAssetCard(asset: Asset): PublicAssetCard {
-  const presentationTypes =
+  const presentationTypes: string[] =
     asset.assetType === "VIDEO"
       ? parsePresentationTypes(asset.metadata?.presentationTypes).length
         ? parsePresentationTypes(asset.metadata.presentationTypes)
         : parsePresentationTypes(asset.metadata?.presentationType).length
           ? parsePresentationTypes(asset.metadata.presentationType)
-          : (["WATCH"] as const)
+          : ["WATCH"]
       : parsePresentationTypes(asset.metadata?.presentationTypes);
   const music = (asset.metadata?.music ?? {}) as Record<string, unknown>;
   const writing = (asset.metadata?.writing ?? {}) as Record<string, unknown>;
@@ -87,6 +87,16 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
   if (asset.assetType === "WRITING") {
     presentation.author = typeof writing.authorName === "string" ? writing.authorName : "";
     presentation.body = typeof writing.body === "string" ? writing.body : "";
+  }
+  if (presentationTypes.includes("POST") && !presentation.body) {
+    const postBody = asset.metadata?.postBody;
+    const publishWriteup = asset.metadata?.publishWriteup;
+    presentation.body =
+      typeof postBody === "string" && postBody
+        ? postBody
+        : typeof publishWriteup === "string" && publishWriteup
+          ? publishWriteup
+          : asset.description;
   }
   if (asset.assetType === "SOFTWARE") {
     presentation.version = typeof software.version === "string" ? software.version : "";
@@ -110,7 +120,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
         : asset.assetType === "SOFTWARE"
           ? false
           : Boolean(asset.dataZoneId),
-    presentationTypes: [...presentationTypes],
+    presentationTypes: parsePresentationTypes(presentationTypes),
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
     engagement: { views, plays, score },
     isPodcast,
