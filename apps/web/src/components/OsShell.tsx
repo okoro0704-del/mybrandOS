@@ -1,4 +1,5 @@
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import {
   DOCK_NAV,
   OWNER_SURFACE_NAV,
@@ -11,6 +12,9 @@ import { useStudio } from "./RequireAuth";
 import { useIdentity } from "../state/identity-store";
 import { useOs } from "../state/os-store";
 import { Icons, type IconName } from "../nav/icons";
+import { registerDigitalLifeServiceWorker } from "../digital-life/pwa/registerDigitalLifeSw";
+import { applyStudioDocument, clearStudioDocument } from "../studio/pwa/applyStudioDocument";
+import { StudioInstallPrompt } from "../studio/pwa/StudioInstallPrompt";
 
 function Item({
   to,
@@ -44,6 +48,15 @@ export function OsShell() {
   const studioHome = s("/");
   const publishBase = s("/publish");
 
+  useEffect(() => {
+    applyStudioDocument({
+      slug: studio?.slug,
+      displayName: user?.displayName,
+    });
+    void registerDigitalLifeServiceWorker();
+    return () => clearStudioDocument();
+  }, [studio?.slug, user?.displayName]);
+
   return (
     <div className="os" data-surface="workstation">
       <aside className="rail">
@@ -56,7 +69,14 @@ export function OsShell() {
         </Link>
         <nav className="nav-group">
           <div className="nav-label">Surfaces</div>
-          {studio?.slug ? <Link className="nav-link" to={digitalLifePath({ surface: "public_app", slug: studio.slug, hostname: host })}>View App</Link> : null}
+          {studio?.slug ? (
+            <Link
+              className="nav-link"
+              to={digitalLifePath({ surface: "public_app", slug: studio.slug, hostname: host })}
+            >
+              View App
+            </Link>
+          ) : null}
           {OWNER_SURFACE_NAV.map((item) => {
             const to =
               item.id === "digital_life" && studio?.slug
@@ -102,6 +122,8 @@ export function OsShell() {
       <main className="stage">
         <Outlet />
       </main>
+
+      <StudioInstallPrompt slug={studio?.slug} displayName={user?.displayName} />
 
       <nav className="dock">
         {DOCK_NAV.map((item) => {

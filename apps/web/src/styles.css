@@ -1410,8 +1410,68 @@ button.linkish {
 }
 @media (display-mode: standalone) {
   .dl-install-banner { display: none; }
+  .os-install-banner { display: none; }
 }
 
+/* Creator Admin PWA install (first visit) */
+.os-install-banner {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.75rem + var(--safe-bottom));
+  z-index: 45;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: var(--bos-surface);
+  border: 1px solid color-mix(in srgb, var(--bos-accent) 35%, transparent);
+  box-shadow: var(--bos-shadow);
+}
+.os-install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+.os-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--bos-muted);
+  cursor: pointer;
+  min-height: 42px;
+}
+.os-install-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: end center;
+  padding: 1rem;
+}
+.os-install-card {
+  width: min(420px, 100%);
+  background: var(--bos-surface);
+  color: var(--bos-text);
+  border-radius: 18px 18px 12px 12px;
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.7rem;
+}
+@media (max-width: 980px) {
+  .os-install-banner {
+    bottom: calc(4.6rem + var(--safe-bottom));
+  }
+}
+@media (min-width: 981px) {
+  .os-install-banner {
+    left: auto;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    width: min(360px, calc(100% - 2rem));
+  }
+}
 
 /* Publish Center */
 .publish-center { max-width: 560px; margin: 0 auto; }

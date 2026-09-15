@@ -56,11 +56,20 @@ Favorites ranks published Assets by existing `Asset.analytics` engagement (views
 
 ## PWA / install
 
+### Public User App
+- Per-slug PWA manifest: `GET /api/public/:slug/manifest.webmanifest`
 - Service worker: `/sw-digital-life.js` (shell + static only; never private API)
 - Chromium: real `beforeinstallprompt`
 - iOS: honest Share → Add to Home Screen guidance
 - Dismissal remembered per slug
 - Standalone mode hides install chrome
+
+### Creator Admin (install on first visit)
+- Distinct install from the public app (`id` / `start_url` = `/admin`)
+- Static fallback: `/manifest.webmanifest`
+- Branded: `GET /api/public/:slug/admin.webmanifest`
+- Same service worker; OsShell registers it and shows first-visit install chrome
+- Portal deliverable contract: `adminDashboard.installOnFirstVisit = true`
 
 ## Boundaries
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
-import { digitalLifePath, publicApplicationUrl, type BrandMediaSlot } from "@mybrandos/shared";
+import { digitalLifePath, normalizeSlug, publicApplicationUrl, type BrandMediaSlot } from "@mybrandos/shared";
+import { prisma } from "../lib/prisma.js";
 import { requestBrandSlug } from "../lib/surface.js";
 import {
   getPublicAsset,
@@ -67,6 +68,73 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
             src: experience.identity.hasLogo ? iconSrc : `${origin}/icons/digital-life-512.svg`,
             sizes: "512x512",
             type: experience.identity.hasLogo ? "image/png" : "image/svg+xml",
+            purpose: "any maskable",
+          },
+        ],
+      });
+  });
+
+  /** Creator Admin / Studio PWA — distinct install from the public User App.
+   * Works even when the public experience is still private. */
+  app.get("/public/:slug/admin.webmanifest", async (req, reply) => {
+    const { slug } = req.params as { slug: string };
+    const normalized = normalizeSlug(slug);
+    if (!normalized) {
+      return reply.code(404).type("application/json").send({ error: "not_found" });
+    }
+    const space = await prisma.personalSpace.findUnique({ where: { slug: normalized } });
+    if (!space) {
+      return reply.code(404).type("application/json").send({ error: "not_found" });
+    }
+    const theme = (() => {
+      try {
+        return JSON.parse(space.theme || "{}") as { background?: string; accent?: string };
+      } catch {
+        return {};
+      }
+    })();
+    const media = (() => {
+      try {
+        return JSON.parse(space.brandMedia || "{}") as { logo?: unknown };
+      } catch {
+        return {};
+      }
+    })();
+    // Public media route requires publicEnabled; only reference logo when that path works.
+    const hasLogo = Boolean(media.logo) && Boolean(space.publicEnabled);
+    const origin = "";
+    const brand = space.displayName || normalized;
+    const name = `${brand} Admin`;
+    const iconSrc = hasLogo
+      ? `${origin}/api/public/${normalized}/media/logo`
+      : `${origin}/icons/digital-life-192.svg`;
+    return reply
+      .type("application/manifest+json")
+      .header("cache-control", "public, max-age=300")
+      .send({
+        name,
+        short_name: "Admin",
+        description: `Creator Admin for ${brand}`,
+        start_url: "/admin",
+        scope: "/",
+        id: "/admin",
+        display: "standalone",
+        display_override: ["standalone", "minimal-ui", "browser"],
+        orientation: "any",
+        background_color: BG_HEX[theme.background ?? ""] ?? "#0b0c10",
+        theme_color: ACCENT_HEX[theme.accent ?? ""] ?? "#d4a24c",
+        lang: "en",
+        icons: [
+          {
+            src: iconSrc,
+            sizes: "192x192",
+            type: hasLogo ? "image/png" : "image/svg+xml",
+            purpose: "any",
+          },
+          {
+            src: hasLogo ? iconSrc : `${origin}/icons/digital-life-512.svg`,
+            sizes: "512x512",
+            type: hasLogo ? "image/png" : "image/svg+xml",
             purpose: "any maskable",
           },
         ],

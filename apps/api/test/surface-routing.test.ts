@@ -151,3 +151,27 @@ test("LifeOS and Xperience destination is the public brand; unscoped manifests f
   assert.equal(manifest.json().origin + manifest.json().launch, destination);
   assert.equal((await app.inject({ url: "/.well-known/os-shell.json" })).statusCode, 400);
 });
+
+test("Creator Admin PWA manifest starts at /admin and is distinct from the public app", async () => {
+  const adminManifest = await app.inject({ url: `/public/${slug}/admin.webmanifest` });
+  assert.equal(adminManifest.statusCode, 200);
+  assert.match(adminManifest.headers["content-type"] ?? "", /application\/manifest\+json/);
+  const body = adminManifest.json() as {
+    name: string;
+    start_url: string;
+    id: string;
+    display: string;
+    icons: unknown[];
+  };
+  assert.equal(body.start_url, "/admin");
+  assert.equal(body.id, "/admin");
+  assert.equal(body.display, "standalone");
+  assert.ok(body.name.toLowerCase().includes("admin"));
+  assert.ok(Array.isArray(body.icons) && body.icons.length >= 2);
+
+  const publicManifest = await app.inject({ url: `/public/${slug}/manifest.webmanifest` });
+  assert.equal(publicManifest.statusCode, 200);
+  const pub = publicManifest.json() as { start_url: string; id: string };
+  assert.notEqual(pub.start_url, "/admin");
+  assert.notEqual(pub.id, body.id);
+});
