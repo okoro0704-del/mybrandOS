@@ -79,8 +79,8 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
         xperienceUrl: publicApplicationUrl(slug),
         /** Upstream origins for Portal/Netlify proxy (not user-facing deliverables). */
         upstreamPublicUrl: `${railwayOrigin}${digitalLifePath({ surface: "public_app", slug })}`,
-        upstreamAdminUrl: `${railwayOrigin}/enter`,
-        upstreamStudioUrl: `${railwayOrigin}/`,
+        upstreamAdminUrl: `${railwayOrigin}/admin`,
+        upstreamStudioUrl: `${railwayOrigin}/admin`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "provision_failed";

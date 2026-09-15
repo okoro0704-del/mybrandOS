@@ -47,7 +47,9 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
   });
 
   app.post("/auth/dev-session", async (req, reply) => {
-    const bypassAllowed = config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound;
+    const bypassAllowed =
+      config.authBypass ||
+      (config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound);
     if (!bypassAllowed) {
       return reply.code(403).send({
         error: "trust_id_required",
@@ -79,7 +81,9 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
   });
 
   app.get("/auth/bypass", async () => ({
-    enabled: config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound,
+    enabled:
+      config.authBypass ||
+      (config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound),
     trustIdBound: primitives.trustId.bound,
   }));
 
