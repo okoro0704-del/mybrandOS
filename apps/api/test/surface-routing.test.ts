@@ -44,7 +44,7 @@ before(async () => {
 });
 after(async () => { await app.close(); await cleanup(); });
 
-for (const hostname of [host, `${slug}.localhost`, "localhost", "mybrandos-production.up.railway.app"]) {
+for (const hostname of [host, `${slug}.localhost`, "localhost", "mybrandos11.netlify.app", "mybrandos-production.up.railway.app"]) {
   test(`canonical surfaces round-trip without identity on ${hostname}`, () => {
     const paths = new Set<string>();
     for (const surface of ["public_app", "website", "workstation"] as DigitalLifeSurface[]) {
@@ -91,11 +91,36 @@ test("public refresh and deep links remain public; unknown Studio links stay gat
     assert.equal(res.statusCode, 200);
     assert.match(res.headers["content-type"]!, /text\/html/);
   }
-  const denied = await app.inject({ url: "/studio/no-such-page", headers: { host, accept: "text/html" } });
+  const denied = await app.inject({ url: "/admin/no-such-page", headers: { host, accept: "text/html" } });
   assert.equal(denied.statusCode, 302);
   assert.match(denied.headers.location!, /^\/enter\?returnTo=/);
-  const wrongOwner = await app.inject({ url: "/studio", headers: { host, accept: "text/html", authorization: `Bearer ${otherToken}` } });
+  const wrongOwner = await app.inject({ url: "/admin", headers: { host, accept: "text/html", authorization: `Bearer ${otherToken}` } });
   assert.equal(wrongOwner.statusCode, 403);
+  const allowed = await app.inject({ url: "/admin/create", headers: { host, accept: "text/html", authorization: `Bearer ${ownerToken}` } });
+  assert.equal(allowed.statusCode, 200);
+  assert.equal(allowed.headers.location, undefined);
+});
+
+test("shared main host has no implicit tenant and keeps public root outside Studio", async () => {
+  const mainHost = "mybrandos11.netlify.app";
+  assert.deepEqual(resolveDigitalLifeRequest(mainHost, "/"), { surface: "website", slug: null, rest: "/" });
+  assert.equal(studioPath("/create", mainHost), "/admin/create");
+  const root = await app.inject({ url: "/", headers: { host: mainHost, accept: "text/html" } });
+  assert.equal(root.statusCode, 200);
+  const admin = await app.inject({ url: "/admin", headers: { host: mainHost, accept: "text/html" } });
+  assert.equal(admin.statusCode, 302);
+  assert.equal(admin.headers.location, "/enter?returnTo=%2Fadmin");
+  const context = await app.inject({ url: "/auth/studio", headers: { host: mainHost, authorization: `Bearer ${ownerToken}` } });
+  assert.equal(context.json().slug, slug);
+  assert.equal(context.json().publicPath, `/u/${slug}`);
+});
+
+test("missing tenant has a distinct failure and never grants private access", async () => {
+  for (const headers of [{ host: "missing-surface-brand.getlifeos.app" }, { host: "mybrandos11.netlify.app" }]) {
+    const res = await app.inject({ url: "/auth/studio?slug=missing-surface-brand", headers: { ...headers, authorization: `Bearer ${ownerToken}` } });
+    assert.equal(res.statusCode, 404);
+    assert.equal(res.json().error, "tenant_not_found");
+  }
 });
 
 test("publish uses the same Asset and returns its public post URL; drafts stay private", async () => {

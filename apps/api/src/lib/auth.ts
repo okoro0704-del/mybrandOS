@@ -114,7 +114,11 @@ export async function requireIdentity(
   const slug = requestBrandSlug(req);
   if (slug && !/^\/(public|me)(\/|$)/.test(pathname)) {
     const brand = await prisma.personalSpace.findUnique({ where: { slug }, select: { ownerId: true } });
-    if (!brand || brand.ownerId !== identity.ownerId) {
+    if (!brand) {
+      reply.code(404).send({ error: "tenant_not_found", message: "The requested brand could not be resolved." });
+      return null;
+    }
+    if (brand.ownerId !== identity.ownerId) {
       reply.code(403).send({ error: "forbidden", message: "You cannot manage this brand." });
       return null;
     }

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { resolveDigitalLifeRequest, studioPath } from "@mybrandos/shared";
 import { OsShell } from "./components/OsShell";
 import { RequireAuth } from "./components/RequireAuth";
@@ -43,6 +43,7 @@ function WorkstationRoutes() {
     <Routes>
       <Route path="/enter" element={<EnterPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
+      <Route path="/studio/*" element={<section className="gate"><h1>Studio has moved</h1><Link to={s("/")}>Open Creator Dashboard</Link></section>} />
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
           <Route path={s("/")} element={<HomePage />} />
@@ -94,6 +95,13 @@ export function App() {
   const context = resolveDigitalLifeRequest(window.location.hostname, location.pathname);
   if (context.surface !== "workstation" && context.slug) {
     return <PublicExperiencePage key={context.slug} slugOverride={context.slug} restOverride={context.rest} />;
+  }
+  if (context.surface !== "workstation") {
+    return <main className="gate" data-surface="website"><div className="gate-card">
+      <div className="gate-mark">m</div><h1>{location.pathname === "/" ? "mybrandOS" : "Page not found"}</h1>
+      <p>Create and publish your Digital Life. Visit a creator’s app using their public link.</p>
+      <Link className="btn" to={studioPath("/", window.location.hostname)}>Open Creator Dashboard</Link>
+    </div></main>;
   }
   return <WorkstationRoutes />;
 }

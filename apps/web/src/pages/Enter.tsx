@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { studioHomePath, resolveDigitalLifeRequest } from "@mybrandos/shared";
+import { studioReturnPath } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { api } from "../lib/api";
 
@@ -10,7 +10,6 @@ export function EnterPage() {
   const [error, setError] = useState("");
   const [bypass, setBypass] = useState(false);
   const [entering] = useState(false);
-  const studioHome = studioHomePath(typeof window !== "undefined" ? window.location.hostname : null);
 
   useEffect(() => {
     void api<{ enabled: boolean }>("/auth/bypass")
@@ -19,8 +18,7 @@ export function EnterPage() {
   }, []);
 
   const requested = search.get("returnTo");
-  const safeReturn = requested?.startsWith("/") && !requested.startsWith("//") && !/^\/(enter|auth|admin)(\/|$)/.test(requested)
-    && resolveDigitalLifeRequest(window.location.hostname, requested).surface === "workstation" ? requested : studioHome;
+  const safeReturn = studioReturnPath(requested, window.location.hostname);
   if (!loading && user) return <Navigate to={safeReturn} replace />;
 
   return (
@@ -51,7 +49,7 @@ export function EnterPage() {
           <button
             className="btn ghost"
             onClick={() =>
-              startTrustId().catch((err: Error) =>
+              startTrustId(safeReturn).catch((err: Error) =>
                 setError(err.message || "Trust ID is not bound in this environment."),
               )
             }

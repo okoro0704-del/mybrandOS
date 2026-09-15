@@ -14,8 +14,8 @@ export function brandSlugFromHost(hostname?: string | null): string | null {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !RESERVED_HOSTS.has(slug) ? slug : null;
 }
 
-export function studioBasePath(hostname?: string | null): string {
-  return brandSlugFromHost(hostname) ? BRAND_STUDIO_BASE : "";
+export function studioBasePath(_hostname?: string | null): string {
+  return BRAND_STUDIO_BASE;
 }
 
 export interface DigitalLifeUrlOptions {
@@ -64,6 +64,16 @@ export function studioPath(path = "/", hostname?: string | null): string {
   return digitalLifePath({ surface: "workstation", path, hostname });
 }
 export function studioHomePath(hostname?: string | null): string { return studioPath("/", hostname); }
+
+/** Login may return only to a private path on the requesting host. */
+export function studioReturnPath(requested: string | null | undefined, hostname: string): string {
+  const fallback = studioHomePath(hostname);
+  if (!requested?.startsWith("/") || requested.startsWith("//") || /[\\\u0000-\u0020]|%2e|%2f|%5c/i.test(requested)) return fallback;
+  const parsed = new URL(requested, "https://routing.invalid");
+  if (parsed.origin !== "https://routing.invalid" || /^\/(enter|auth|api|studio)(\/|$)/.test(parsed.pathname)
+    || resolveDigitalLifeRequest(hostname, parsed.pathname).surface !== "workstation") return fallback;
+  return parsed.pathname + parsed.search + parsed.hash;
+}
 export function publicExperiencePath(slug: string): string { return digitalLifePath({ surface: "public_app", slug }); }
 export function publicExperienceBasePath(slug: string, hostname?: string | null): string {
   const path = digitalLifePath({ surface: "public_app", slug, hostname });
@@ -81,7 +91,9 @@ export function resolveDigitalLifeRequest(hostname: string, pathname: string): {
   }
   const publicMatch = /^\/u\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/(.*))?$/.exec(path);
   const slug = publicMatch?.[1] ?? hostSlug;
-  if (!slug) return { surface: "workstation", slug: null, rest: path };
+  // The shared application host is not a tenant. Its root is a public entry,
+  // while explicit /u/:slug URLs select a brand and /admin selects Studio.
+  if (!slug) return { surface: "website", slug: null, rest: path };
   const rest = publicMatch ? publicMatch[2] ?? "" : path.slice(1);
   return { surface: /^website(\/|$)/.test(rest) ? "website" : "public_app", slug, rest };
 }

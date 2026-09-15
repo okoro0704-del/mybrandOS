@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { studioHomePath } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 
 export function CallbackPage() {
@@ -8,8 +7,11 @@ export function CallbackPage() {
   const { completeTrustId } = useIdentity();
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const code = params.get("code");
     const state = params.get("state");
     if (!code || !state) {
@@ -17,7 +19,7 @@ export function CallbackPage() {
       return;
     }
     completeTrustId(code, state)
-      .then(() => navigate(studioHomePath(window.location.hostname), { replace: true }))
+      .then((returnTo) => navigate(returnTo, { replace: true }))
       .catch((err: Error) => setError(err.message));
   }, [completeTrustId, navigate, params]);
 

@@ -28,4 +28,4 @@ export * from "./camera-hardware.js";
 export * from "./digital-life.js";
 export * from "./publish-center.js";
 
-export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, type DigitalLifeUrlOptions } from "./digital-life-urls.js";
+export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, studioReturnPath, type DigitalLifeUrlOptions } from "./digital-life-urls.js";

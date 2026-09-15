@@ -91,8 +91,8 @@ test("brand host locks user app at / and studio under /admin", async () => {
   assert.equal(studioHomePath("mrfundzman.getlifeos.app"), BRAND_STUDIO_BASE);
   assert.equal(studioPath("/create", "mrfundzman.getlifeos.app"), "/admin/create");
   assert.equal(studioPath("/import?as=book", "mrfundzman.getlifeos.app"), "/admin/import?as=book");
-  assert.equal(studioPath("/create", "mybrandos-production.up.railway.app"), "/create");
-  assert.equal(studioHomePath("mybrandos-production.up.railway.app"), "/");
+  assert.equal(studioPath("/create", "mybrandos-production.up.railway.app"), "/admin/create");
+  assert.equal(studioHomePath("mybrandos-production.up.railway.app"), "/admin");
 });
 
 test("brand configuration persists identity, slug, theme, navigation order, and featured order", async () => {

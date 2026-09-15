@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { prisma } from "../lib/prisma.js";
 import { digitalLifePath } from "@mybrandos/shared";
 import { requestBrandSlug } from "../lib/surface.js";
+import { trustIdCallbackUri } from "../lib/auth-origin.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -14,7 +15,7 @@ import {
   revokeSession,
 } from "../lib/auth.js";
 
-const pkceStore = new Map<string, { verifier: string; expiresAt: number }>();
+const pkceStore = new Map<string, { verifier: string; redirectUri: string; expiresAt: number }>();
 
 function sha256Base64Url(value: string): string {
   return createHash("sha256")
@@ -28,7 +29,10 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     if (!session) return;
     const requested = (req.query as { slug?: string }).slug || requestBrandSlug(req);
     const brand = await prisma.personalSpace.findUnique({ where: requested ? { slug: requested } : { ownerId: session.ownerId } });
-    if (requested && (!brand || brand.ownerId !== session.ownerId)) {
+    if (requested && !brand) {
+      return reply.code(404).send({ error: "tenant_not_found", message: "The requested brand could not be resolved." });
+    }
+    if (requested && brand?.ownerId !== session.ownerId) {
       return reply.code(403).send({ error: "forbidden", message: "You cannot manage this brand." });
     }
     return { slug: brand?.slug ?? null, publicEnabled: brand?.publicEnabled ?? false,
@@ -79,19 +83,22 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     trustIdBound: primitives.trustId.bound,
   }));
 
-  app.get("/auth/trustid/start", async (_req, reply) => {
+  app.get("/auth/trustid/start", async (req, reply) => {
     if (!primitives.trustId.bound) {
       return reply.code(503).send({
         error: "trust_id_unbound",
         message: "Trust ID is not bound. Use a local session or set PRIMITIVES_MODE=remote.",
       });
     }
+    const { origin } = z.object({ origin: z.string().optional() }).parse(req.query);
+    const redirectUri = origin ? trustIdCallbackUri(origin, [...config.corsOrigins, config.publicOrigin, new URL(config.trustIdRedirectUri).origin], config.isDev) : config.trustIdRedirectUri;
+    if (!redirectUri) return reply.code(400).send({ error: "invalid_auth_origin", message: "This app origin is not configured for Trust ID sign-in." });
     const verifier = randomBytes(32).toString("base64url");
     const state = randomBytes(16).toString("hex");
-    pkceStore.set(state, { verifier, expiresAt: Date.now() + 10 * 60 * 1000 });
+    pkceStore.set(state, { verifier, redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
     const url = primitives.trustId.authorizeUrl({
       clientId: config.trustIdClientId,
-      redirectUri: config.trustIdRedirectUri,
+      redirectUri,
       scopes: config.trustIdScopes,
       state,
       codeChallenge: sha256Base64Url(verifier),
@@ -108,7 +115,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     }
     const tokens = await primitives.trustId.exchangeCode({
       code: body.code,
-      redirectUri: config.trustIdRedirectUri,
+      redirectUri: stored.redirectUri,
       codeVerifier: stored.verifier,
       clientId: config.trustIdClientId,
     });
