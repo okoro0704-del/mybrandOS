@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import type { HomeGateway } from "@mybrandos/shared";
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, type ProjectStatus, type ProjectType } from "@mybrandos/shared";
 import { api } from "../lib/api";
 import { AssetCard } from "../components/AssetCard";
+import { AppLink, useAppNavigate } from "../lib/paths";
 import { SoftwareInvitations } from "../software/SoftwareInvitations";
+import { useStudio } from "../components/RequireAuth";
+import { publicExperiencePath } from "@mybrandos/shared";
 
 export function HomePage() {
+  const brand = useStudio();
   const [home, setHome] = useState<HomeGateway | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
 
   useEffect(() => {
     void api<HomeGateway>("/home")
@@ -46,15 +49,16 @@ export function HomePage() {
       </header>
 
       <div className="actions" style={{ marginBottom: 16 }}>
-        <Link className="btn" to="/brand/preview">
+        {brand?.slug ? <AppLink className="btn" to={publicExperiencePath(brand.slug)}>View App</AppLink> : null}
+        <AppLink className="btn" to="/brand/preview">
           Preview My Digital Life
-        </Link>
-        <Link className="btn ghost" to="/website">
+        </AppLink>
+        <AppLink className="btn ghost" to="/website">
           Website
-        </Link>
-        <Link className="btn ghost" to="/recording">
+        </AppLink>
+        <AppLink className="btn ghost" to="/recording">
           Recording Studio
-        </Link>
+        </AppLink>
       </div>
 
       <article className="panel" style={{ marginBottom: 16 }}>
@@ -128,7 +132,7 @@ export function HomePage() {
                 <strong>{item.title}</strong>
                 <div className="small muted">{item.detail}</div>
               </div>
-              <Link to={item.href}>Open Watch</Link>
+              <AppLink to={item.href}>Open Watch</AppLink>
             </div>
           ))}
         </article>
@@ -138,12 +142,12 @@ export function HomePage() {
         <div className="eyebrow">Command Center</div>
         <p className="small muted">Create, import, publish, go live, and manage your Digital Life from existing modules.</p>
         <div className="actions">
-          <Link className="btn" to="/command-center">Open Command Center</Link>
-          <Link className="btn ghost" to="/live">Live</Link>
-          <Link className="btn ghost" to="/publish">Publish</Link>
-          <Link className="btn ghost" to="/distribution">Distribute</Link>
-          <Link className="btn ghost" to="/processing">Processing</Link>
-          <Link className="btn ghost" to="/collaboration">Collaboration</Link>
+          <AppLink className="btn" to="/command-center">Open Command Center</AppLink>
+          <AppLink className="btn ghost" to="/live">Live</AppLink>
+          <AppLink className="btn ghost" to="/publish">Publish</AppLink>
+          <AppLink className="btn ghost" to="/distribution">Distribute</AppLink>
+          <AppLink className="btn ghost" to="/processing">Processing</AppLink>
+          <AppLink className="btn ghost" to="/collaboration">Collaboration</AppLink>
         </div>
         {home.commandPreview.slice(0, 3).map((item) => (
           <div className="list-row" key={item.id}>
@@ -151,7 +155,7 @@ export function HomePage() {
               <strong>{item.title}</strong>
               <div className="small muted">{item.detail}</div>
             </div>
-            {item.actionPath ? <Link to={item.actionPath}>Open</Link> : null}
+            {item.actionPath ? <AppLink to={item.actionPath}>Open</AppLink> : null}
           </div>
         ))}
       </article>
@@ -161,8 +165,8 @@ export function HomePage() {
           <div className="eyebrow">Get started</div>
           <p>Your Digital Life is empty. Create something, or import work you already have. Origin is only metadata — imported work is first-class.</p>
           <div className="actions">
-            <Link className="btn" to="/create">Create</Link>
-            <Link className="btn ghost" to="/import">Import</Link>
+            <AppLink className="btn" to="/create">Create</AppLink>
+            <AppLink className="btn ghost" to="/import">Import</AppLink>
           </div>
         </article>
       ) : null}
@@ -179,7 +183,7 @@ export function HomePage() {
                   <strong>{item.title}</strong>
                   <div className="small muted">{item.detail}</div>
                 </div>
-                <Link to={item.href}>Open</Link>
+                <AppLink to={item.href}>Open</AppLink>
               </div>
             ))
           )}
@@ -195,7 +199,7 @@ export function HomePage() {
                   <strong>{item.title}</strong>
                   <div className="small muted">{item.detail}</div>
                 </div>
-                <Link to={item.href}>Open</Link>
+                <AppLink to={item.href}>Open</AppLink>
               </div>
             ))
           )}
@@ -208,11 +212,11 @@ export function HomePage() {
       ) : (
         <div className="grid grid-2" style={{ marginBottom: 16 }}>
           {life?.projects.slice(0, 4).map((project) => (
-            <Link className="panel" key={project.id} to={`/create/${project.id}`}>
+            <AppLink className="panel" key={project.id} to={`/create/${project.id}`}>
               <div className="eyebrow">{PROJECT_TYPE_LABELS[project.projectType as ProjectType] ?? project.projectType}</div>
               <strong>{project.title}</strong>
               <p className="small muted">{PROJECT_STATUS_LABELS[project.status as ProjectStatus] ?? project.status}</p>
-            </Link>
+            </AppLink>
           ))}
         </div>
       )}
@@ -243,7 +247,7 @@ export function HomePage() {
             </div>
           ))
         )}
-        <Link className="small" to="/activity">Open activity</Link>
+        <AppLink className="small" to="/activity">Open activity</AppLink>
       </article>
 
       {(home.workstation?.destinations.length ?? 0) > 0 ? (
@@ -259,12 +263,12 @@ export function HomePage() {
       ) : null}
 
       <div className="actions" style={{ marginTop: "1.2rem" }}>
-        <Link className="btn" to="/create">Create</Link>
-        <Link className="btn ghost" to="/import">Import</Link>
-        <Link className="btn ghost" to="/assets">Assets</Link>
-        <Link className="btn ghost" to="/brand">Brand</Link>
-        <Link className="btn ghost" to="/audience">Audience</Link>
-        <Link className="btn ghost" to="/commerce">Commerce</Link>
+        <AppLink className="btn" to="/create">Create</AppLink>
+        <AppLink className="btn ghost" to="/import">Import</AppLink>
+        <AppLink className="btn ghost" to="/assets">Assets</AppLink>
+        <AppLink className="btn ghost" to="/brand">Brand</AppLink>
+        <AppLink className="btn ghost" to="/audience">Audience</AppLink>
+        <AppLink className="btn ghost" to="/commerce">Commerce</AppLink>
       </div>
     </section>
   );

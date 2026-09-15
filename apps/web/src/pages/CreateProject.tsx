@@ -1,5 +1,6 @@
+import { AppLink as Link, useAppNavigate as useNavigate } from "../lib/paths";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,

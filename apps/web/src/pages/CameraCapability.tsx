@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+
 import { useOsShell } from "../os-shell/OsShellParticipant";
 import { captureBrowserCamera, releaseCameraStream, translateBrowserCameraError } from "../os-shell/camera-execution";
 

@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import type { PersonalSpacePayload } from "@mybrandos/shared";
 import { api } from "../lib/api";
 import { AssetCard } from "../components/AssetCard";

@@ -22,6 +22,8 @@ export function setToken(token: string | null) {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
+  // Preserve browser brand context through Vite and first-party proxies.
+  headers.set("x-mybrandos-host", window.location.hostname);
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData) && !headers.has("content-type")) {

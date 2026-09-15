@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { toIdentity, type PrimitiveBindings } from "@mybrandos/integrations";
-import { normalizeSlug, isReservedSlug } from "@mybrandos/shared";
+import { normalizeSlug, isReservedSlug, digitalLifeUrl, digitalLifePath, publicApplicationUrl } from "@mybrandos/shared";
 import { config } from "../config.js";
 import { issueSession } from "../lib/auth.js";
 import { updateBrandConfig } from "../services/brand-service.js";
@@ -66,18 +66,20 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
         /\/$/,
         "",
       );
-      const brandOrigin = `https://${slug}.getlifeos.app`;
+      const brandOrigin = new URL(publicApplicationUrl(slug)).origin;
       return reply.code(201).send({
         ok: true,
         trustId,
         slug,
         token: issued.token,
-        publicUrl: `${brandOrigin}/`,
-        adminUrl: `${brandOrigin}/admin`,
-        studioUrl: `${brandOrigin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
+        publicUrl: publicApplicationUrl(slug),
+        adminUrl: digitalLifeUrl({ surface: "workstation", slug }),
+        studioUrl: digitalLifeUrl({ surface: "workstation", slug }),
+        lifeosUrl: publicApplicationUrl(slug),
+        xperienceUrl: publicApplicationUrl(slug),
         /** Upstream origins for Portal/Netlify proxy (not user-facing deliverables). */
-        upstreamPublicUrl: `${railwayOrigin}/u/${slug}`,
-        upstreamAdminUrl: `${railwayOrigin}/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(body.displayName)}`,
+        upstreamPublicUrl: `${railwayOrigin}${digitalLifePath({ surface: "public_app", slug })}`,
+        upstreamAdminUrl: `${railwayOrigin}/enter`,
         upstreamStudioUrl: `${railwayOrigin}/`,
       });
     } catch (err) {

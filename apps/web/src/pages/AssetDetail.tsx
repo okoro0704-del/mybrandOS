@@ -1,5 +1,6 @@
+import { AppLink as Link, useAppNavigate as useNavigate } from "../lib/paths";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   ASSET_TYPE_LABELS,
   ORIGIN_LABELS,
@@ -11,6 +12,8 @@ import {
 } from "@mybrandos/shared";
 import { ApiError, api } from "../lib/api";
 import { OriginChip, StatusChip } from "../components/StatusChip";
+import { useStudio } from "../components/RequireAuth";
+import { digitalLifePath } from "@mybrandos/shared";
 
 type Tab =
   | "overview"
@@ -30,6 +33,7 @@ type Tab =
   | "settings";
 
 export function AssetDetailPage() {
+  const brand = useStudio();
   const { id } = useParams();
   const navigate = useNavigate();
   const [intel, setIntel] = useState<AssetIntelligence | null>(null);
@@ -179,7 +183,7 @@ export function AssetDetailPage() {
             ))}
             <div className="eyebrow" style={{ marginTop: 16 }}>Personal Space</div>
             <p>{integrations.find((i) => i.id === "personal-space")?.detail}</p>
-            {asset.status === "PUBLISHED" ? <Link className="btn soft" to="/personal-space">View in Personal Space</Link> : null}
+            {asset.status === "PUBLISHED" && asset.visibility === "public" && brand?.slug && brand.publicEnabled ? <Link className="btn soft" to={digitalLifePath({ surface: "public_app", slug: brand.slug, path: `a/${asset.id}` })}>View Published Post</Link> : null}
           </article>
         </div>
       ) : null}

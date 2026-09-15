@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+
 import {
   ASSET_LIBRARY_CATEGORIES,
   ASSET_ORIGINS,

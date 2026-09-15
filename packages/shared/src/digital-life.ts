@@ -1,3 +1,4 @@
+import { digitalLifePath } from "./digital-life-urls.js";
 /**
  * Digital Life Experience Layer — application/presentation surfaces.
  *
@@ -116,11 +117,11 @@ export const WEBSITE_PAGE_TYPE_LABELS: Record<WebsitePageType, string> = {
 };
 
 export function publicWebsitePath(slug: string): string {
-  return `/u/${slug}/website`;
+  return digitalLifePath({ surface: "website", slug });
 }
 
 export function publicAppPath(slug: string): string {
-  return `/u/${slug}`;
+  return digitalLifePath({ surface: "public_app", slug });
 }
 
 export function feedKindForAsset(asset: PublicAssetCard): FeedItemKind {
@@ -153,7 +154,7 @@ export function buildFeedFromAssets(
     title: asset.title,
     summary: asset.description.slice(0, 220),
     publishedAt: asset.publishedAt,
-    href: `/u/${slug}/a/${asset.id}`,
+    href: digitalLifePath({ surface: "public_app", slug, path: `a/${asset.id}` }),
     assetId: asset.id,
     assetType: asset.assetType,
     coverAvailable: asset.coverAvailable,

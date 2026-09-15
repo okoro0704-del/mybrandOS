@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
-import { publicExperienceBasePath } from "@mybrandos/shared";
+import { publicExperienceBasePath, studioPath } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { ExperienceView } from "../experience/ExperienceView";
 import { parseDigitalLifePath } from "../digital-life/routes";
@@ -21,7 +21,7 @@ export function BrandPreviewPage() {
     return (
       <section className="page">
         <p className="placeholder-note">{error}</p>
-        <Link to="/brand">Back to Brand</Link>
+        <Link to={studioPath("/brand", window.location.hostname)}>Back to Brand</Link>
       </section>
     );
   }
@@ -37,7 +37,7 @@ export function BrandPreviewPage() {
   return (
     <ExperienceView
       experience={experience}
-      basePath="/brand/preview"
+      basePath={studioPath("/brand/preview", window.location.hostname)}
       mediaBase="/api/brand"
       preview
       section={parsed.section}

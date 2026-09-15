@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   MUSIC_AI_ACTIONS,
   MUSIC_COLLECTION_KINDS,

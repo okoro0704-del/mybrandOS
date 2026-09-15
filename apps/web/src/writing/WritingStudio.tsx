@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   PRESENTATION_TYPE_LABELS,
   PROJECT_STATUS_LABELS,
@@ -13,6 +12,7 @@ import {
   type WritingStudioPayload,
 } from "@mybrandos/shared";
 import { ApiError, api } from "../lib/api";
+import { AppLink } from "../lib/paths";
 import { EditorPane } from "../creation/EditorPane";
 import { blockText } from "../creation/types";
 import { AuthMedia } from "../book/AuthMedia";
@@ -158,9 +158,9 @@ export function WritingStudio({ projectId }: { projectId: string }) {
   return (
     <section className="workspace book-studio">
       <header className="workspace-top">
-        <Link className="small" to="/create">
+        <AppLink className="small" to="/create">
           ← Back to mybrandOS
-        </Link>
+        </AppLink>
         <div className="workspace-title">
           <input
             className="title-input"

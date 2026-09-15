@@ -1,5 +1,6 @@
+import { appPath, AppLink as Link } from "../lib/paths";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   WEBSITE_PAGE_TYPE_LABELS,
   WEBSITE_PAGE_TYPES,
@@ -98,7 +99,7 @@ export function WebsitePage() {
           Preview My Digital Life
         </Link>
         {data.publicPath ? (
-          <a className="btn ghost" href={data.publicPath} target="_blank" rel="noreferrer">
+          <a className="btn ghost" href={appPath(data.publicPath!)} target="_blank" rel="noreferrer">
             Open public Website
           </a>
         ) : (

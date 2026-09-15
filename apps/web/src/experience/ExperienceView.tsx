@@ -4,7 +4,7 @@ import {
   ASSET_TYPE_LABELS,
   PRESENTATION_TYPE_LABELS,
   WEBSITE_PAGE_TYPE_LABELS,
-  brandSlugFromHost,
+  studioPath,
   joinPublicPath,
   publicHomePath,
   type AssetType,
@@ -46,13 +46,8 @@ export function ExperienceView({
   primary?: string;
 }) {
   const appNav = experience.appNavigation?.length ? experience.appNavigation : experience.navigation;
-  const onBrandHost =
-    brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null) ===
-    experience.slug;
-  const appBase = onBrandHost ? basePath : experience.surfaces?.appPath || basePath;
-  const websiteBase = onBrandHost
-    ? joinPublicPath(basePath, "website")
-    : experience.surfaces?.websitePath || joinPublicPath(basePath, "website");
+  const appBase = basePath;
+  const websiteBase = joinPublicPath(basePath, "website");
   const collection = appNav.find((item) => item.id === section && item.kind === "collection");
   const collectionAssets =
     section === "podcasts"
@@ -466,7 +461,7 @@ function ManagementBody({
         <div className="panel" style={{ marginTop: 20 }}>
           <div className="eyebrow">Owner</div>
           <p>Open the Workstation to publish, produce, and manage this Digital Life.</p>
-          <Link className="be-btn" to="/">
+          <Link className="be-btn" to={studioPath("/", window.location.hostname)}>
             Open Workstation
           </Link>
         </div>

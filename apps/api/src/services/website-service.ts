@@ -1,3 +1,4 @@
+import { publicWebsitePath } from "@mybrandos/shared";
 import { randomBytes } from "node:crypto";
 import type { TrustIdIdentity } from "@mybrandos/shared";
 import {
@@ -47,7 +48,7 @@ export async function listWebsitePages(identity: TrustIdIdentity) {
   return {
     pages,
     published: publishedWebsitePages(pages),
-    publicPath: space.slug && space.publicEnabled ? `/u/${space.slug}/website` : null,
+    publicPath: space.slug && space.publicEnabled ? publicWebsitePath(space.slug) : null,
     previewPath: "/brand/preview/website",
   };
 }

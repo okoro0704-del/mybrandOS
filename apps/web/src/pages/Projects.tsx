@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,

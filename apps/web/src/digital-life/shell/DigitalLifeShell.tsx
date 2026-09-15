@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { PublicBrandExperience } from "@mybrandos/shared";
+import { studioPath, type PublicBrandExperience } from "@mybrandos/shared";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
@@ -42,6 +42,7 @@ export function DigitalLifeShell({
     <div
       className={`brand-exp digital-life-app digital-life-surface surface-${primary === "website" ? "website" : "app"}`}
       data-bg={theme.background}
+      data-surface={preview ? "studio-preview" : primary === "website" ? "website" : "public_app"}
       data-accent={theme.accent}
       data-type={theme.typography}
       data-buttons={theme.buttons}
@@ -53,7 +54,7 @@ export function DigitalLifeShell({
           <span className="small">
             {experience.publicEnabled ? "PUBLIC is on for visitors." : "Still PRIVATE to visitors."}
           </span>
-          <Link to="/brand">Back to Brand</Link>
+          <Link to={studioPath("/brand", window.location.hostname)}>Back to Brand</Link>
         </div>
       ) : null}
 

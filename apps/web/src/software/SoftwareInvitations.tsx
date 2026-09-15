@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import type { SoftwareInvitation } from "@mybrandos/shared";
 import { api } from "../lib/api";
 

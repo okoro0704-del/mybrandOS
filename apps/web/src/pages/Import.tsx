@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type {
   Asset,
   BookImportReport,

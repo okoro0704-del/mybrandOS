@@ -1,5 +1,13 @@
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
-import { DOCK_NAV, OWNER_SURFACE_NAV, PRIMARY_NAV, SECONDARY_NAV } from "@mybrandos/shared";
+import {
+  DOCK_NAV,
+  OWNER_SURFACE_NAV,
+  PRIMARY_NAV,
+  SECONDARY_NAV,
+  studioPath,
+  digitalLifePath,
+} from "@mybrandos/shared";
+import { useStudio } from "./RequireAuth";
 import { useIdentity } from "../state/identity-store";
 import { useOs } from "../state/os-store";
 import { Icons, type IconName } from "../nav/icons";
@@ -9,15 +17,17 @@ function Item({
   label,
   icon,
   onClick,
+  end,
 }: {
   to: string;
   label: string;
   icon: IconName;
   onClick?: () => void;
+  end?: boolean;
 }) {
   const Icon = Icons[icon];
   return (
-    <NavLink to={to} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} onClick={onClick} end={to === "/"}>
+    <NavLink to={to} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} onClick={onClick} end={end}>
       <Icon />
       <span>{label}</span>
     </NavLink>
@@ -26,37 +36,57 @@ function Item({
 
 export function OsShell() {
   const { user, logout } = useIdentity();
+  const studio = useStudio();
   const { moreOpen, setMoreOpen } = useOs();
   const location = useLocation();
+  const host = typeof window !== "undefined" ? window.location.hostname : null;
+  const s = (path: string) => studioPath(path, host);
+  const studioHome = s("/");
+  const publishBase = s("/publish");
 
   return (
-    <div className="os">
+    <div className="os" data-surface="workstation">
       <aside className="rail">
-        <a className="brand" href="/">
+        <Link className="brand" to={studioHome}>
           <span className="brand-mark">m</span>
           <span>
             <b>mybrandOS</b>
             <span>Digital Life</span>
           </span>
-        </a>
+        </Link>
         <nav className="nav-group">
           <div className="nav-label">Surfaces</div>
-          {OWNER_SURFACE_NAV.map((item) => (
-            <Link key={item.id} to={item.path} className="nav-link" title={item.detail}>
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {studio?.slug ? <Link className="nav-link" to={digitalLifePath({ surface: "public_app", slug: studio.slug, hostname: host })}>View App</Link> : null}
+          {OWNER_SURFACE_NAV.map((item) => {
+            const to =
+              item.id === "digital_life" && studio?.slug
+                ? digitalLifePath({ surface: "public_app", slug: studio.slug, hostname: host })
+                : item.id === "workstation"
+                  ? studioHome
+                  : s(item.path);
+            return (
+              <Link key={item.id} to={to} className="nav-link" title={item.detail}>
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
         <nav className="nav-group">
           <div className="nav-label">Digital Life</div>
           {PRIMARY_NAV.map((item) => (
-            <Item key={item.id} to={item.path} label={item.label} icon={item.icon as IconName} />
+            <Item
+              key={item.id}
+              to={s(item.path)}
+              label={item.label}
+              icon={item.icon as IconName}
+              end={item.path === "/"}
+            />
           ))}
         </nav>
         <nav className="nav-group">
           <div className="nav-label">Workstation</div>
           {SECONDARY_NAV.map((item) => (
-            <Item key={item.id} to={item.path} label={item.label} icon={item.icon as IconName} />
+            <Item key={item.id} to={s(item.path)} label={item.label} icon={item.icon as IconName} />
           ))}
         </nav>
         <div className="rail-foot">
@@ -76,12 +106,17 @@ export function OsShell() {
       <nav className="dock">
         {DOCK_NAV.map((item) => {
           const Icon = Icons[item.icon as IconName];
+          const to = s(item.path);
           return (
             <NavLink
               key={item.id}
-              to={item.path}
+              to={to}
               className={({ isActive }) =>
-                isActive || (item.id === "publish" && location.pathname.startsWith("/publish")) ? "active" : ""
+                isActive ||
+                (item.id === "publish" &&
+                  (location.pathname === publishBase || location.pathname.startsWith(`${publishBase}/`)))
+                  ? "active"
+                  : ""
               }
               end={item.path === "/"}
             >
@@ -106,18 +141,18 @@ export function OsShell() {
       <div className={`more-sheet${moreOpen ? " open" : ""}`} onClick={() => setMoreOpen(false)}>
         <div className="more-panel" onClick={(e) => e.stopPropagation()}>
           <div className="eyebrow">More</div>
-          <Item to="/search" label="Search" icon="assets" onClick={() => setMoreOpen(false)} />
-          <Item to="/import" label="Import" icon="create" onClick={() => setMoreOpen(false)} />
-          <Item to="/command-center" label="Command Center" icon="activity" onClick={() => setMoreOpen(false)} />
-          <Item to="/collaboration" label="Collaboration" icon="projects" onClick={() => setMoreOpen(false)} />
-          <Item to="/processing" label="Processing" icon="analytics" onClick={() => setMoreOpen(false)} />
-          <Item to="/projects" label="Projects" icon="projects" onClick={() => setMoreOpen(false)} />
-          <Item to="/personal-space" label="Personal Space" icon="space" onClick={() => setMoreOpen(false)} />
-          <Item to="/activity" label="Activity" icon="activity" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/search")} label="Search" icon="assets" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/import")} label="Import" icon="create" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/command-center")} label="Command Center" icon="activity" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/collaboration")} label="Collaboration" icon="projects" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/processing")} label="Processing" icon="analytics" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/projects")} label="Projects" icon="projects" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/personal-space")} label="Personal Space" icon="space" onClick={() => setMoreOpen(false)} />
+          <Item to={s("/activity")} label="Activity" icon="activity" onClick={() => setMoreOpen(false)} />
           {SECONDARY_NAV.map((item) => (
             <Item
               key={item.id}
-              to={item.path}
+              to={s(item.path)}
               label={item.label}
               icon={item.icon as IconName}
               onClick={() => setMoreOpen(false)}

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { AppLink } from "../lib/paths";
 import { ASSET_TYPE_LABELS, type Asset } from "@mybrandos/shared";
 import { OriginChip, StatusChip } from "./StatusChip";
 
@@ -8,7 +8,7 @@ function fmt(iso: string) {
 
 export function AssetCard({ asset }: { asset: Asset }) {
   return (
-    <Link className="panel asset-card" to={`/assets/${asset.id}`}>
+    <AppLink className="panel asset-card" to={`/assets/${asset.id}`}>
       <div className="meta">
         <span className="chip">{ASSET_TYPE_LABELS[asset.assetType]}</span>
         <StatusChip status={asset.status} />
@@ -25,6 +25,6 @@ export function AssetCard({ asset }: { asset: Asset }) {
         <span>Created {fmt(asset.createdAt)}</span>
         <span>Updated {fmt(asset.updatedAt)}</span>
       </div>
-    </Link>
+    </AppLink>
   );
 }

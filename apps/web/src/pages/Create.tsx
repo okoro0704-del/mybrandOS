@@ -1,5 +1,5 @@
+import { appPath } from "../lib/paths";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   CREATE_LAUNCHER_TYPES,
   CREATE_MODES,
@@ -8,6 +8,7 @@ import {
   type CreateMode,
 } from "@mybrandos/shared";
 import { api } from "../lib/api";
+import { useAppNavigate } from "../lib/paths";
 import { SoftwareInvitations } from "../software/SoftwareInvitations";
 
 const MODE_LABELS: Record<CreateMode, string> = {
@@ -19,7 +20,7 @@ const MODE_LABELS: Record<CreateMode, string> = {
 export function CreatePage() {
   const [mode, setMode] = useState<CreateMode>("MANUAL");
   const [busy, setBusy] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
 
   async function launch(projectType: CreateLauncherType, writingForm?: "POST") {
     const busyKey = writingForm === "POST" ? "POST" : projectType;
@@ -45,9 +46,7 @@ export function CreatePage() {
                 : projectType === "MUSIC"
                   ? "/import?as=music"
                   : projectType === "WRITING"
-                    ? writingForm === "POST"
-                      ? "/import?as=writing"
-                      : "/import?as=writing"
+                    ? "/import?as=writing"
                     : projectType === "SOFTWARE"
                       ? "/import?as=software"
                       : "/import",
@@ -72,7 +71,7 @@ export function CreatePage() {
         <p>
           Every type uses the same Creation Engine. Post, Book, Course, Video, Music, Writing, and Software
           open specialized studios. Capture new media in{" "}
-          <a href="/recording">Recording Studio</a>. Work manually, or ask AI when you want help.
+          <a href={appPath("/recording")}>Recording Studio</a>. Work manually, or ask AI when you want help.
         </p>
       </header>
 

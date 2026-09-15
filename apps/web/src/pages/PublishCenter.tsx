@@ -1,5 +1,6 @@
+import { AppLink as Link, useAppNavigate as useNavigate } from "../lib/paths";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+
 import {
   ASSET_TYPE_LABELS,
   DEFAULT_PUBLISH_RIGHTS,
@@ -682,13 +683,9 @@ export function PublishCenterPage() {
           <p className="muted">{result.detail}</p>
           {result.publicPath ? (
             <Link className="btn" to={result.publicPath}>
-              View in mybrandOS
+              View Published Post
             </Link>
-          ) : (
-            <Link className="btn" to="/brand/preview">
-              View in mybrandOS
-            </Link>
-          )}
+          ) : null}
           {result.status === "PUBLISHED" ? (
             <button className="btn ghost" onClick={() => setStep("distribute")}>
               Distribute to External Platforms

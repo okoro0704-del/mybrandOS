@@ -1,5 +1,6 @@
+import { AppLink as Link, useAppNavigate as useNavigate } from "../lib/paths";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   COURSE_AI_ACTIONS,
   COURSE_LESSON_STATUSES,

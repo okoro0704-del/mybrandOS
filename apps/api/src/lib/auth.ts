@@ -5,6 +5,7 @@ import { toIdentity, type PrimitiveBindings } from "@mybrandos/integrations";
 import { config } from "../config.js";
 import { prisma } from "./prisma.js";
 import { readJson } from "./json.js";
+import { requestBrandSlug } from "./surface.js";
 
 export type AuthedIdentity = {
   ownerId: string;
@@ -103,6 +104,20 @@ export async function requireIdentity(
   if (!identity) {
     reply.code(401).send({ error: "unauthorized", message: "Sign in with Trust ID to continue." });
     return null;
+  }
+  if (identity.identity.status === "suspended" || identity.identity.status === "deleted") {
+    reply.code(403).send({ error: "forbidden" });
+    return null;
+  }
+  // Public participation uses its own identity policy. Every private API is tenant-bound.
+  const pathname = req.url.replace(/^\/api(?=\/)/, "").split("?")[0]!;
+  const slug = requestBrandSlug(req);
+  if (slug && !/^\/(public|me)(\/|$)/.test(pathname)) {
+    const brand = await prisma.personalSpace.findUnique({ where: { slug }, select: { ownerId: true } });
+    if (!brand || brand.ownerId !== identity.ownerId) {
+      reply.code(403).send({ error: "forbidden", message: "You cannot manage this brand." });
+      return null;
+    }
   }
   return identity;
 }

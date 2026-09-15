@@ -1,5 +1,6 @@
+import { appPath, AppLink as Link } from "../lib/paths";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   ASSET_TYPE_LABELS,
   BRAND_ACCENTS,
@@ -108,7 +109,7 @@ export function BrandPage() {
       <div className="actions" style={{ marginBottom: 16 }}>
         <Link className="btn" to="/brand/preview">Preview</Link>
         {brand.publicEnabled && brand.publicPath ? (
-          <a className="btn ghost" href={brand.publicPath}>Open public experience</a>
+          <a className="btn ghost" href={appPath(brand.publicPath!)}>Open public experience</a>
         ) : (
           <span className="small muted">Public experience is off until you enable it.</span>
         )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import { studioHomePath, resolveDigitalLifeRequest } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { api } from "../lib/api";
 
@@ -8,7 +9,8 @@ export function EnterPage() {
   const [search] = useSearchParams();
   const [error, setError] = useState("");
   const [bypass, setBypass] = useState(false);
-  const [entering, setEntering] = useState(false);
+  const [entering] = useState(false);
+  const studioHome = studioHomePath(typeof window !== "undefined" ? window.location.hostname : null);
 
   useEffect(() => {
     void api<{ enabled: boolean }>("/auth/bypass")
@@ -16,19 +18,10 @@ export function EnterPage() {
       .catch(() => setBypass(false));
   }, []);
 
-  useEffect(() => {
-    if (loading || user || entering) return;
-    if (search.get("wl") !== "1") return;
-    const trustId = search.get("trustId") ?? undefined;
-    const displayName = search.get("name") ?? undefined;
-    setEntering(true);
-    void enterLocal({ trustId, displayName }).catch((err: Error) => {
-      setError(err.message || "Could not open your white-label studio.");
-      setEntering(false);
-    });
-  }, [loading, user, entering, search, enterLocal]);
-
-  if (!loading && user) return <Navigate to="/" replace />;
+  const requested = search.get("returnTo");
+  const safeReturn = requested?.startsWith("/") && !requested.startsWith("//") && !/^\/(enter|auth|admin)(\/|$)/.test(requested)
+    && resolveDigitalLifeRequest(window.location.hostname, requested).surface === "workstation" ? requested : studioHome;
+  if (!loading && user) return <Navigate to={safeReturn} replace />;
 
   return (
     <div className="gate">
@@ -41,7 +34,7 @@ export function EnterPage() {
           not duplicate those systems — it is the gateway.
         </p>
         <div className="actions" style={{ marginTop: "1.4rem" }}>
-          {(bypass || search.get("wl") === "1") ? (
+          {bypass ? (
             <button
               className="btn"
               disabled={entering}

@@ -1,5 +1,5 @@
-import { Navigate, Route, Routes, useParams } from "react-router-dom";
-import { brandSlugFromHost } from "@mybrandos/shared";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { resolveDigitalLifeRequest, studioPath } from "@mybrandos/shared";
 import { OsShell } from "./components/OsShell";
 import { RequireAuth } from "./components/RequireAuth";
 import { AssetDetailPage } from "./pages/AssetDetail";
@@ -37,90 +37,66 @@ import {
   SettingsPage,
 } from "./pages/SystemPages";
 
-function BrandAdminEnter({ slug }: { slug: string }) {
-  const trustId = `TD-WL-${slug.toUpperCase().replace(/-/g, "")}`.slice(0, 80);
-  const to = `/enter?wl=1&trustId=${encodeURIComponent(trustId)}&name=${encodeURIComponent(slug)}`;
-  return <Navigate to={to} replace />;
-}
-
-function BrandHostPublic() {
-  const { "*": rest } = useParams();
-  const slug = brandSlugFromHost(window.location.hostname);
-  if (!slug) return <Navigate to="/" replace />;
-  return <PublicExperiencePage slugOverride={slug} restOverride={rest} />;
-}
-
 function WorkstationRoutes() {
+  const s = (path: string) => studioPath(path, window.location.hostname);
   return (
     <Routes>
       <Route path="/enter" element={<EnterPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/create" element={<CreatePage />} />
-          <Route path="/create/:id" element={<CreateProjectPage />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/assets" element={<AssetsPage />} />
-          <Route path="/assets/:id" element={<AssetDetailPage />} />
-          <Route path="/audience" element={<AudiencePage />} />
-          <Route path="/commerce" element={<CommercePage />} />
-          <Route path="/personal-space" element={<PersonalSpacePage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/live" element={<LiveCenterPage />} />
-          <Route path="/recording" element={<RecordingListPage />} />
-          <Route path="/recording/:id" element={<RecordingStudioPage />} />
-          <Route path="/production" element={<ProductionListPage />} />
-          <Route path="/production/:id" element={<ProductionStudioPage />} />
-          <Route path="/processing" element={<ProcessingPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
-          <Route path="/brand" element={<BrandPage />} />
-          <Route path="/website" element={<WebsitePage />} />
-          <Route path="/command-center" element={<CommandCenterPage />} />
-          <Route path="/collaboration" element={<CollaborationPage />} />
-          <Route path="/elfcom" element={<ElfComPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/money" element={<MoneyPage />} />
-          <Route path="/publish" element={<PublishCenterPage />} />
-          <Route path="/publish/*" element={<PublishCenterPage />} />
-          <Route path="/distribution" element={<DistributionPage />} />
-          <Route path="/ai" element={<AiPage />} />
-          <Route path="/system" element={<SettingsPage />} />
-          <Route path="/system/camera" element={<CameraCapabilityPage />} />
-          <Route path="/settings" element={<Navigate to="/system" replace />} />
+          <Route path={s("/")} element={<HomePage />} />
+          <Route path={s("/create")} element={<CreatePage />} />
+          <Route path={s("/create/:id")} element={<CreateProjectPage />} />
+          <Route path={s("/import")} element={<ImportPage />} />
+          <Route path={s("/search")} element={<SearchPage />} />
+          <Route path={s("/assets")} element={<AssetsPage />} />
+          <Route path={s("/assets/:id")} element={<AssetDetailPage />} />
+          <Route path={s("/audience")} element={<AudiencePage />} />
+          <Route path={s("/commerce")} element={<CommercePage />} />
+          <Route path={s("/personal-space")} element={<PersonalSpacePage />} />
+          <Route path={s("/projects")} element={<ProjectsPage />} />
+          <Route path={s("/live")} element={<LiveCenterPage />} />
+          <Route path={s("/recording")} element={<RecordingListPage />} />
+          <Route path={s("/recording/:id")} element={<RecordingStudioPage />} />
+          <Route path={s("/production")} element={<ProductionListPage />} />
+          <Route path={s("/production/:id")} element={<ProductionStudioPage />} />
+          <Route path={s("/processing")} element={<ProcessingPage />} />
+          <Route path={s("/activity")} element={<ActivityPage />} />
+          <Route path={s("/brand")} element={<BrandPage />} />
+          <Route path={s("/website")} element={<WebsitePage />} />
+          <Route path={s("/command-center")} element={<CommandCenterPage />} />
+          <Route path={s("/collaboration")} element={<CollaborationPage />} />
+          <Route path={s("/elfcom")} element={<ElfComPage />} />
+          <Route path={s("/analytics")} element={<AnalyticsPage />} />
+          <Route path={s("/money")} element={<MoneyPage />} />
+          <Route path={s("/publish")} element={<PublishCenterPage />} />
+          <Route path={s("/publish/*")} element={<PublishCenterPage />} />
+          <Route path={s("/distribution")} element={<DistributionPage />} />
+          <Route path={s("/ai")} element={<AiPage />} />
+          <Route path={s("/system")} element={<SettingsPage />} />
+          <Route path={s("/system/camera")} element={<CameraCapabilityPage />} />
+          <Route path={s("/settings")} element={<Navigate to={s("/system")} replace />} />
+          <Route path={s("/*")} element={<section className="page"><h1>Studio page not found</h1></section>} />
         </Route>
-        <Route path="/brand/preview" element={<BrandPreviewPage />} />
-        <Route path="/brand/preview/*" element={<BrandPreviewPage />} />
+        <Route path={s("/brand/preview")} element={<BrandPreviewPage />} />
+        <Route path={s("/brand/preview/*")} element={<BrandPreviewPage />} />
         <Route path="/production/join/:code" element={<ProductionJoinPage />} />
         <Route path="/preview/:code" element={<PreviewJoinPage />} />
       </Route>
-      <Route path="/u/:slug" element={<PublicExperiencePage />} />
-      <Route path="/u/:slug/*" element={<PublicExperiencePage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
-/**
- * On `{slug}.getlifeos.app` the public Digital Life is the product at `/`.
- * Workstation stays on the Railway origin (or /enter on this host for admin).
- */
+
 export function App() {
-  const brandSlug = brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null);
-  if (brandSlug) {
-    return (
-      <Routes>
-        <Route path="/enter" element={<EnterPage />} />
-        <Route path="/auth/callback" element={<CallbackPage />} />
-        <Route path="/admin" element={<BrandAdminEnter slug={brandSlug} />} />
-        <Route path="/admin/*" element={<BrandAdminEnter slug={brandSlug} />} />
-        <Route path="/u/:slug" element={<PublicExperiencePage />} />
-        <Route path="/u/:slug/*" element={<PublicExperiencePage />} />
-        <Route path="/" element={<PublicExperiencePage slugOverride={brandSlug} restOverride="" />} />
-        <Route path="/*" element={<BrandHostPublic />} />
-      </Routes>
-    );
+  const location = useLocation();
+  const context = resolveDigitalLifeRequest(window.location.hostname, location.pathname);
+  if (context.surface !== "workstation" && context.slug) {
+    return <PublicExperiencePage key={context.slug} slugOverride={context.slug} restOverride={context.rest} />;
+  }
+  if (/^\/admin(\/|$)/.test(location.pathname)) {
+    return <Navigate to={studioPath(location.pathname.slice(6) || "/", window.location.hostname)} replace />;
   }
   return <WorkstationRoutes />;
 }

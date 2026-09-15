@@ -3,6 +3,9 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { toIdentity, type PrimitiveBindings } from "@mybrandos/integrations";
 import { config } from "../config.js";
+import { prisma } from "../lib/prisma.js";
+import { digitalLifePath } from "@mybrandos/shared";
+import { requestBrandSlug } from "../lib/surface.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -20,6 +23,17 @@ function sha256Base64Url(value: string): string {
 }
 
 export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
+  app.get("/auth/studio", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const requested = (req.query as { slug?: string }).slug || requestBrandSlug(req);
+    const brand = await prisma.personalSpace.findUnique({ where: requested ? { slug: requested } : { ownerId: session.ownerId } });
+    if (requested && (!brand || brand.ownerId !== session.ownerId)) {
+      return reply.code(403).send({ error: "forbidden", message: "You cannot manage this brand." });
+    }
+    return { slug: brand?.slug ?? null, publicEnabled: brand?.publicEnabled ?? false,
+      publicPath: brand?.slug ? digitalLifePath({ surface: "public_app", slug: brand.slug }) : null };
+  });
   app.get("/auth/me", async (req, reply) => {
     const session = await resolveRequestIdentity(req, primitives);
     if (!session) {
@@ -29,7 +43,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
   });
 
   app.post("/auth/dev-session", async (req, reply) => {
-    const bypassAllowed = config.authBypass || (config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound);
+    const bypassAllowed = config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound;
     if (!bypassAllowed) {
       return reply.code(403).send({
         error: "trust_id_required",
@@ -61,7 +75,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
   });
 
   app.get("/auth/bypass", async () => ({
-    enabled: config.authBypass,
+    enabled: config.isDev && config.primitivesMode === "local" && !primitives.trustId.bound,
     trustIdBound: primitives.trustId.bound,
   }));
 

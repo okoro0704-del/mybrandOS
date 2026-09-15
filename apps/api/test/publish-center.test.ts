@@ -72,7 +72,7 @@ test("dock navigation is Home / Create / Publish / Assets / More", () => {
     ["home", "create", "publish", "assets"],
   );
   assert.equal(DOCK_NAV.find((item) => item.id === "publish")?.path, "/publish");
-  assert.equal(MYBRANDOS_VERSION, "0.24.0");
+  assert.equal(MYBRANDOS_VERSION, "0.25.0");
 });
 
 test("publish categories and sources are honest", async () => {

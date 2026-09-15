@@ -85,6 +85,16 @@ test("creator navigation remains separate from public navigation", () => {
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 
+test("brand host locks user app at / and studio under /studio", async () => {
+  const { brandSlugFromHost, studioHomePath, studioPath, BRAND_STUDIO_BASE } = await import("@mybrandos/shared");
+  assert.equal(brandSlugFromHost("mrfundzman.getlifeos.app"), "mrfundzman");
+  assert.equal(studioHomePath("mrfundzman.getlifeos.app"), BRAND_STUDIO_BASE);
+  assert.equal(studioPath("/create", "mrfundzman.getlifeos.app"), "/studio/create");
+  assert.equal(studioPath("/import?as=book", "mrfundzman.getlifeos.app"), "/studio/import?as=book");
+  assert.equal(studioPath("/create", "mybrandos-production.up.railway.app"), "/create");
+  assert.equal(studioHomePath("mybrandos-production.up.railway.app"), "/");
+});
+
 test("brand configuration persists identity, slug, theme, navigation order, and featured order", async () => {
   const book = await createAsset({
     ownerId: OWNER,

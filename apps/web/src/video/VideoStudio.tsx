@@ -1,5 +1,6 @@
+import { AppLink as Link } from "../lib/paths";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   PROJECT_STATUS_LABELS,
   VIDEO_AI_ACTIONS,

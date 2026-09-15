@@ -172,7 +172,9 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerPublishRoutes(instance, primitives);
 }
 
-await registerApiSurface(app, { includeHealth: false });
+// Root browser routes cannot also be JSON API routes in the deployed SPA.
+if (config.isDev) await registerApiSurface(app, { includeHealth: false });
+else registerWhiteLabelRoutes(app, primitives);
 await app.register(async (scoped) => {
   await registerApiSurface(scoped as typeof app);
 }, { prefix: "/api" });
@@ -182,7 +184,7 @@ const publicOrigin =
   (config.corsOrigins[0] && !config.corsOrigins[0].includes("localhost") ? config.corsOrigins[0] : "") ||
   "http://127.0.0.1:5176";
 
-await registerStaticWeb(app, publicOrigin);
+await registerStaticWeb(app, publicOrigin, primitives);
 
 const shutdown = async () => {
   await app.close();

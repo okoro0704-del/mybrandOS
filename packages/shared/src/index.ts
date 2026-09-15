@@ -1,4 +1,4 @@
-export const MYBRANDOS_VERSION = "0.24.0";
+export const MYBRANDOS_VERSION = "0.25.0";
 export const MYBRANDOS_NAME = "mybrandOS";
 export const MYBRANDOS_PURPOSE = "Gateway to a person's Digital Life";
 
@@ -27,3 +27,5 @@ export * from "./recording.js";
 export * from "./camera-hardware.js";
 export * from "./digital-life.js";
 export * from "./publish-center.js";
+
+export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, type DigitalLifeUrlOptions } from "./digital-life-urls.js";

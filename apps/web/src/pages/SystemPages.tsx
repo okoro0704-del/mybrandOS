@@ -1,5 +1,7 @@
+import { appPath } from "../lib/paths";
+import { AppLink as Link } from "../lib/paths";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+
 import type { AppCapability, PrimitiveHealth, PublishingCenterPayload } from "@mybrandos/shared";
 import { api } from "../lib/api";
 import { useIdentity } from "../state/identity-store";
@@ -229,11 +231,11 @@ export function SettingsPage() {
       </div>
       <div className="actions" style={{ marginTop: 16 }}>
         <Link className="btn ghost" to="/system/camera">Camera capability</Link>
-        <a className="btn ghost" href="/elfcom">Messaging</a>
-        <a className="btn ghost" href="/money">Payments</a>
-        <a className="btn ghost" href="/distribution">Distribution</a>
-        <a className="btn ghost" href="/processing">Processing</a>
-        <a className="btn ghost" href="/analytics">Analytics</a>
+        <a className="btn ghost" href={appPath("/elfcom")}>Messaging</a>
+        <a className="btn ghost" href={appPath("/money")}>Payments</a>
+        <a className="btn ghost" href={appPath("/distribution")}>Distribution</a>
+        <a className="btn ghost" href={appPath("/processing")}>Processing</a>
+        <a className="btn ghost" href={appPath("/analytics")}>Analytics</a>
       </div>
       <button className="btn ghost" style={{ marginTop: 16 }} onClick={() => void logout()}>
         Sign out

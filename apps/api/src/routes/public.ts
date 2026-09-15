@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
-import type { BrandMediaSlot } from "@mybrandos/shared";
-import { config } from "../config.js";
+import { digitalLifePath, publicApplicationUrl, type BrandMediaSlot } from "@mybrandos/shared";
+import { requestBrandSlug } from "../lib/surface.js";
 import {
   getPublicAsset,
   getPublicAssetCover,
@@ -33,15 +33,10 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
   app.get("/public/:slug/manifest.webmanifest", async (req, reply) => {
     const { slug } = req.params as { slug: string };
     const experience = await getPublicBrandExperience(slug, primitives);
-    const forwardedHost = String(req.headers["x-forwarded-host"] || req.headers.host || "")
-      .split(",")[0]
-      ?.trim()
-      .toLowerCase();
-    const onBrandHost = forwardedHost === `${slug}.getlifeos.app`;
-    const origin = onBrandHost
-      ? `https://${slug}.getlifeos.app`
-      : (config.publicOrigin || "").replace(/\/$/, "") || "";
-    const startPath = onBrandHost ? "/" : `/u/${slug}/`;
+    const onBrandHost = requestBrandSlug(req) === slug;
+    const host = onBrandHost ? new URL(publicApplicationUrl(slug)).hostname : "";
+    const startPath = digitalLifePath({ surface: "public_app", slug, hostname: host });
+    const origin = "";
     const name = experience.identity.displayName || slug;
     const iconSrc = experience.identity.hasLogo
       ? `${origin}/api/public/${slug}/media/logo`
@@ -54,8 +49,8 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
         short_name: name.slice(0, 24),
         description: experience.identity.tagline || `${name} Digital Life`,
         start_url: startPath,
-        scope: onBrandHost ? "/" : `/u/${slug}/`,
-        id: onBrandHost ? `https://${slug}.getlifeos.app/` : `/u/${slug}/`,
+        scope: startPath === "/" ? "/" : `${startPath}/`,
+        id: startPath,
         display: "standalone",
         orientation: "any",
         background_color: BG_HEX[experience.theme.background] ?? "#0b0c10",

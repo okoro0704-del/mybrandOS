@@ -7,7 +7,7 @@ import {
   assetTypesForContentFormat,
   assetTypesForPublishCategory,
   parsePresentationTypes,
-  publicExperiencePath,
+  digitalLifePath,
   type PublishCandidate,
   type PublishCategoryId,
   type PublishCategoryInfo,
@@ -364,12 +364,8 @@ export async function executePublish(
   });
 
   const space = await prisma.personalSpace.findUnique({ where: { ownerId } });
-  const publicPath =
-    input.visibility === "public" && space?.publicEnabled && space.slug
-      ? publicExperiencePath(space.slug)
-      : space?.slug
-        ? publicExperiencePath(space.slug)
-        : null;
+  const publicPath = input.visibility === "public" && space?.publicEnabled && space.slug
+    ? digitalLifePath({ surface: "public_app", slug: space.slug, path: `a/${asset.id}` }) : null;
 
   return {
     assetId: asset.id,
