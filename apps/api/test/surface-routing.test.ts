@@ -58,8 +58,8 @@ for (const hostname of [host, `${slug}.localhost`, "localhost", "mybrandos-produ
   });
 }
 test("Studio unknown routes and aliases never enter the public fallback", () => {
-  for (const path of ["/studio", "/studio/no-such-page", "/admin", "/enter", "/auth/callback"]) assert.equal(resolveDigitalLifeRequest(host, path).surface, "workstation");
-  assert.equal(studioPath("/studio/create?tab=publish", host), "/studio/create?tab=publish");
+  for (const path of ["/admin", "/admin/no-such-page", "/enter", "/auth/callback"]) assert.equal(resolveDigitalLifeRequest(host, path).surface, "workstation");
+  assert.equal(studioPath("/admin/create?tab=publish", host), "/admin/create?tab=publish");
   assert.throws(() => digitalLifePath({ surface: "public_app", slug, hostname: host, path: "studio" }));
   assert.throws(() => digitalLifePath({ surface: "public_app", slug, path: "../studio" }));
 });

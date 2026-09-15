@@ -95,8 +95,5 @@ export function App() {
   if (context.surface !== "workstation" && context.slug) {
     return <PublicExperiencePage key={context.slug} slugOverride={context.slug} restOverride={context.rest} />;
   }
-  if (/^\/admin(\/|$)/.test(location.pathname)) {
-    return <Navigate to={studioPath(location.pathname.slice(6) || "/", window.location.hostname)} replace />;
-  }
   return <WorkstationRoutes />;
 }

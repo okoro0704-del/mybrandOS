@@ -2,7 +2,7 @@ import type { DigitalLifeSurface } from "./digital-life.js";
 
 /** Routing identity is a property of the URL, never of the signed-in identity. */
 export const BRAND_ROOT_DOMAIN = "getlifeos.app";
-export const BRAND_STUDIO_BASE = "/studio";
+export const BRAND_STUDIO_BASE = "/admin";
 const RESERVED_HOSTS = new Set(["www", "admin", "studio", "hospitality", "trust", "business", "api", "transportation", "e-commerce", "ecommerce"]);
 
 export function brandSlugFromHost(hostname?: string | null): string | null {
@@ -38,7 +38,7 @@ export function digitalLifePath({ surface, slug, hostname, path = "" }: DigitalL
   let base: string;
   if (surface === "workstation") {
     base = studioBasePath(hostname);
-    if (base && (rest === "studio" || rest.startsWith("studio/"))) rest = rest.slice(6).replace(/^\//, "");
+    if (base && (rest === "admin" || rest.startsWith("admin/"))) rest = rest.slice(5).replace(/^\//, "");
   } else {
     if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("A valid brand slug is required for public destinations.");
     base = hostSlug === slug ? "" : `/u/${slug}`;
