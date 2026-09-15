@@ -182,88 +182,37 @@ function AppHomeBody({
     selected === "live" || selected === "products"
       ? []
       : assetsForSpecialtyChip(experience.publishedAssets, selected);
-  const hero = selected === plan.primaryChipId ? plan.heroAsset : stream[0] || null;
-  const heroActionLabel =
-    plan.heroAction === "watch"
-      ? "Watch"
-      : plan.heroAction === "listen"
-        ? "Listen"
-        : plan.heroAction === "read"
-          ? "Read"
-          : plan.heroAction === "learn"
-            ? "Learn"
-            : plan.heroAction === "open"
-              ? "Open"
-              : plan.heroAction === "shop"
-                ? "Shop"
-                : plan.heroAction === "live"
-                  ? "Join live"
-                  : "Explore";
 
   return (
     <>
-      {sections.length ? (
-        <nav className="dl-section-bar" aria-label="Creator experiences">
-          {sections.map((chip) => (
-            <button
-              key={chip.id}
-              type="button"
-              className={selected === chip.id ? "active" : ""}
-              aria-current={selected === chip.id ? "true" : undefined}
-              onClick={() => setActiveChip(chip.id)}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </nav>
-      ) : null}
+      <nav className="dl-section-bar" aria-label="Creator sections">
+        {sections.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            className={selected === chip.id ? "active" : ""}
+            aria-current={selected === chip.id ? "true" : undefined}
+            onClick={() => setActiveChip(chip.id)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </nav>
 
-      <section className="dl-hero dl-hero-sticky">
-        <div className="dl-hero-copy">
-          <p className="eyebrow">{plan.specialty === "mixed" ? "Digital Life" : plan.specialty}</p>
-          <h1>{name}</h1>
-          {experience.identity.tagline ? <p className="be-lead">{experience.identity.tagline}</p> : null}
-        </div>
-        {experience.liveNow && (selected === "live" || selected === plan.primaryChipId) ? (
-          <aside className="dl-live-banner">
-            <div className="eyebrow">LIVE NOW</div>
-            <h2>{experience.liveNow.title}</h2>
-            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
-              Join live
-            </Link>
-          </aside>
-        ) : hero ? (
-          <article className="dl-hero-feature">
-            {hero.coverAvailable ? (
-              <img src={`${mediaBase}/assets/${hero.id}/cover`} alt="" className="dl-hero-cover" />
-            ) : (
-              <div className="dl-hero-cover dl-hero-cover-fallback" aria-hidden />
-            )}
-            <div className="dl-hero-feature-copy">
-              <div className="eyebrow">Featured</div>
-              <h2>{hero.title}</h2>
-              {hero.description ? <p className="muted">{hero.description.slice(0, 160)}</p> : null}
-              <div className="dl-hero-actions">
-                <Link className="be-btn" to={assetDetailPath(basePath, hero.id)}>
-                  {heroActionLabel}
-                </Link>
-                {experience.cta ? (
-                  <a className="be-btn be-btn-ghost" href={experience.cta.href}>
-                    {experience.cta.label}
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </article>
-        ) : experience.publishedAssets.length === 0 ? (
-          <p className="dl-empty">{name} is getting ready. Check back soon.</p>
-        ) : null}
-      </section>
+      {experience.liveNow && selected === "live" ? (
+        <aside className="dl-live-banner">
+          <div className="eyebrow">LIVE NOW</div>
+          <h2>{experience.liveNow.title}</h2>
+          <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
+            Join live
+          </Link>
+        </aside>
+      ) : null}
 
       {selected === "products" ? (
         <StoreBody experience={experience} basePath={basePath} mediaBase={mediaBase} />
       ) : selected === "live" ? (
-        <section>
+        <section className="dl-section-panel">
           <h2>Live</h2>
           {experience.liveNow ? (
             <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
@@ -274,39 +223,16 @@ function AppHomeBody({
           )}
         </section>
       ) : (
-        <section>
-          <div className="dl-section-head">
-            <h2>{sections.find((c) => c.id === selected)?.label ?? "Experience"}</h2>
-            {sections.find((c) => c.id === selected)?.path ? (
-              <Link to={sections.find((c) => c.id === selected)!.path}>See all</Link>
-            ) : null}
-          </div>
+        <section className="dl-section-panel">
           {experience.publishedAssets.length === 0 ? (
             <p className="dl-empty">{name} has not published work yet.</p>
           ) : stream.length === 0 ? (
             <p className="muted">Nothing in this section yet.</p>
           ) : (
-            <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} />
+            <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} explore />
           )}
         </section>
       )}
-
-      {plan.continueSections.length && selected === plan.primaryChipId ? (
-        <section className="dl-continue">
-          <h2>Continue exploring</h2>
-          {plan.continueSections.map((lane) => (
-            <div key={lane.id} className="dl-continue-lane">
-              <div className="dl-section-head">
-                <h3>{lane.label}</h3>
-                <button type="button" className="linkish" onClick={() => setActiveChip(lane.id)}>
-                  Open
-                </button>
-              </div>
-              <WorkGrid assets={lane.assets} basePath={basePath} mediaBase={mediaBase} experience={experience} />
-            </div>
-          ))}
-        </section>
-      ) : null}
 
       <section className="dl-home-destinations">
         <h2>More of this world</h2>
@@ -826,6 +752,7 @@ function WorkGrid({
   mediaBase,
   experience,
   large,
+  explore,
 }: {
   title?: string;
   empty?: string;
@@ -834,6 +761,7 @@ function WorkGrid({
   mediaBase: string;
   experience: PublicBrandExperience;
   large?: boolean;
+  explore?: boolean;
 }) {
   return (
     <section>
@@ -842,8 +770,9 @@ function WorkGrid({
       <div className={`be-grid${large ? " dl-grid-featured" : ""}`}>
         {assets.map((asset) => {
           const offer = offerFor(experience, asset.id);
-          const cta =
-            asset.assetType === "MUSIC"
+          const cta = explore
+            ? "Explore"
+            : asset.assetType === "MUSIC"
               ? "Play"
               : asset.assetType === "VIDEO"
                 ? "Play"
@@ -857,7 +786,7 @@ function WorkGrid({
               {asset.coverAvailable && asset.assetType !== "VIDEO" ? (
                 <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" />
               ) : (
-                <div className="be-card-fallback">{ASSET_TYPE_LABELS[asset.assetType]}</div>
+                <div className="be-card-fallback" aria-hidden />
               )}
               <div>
                 <div className="eyebrow">

@@ -312,7 +312,8 @@ export function BrandPage() {
       <article className="panel" style={{ marginTop: 16 }}>
         <div className="eyebrow">Creator-aware public landing</div>
         <p className="small muted">
-          Choose what visitors experience first. Unavailable sections stay hidden. Preference never invents content.
+          The public Home always shows the section bar (Books, Writing, Videos…). Your creator type reorders it —
+          singers lead with Audio/Videos, developers with Software/Courses. Primary experience selects which tab opens first when that section has published work.
         </p>
         <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
           <label className="field">

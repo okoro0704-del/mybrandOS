@@ -64,8 +64,8 @@ export interface BrandTheme {
 
 export const DEFAULT_BRAND_THEME: BrandTheme = {
   typography: "mixed",
-  background: "ink",
-  accent: "gold",
+  background: "paper",
+  accent: "ocean",
   buttons: "rounded",
   density: "comfortable",
 };

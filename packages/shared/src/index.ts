@@ -1,4 +1,4 @@
-export const MYBRANDOS_VERSION = "0.25.0";
+export const MYBRANDOS_VERSION = "0.26.0";
 export const MYBRANDOS_NAME = "mybrandOS";
 export const MYBRANDOS_PURPOSE = "Gateway to a person's Digital Life";
 

@@ -47,7 +47,7 @@ function primitives() {
 }
 
 test("digital life version and six primitives", () => {
-  assert.equal(MYBRANDOS_VERSION, "0.25.0");
+  assert.equal(MYBRANDOS_VERSION, "0.26.0");
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 
@@ -278,7 +278,7 @@ test("favorites rank by engagement and specialty chips adapt", () => {
   assert.ok(!creatorChips.find((c) => c.id === "posts") || creatorChips[0]?.id !== "posts" || assets.some(() => false));
 });
 
-test("creator-aware sticky landing respects preference and hides empty sections", () => {
+test("creator-aware sticky landing respects preference and keeps the public section catalog", () => {
   const assets: PublicAssetCard[] = [
     {
       id: "b1",
@@ -316,7 +316,11 @@ test("creator-aware sticky landing respects preference and hides empty sections"
   assert.equal(plan.specialty, "writer");
   assert.equal(plan.primaryChipId, "books");
   assert.equal(plan.heroAsset?.id, "b1");
-  assert.ok(!plan.sections.some((s) => s.id === "software"));
+  assert.deepEqual(
+    plan.sections.map((s) => s.id),
+    ["books", "writing", "videos", "posts", "courses", "audio", "software", "products"],
+  );
+  assert.equal(plan.sections.find((s) => s.id === "software")?.count, 0);
 
   const overridden = buildStickyLandingPlan({
     assets,
@@ -324,7 +328,7 @@ test("creator-aware sticky landing respects preference and hides empty sections"
     hints: { tagline: "Author of novels" },
     presentation: { primaryChip: "software" },
   });
-  // Preference cannot surface unavailable software.
+  // Preference cannot surface unavailable software as the landing selection.
   assert.equal(overridden.primaryChipId, "books");
 
   const preferBooks = buildStickyLandingPlan({
@@ -347,7 +351,59 @@ test("creator-aware sticky landing respects preference and hides empty sections"
 
   const empty = buildStickyLandingPlan({ assets: [], basePath: "/u/ada" });
   assert.equal(empty.heroAsset, null);
-  assert.equal(empty.sections.length, 0);
+  assert.ok(empty.sections.length >= 7);
+  assert.equal(empty.sections[0]?.id, "books");
+
+  const developer = buildStickyLandingPlan({
+    assets: [
+      {
+        ...assets[0]!,
+        id: "s1",
+        title: "CLI",
+        assetType: "SOFTWARE",
+        engagement: { views: 2, plays: 0, score: 2 },
+        presentation: { ...assets[0]!.presentation, author: "", developer: "Dev" },
+      },
+      {
+        ...assets[0]!,
+        id: "c1",
+        title: "Course",
+        assetType: "COURSE",
+        engagement: { views: 1, plays: 0, score: 1 },
+        presentation: { ...assets[0]!.presentation, author: "" },
+      },
+    ],
+    basePath: "/u/ada",
+    hints: { tagline: "Full-stack developer" },
+  });
+  assert.equal(developer.specialty, "software");
+  assert.deepEqual(developer.sections.slice(0, 2).map((s) => s.id), ["software", "courses"]);
+
+  const singer = buildStickyLandingPlan({
+    assets: [
+      {
+        ...assets[0]!,
+        id: "m1",
+        title: "Song",
+        assetType: "MUSIC",
+        engagement: { views: 2, plays: 4, score: 8 },
+        presentation: { ...assets[0]!.presentation, author: "", artist: "Ada", playAvailable: true },
+      },
+      {
+        ...assets[0]!,
+        id: "v1",
+        title: "Video",
+        assetType: "VIDEO",
+        presentationTypes: ["WATCH"],
+        engagement: { views: 1, plays: 1, score: 2 },
+        presentation: { ...assets[0]!.presentation, author: "" },
+      },
+    ],
+    basePath: "/u/ada",
+    hints: { tagline: "Singer and songwriter" },
+  });
+  assert.equal(singer.specialty, "music");
+  assert.deepEqual(singer.sections.slice(0, 2).map((s) => s.id), ["audio", "videos"]);
 
   const lanes = favoritesDiscoveryLanes({ assets, basePath: "/u/ada" });
   assert.ok(lanes.some((l) => l.id === "books"));

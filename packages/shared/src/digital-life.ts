@@ -334,16 +334,31 @@ export type CreatorSpecialty =
   | "commerce"
   | "mixed";
 
+/**
+ * Creator-aware section priority. Primary medium first so a singer lands on
+ * Audio/Videos and a developer lands on Software/Courses — not a generic CMS.
+ * Home bar catalog order for mixed matches Books → … → Products.
+ */
 const SPECIALTY_ORDER: Record<CreatorSpecialty, string[]> = {
-  // Creator-aware: primary medium first — not a generic Posts-first CMS.
-  music: ["audio", "videos", "reels", "posts", "podcasts", "live", "products", "books", "courses", "writing", "software"],
-  video: ["videos", "reels", "posts", "audio", "podcasts", "live", "products", "books", "courses", "writing", "software"],
-  software: ["software", "videos", "posts", "writing", "courses", "books", "audio", "podcasts", "reels", "live", "products"],
+  music: ["audio", "videos", "reels", "posts", "podcasts", "live", "products", "courses", "books", "writing", "software"],
+  video: ["videos", "reels", "posts", "audio", "podcasts", "live", "products", "courses", "books", "writing", "software"],
+  software: ["software", "courses", "videos", "writing", "posts", "books", "audio", "podcasts", "reels", "live", "products"],
   writer: ["books", "writing", "videos", "posts", "courses", "audio", "podcasts", "reels", "software", "live", "products"],
   educator: ["courses", "books", "videos", "writing", "posts", "audio", "podcasts", "reels", "software", "live", "products"],
   commerce: ["products", "videos", "posts", "live", "courses", "books", "writing", "software", "audio", "reels", "podcasts"],
-  mixed: ["videos", "posts", "reels", "audio", "podcasts", "books", "courses", "writing", "software", "live", "products"],
+  mixed: ["books", "writing", "videos", "posts", "courses", "audio", "software", "products", "reels", "podcasts", "live"],
 };
+
+/** Always-visible Home section bar (screenshot catalog). Extra chips appear when they have content. */
+const HOME_SECTION_CATALOG = [
+  "books",
+  "writing",
+  "videos",
+  "posts",
+  "courses",
+  "audio",
+  "software",
+] as const;
 
 /** Owner-controlled public experience presentation (persisted on PersonalSpace). */
 export type PublicExperiencePresentation = {
@@ -548,17 +563,29 @@ export function buildStickyLandingPlan(input: {
     ? presentation.sectionOrder
     : SPECIALTY_ORDER[specialty];
 
-  const contentChips = specialtyChipsFor(input.assets, input.basePath, input.hints, presentation);
-  const sections: CreatorAwareSection[] = contentChips.map((c) => ({
-    id: c.id,
-    label: c.id === "courses" && specialty === "educator" ? "School" : c.label,
-    path: c.path,
-    count: c.count,
-    kind: "content",
-  }));
+  const matchers = chipMatchers(input.basePath);
+  type ChipId = (typeof matchers)[number]["id"];
+  const byId = new Map<ChipId, (typeof matchers)[number]>(matchers.map((m) => [m.id, m]));
+  const catalogIds: ChipId[] = [...HOME_SECTION_CATALOG];
+  // Reels / podcasts join the bar only when the creator actually publishes them.
+  for (const extra of ["reels", "podcasts"] as const) {
+    if (input.assets.some((a) => byId.get(extra)?.match(a))) catalogIds.push(extra);
+  }
+
+  const sections: CreatorAwareSection[] = catalogIds.map((id) => {
+    const m = byId.get(id)!;
+    const count = input.assets.filter(m.match).length;
+    return {
+      id,
+      label: id === "courses" && specialty === "educator" ? "School" : m.label,
+      path: m.path,
+      count,
+      kind: "content" as const,
+    };
+  });
 
   if (input.liveNow) {
-    sections.unshift({
+    sections.push({
       id: "live",
       label: "Live",
       path: joinPublicPath(input.basePath, "live"),
@@ -566,18 +593,14 @@ export function buildStickyLandingPlan(input: {
       kind: "live",
     });
   }
-  if ((input.offersCount ?? 0) > 0) {
-    const products: CreatorAwareSection = {
-      id: "products",
-      label: "Products",
-      path: joinPublicPath(input.basePath, "store"),
-      count: input.offersCount ?? 0,
-      kind: "products",
-    };
-    const preferProducts = specialty === "commerce" || order[0] === "products";
-    if (preferProducts) sections.unshift(products);
-    else sections.push(products);
-  }
+  // Products stays on the Home bar like the public catalog model.
+  sections.push({
+    id: "products",
+    label: "Products",
+    path: joinPublicPath(input.basePath, "store"),
+    count: input.offersCount ?? 0,
+    kind: "products",
+  });
 
   // Deduplicate by id preserving first occurrence.
   const seen = new Set<string>();
@@ -587,7 +610,7 @@ export function buildStickyLandingPlan(input: {
     return true;
   });
 
-  // Re-sort unique sections by order when not live-elevated.
+  // Persona order first; live stays elevated when active.
   const sorted = [...uniqueSections].sort((a, b) => {
     if (a.id === "live" && input.liveNow) return -1;
     if (b.id === "live" && input.liveNow) return 1;
@@ -599,9 +622,10 @@ export function buildStickyLandingPlan(input: {
     return b.count - a.count;
   });
 
-  let primaryChipId = sorted[0]?.id ?? "posts";
+  const withContent = sorted.filter((s) => s.count > 0 || s.kind === "live");
+  let primaryChipId = withContent[0]?.id ?? sorted[0]?.id ?? "posts";
   if (presentation.primaryChip) {
-    const preferred = sorted.find((s) => s.id === presentation.primaryChip);
+    const preferred = sorted.find((s) => s.id === presentation.primaryChip && (s.count > 0 || s.kind === "live"));
     if (preferred) primaryChipId = preferred.id;
   }
 
