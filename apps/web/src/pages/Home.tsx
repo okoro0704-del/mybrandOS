@@ -1,19 +1,16 @@
 import { useEffect, useState } from "react";
 import type { HomeGateway } from "@mybrandos/shared";
-import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, type ProjectStatus, type ProjectType } from "@mybrandos/shared";
+import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, publicExperiencePath, type ProjectStatus, type ProjectType } from "@mybrandos/shared";
 import { api } from "../lib/api";
 import { AssetCard } from "../components/AssetCard";
-import { AppLink, useAppNavigate } from "../lib/paths";
+import { AppLink } from "../lib/paths";
 import { SoftwareInvitations } from "../software/SoftwareInvitations";
 import { useStudio } from "../components/RequireAuth";
-import { publicExperiencePath } from "@mybrandos/shared";
 
 export function HomePage() {
   const brand = useStudio();
   const [home, setHome] = useState<HomeGateway | null>(null);
   const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
-  const navigate = useAppNavigate();
 
   useEffect(() => {
     void api<HomeGateway>("/home")
@@ -39,237 +36,193 @@ export function HomePage() {
 
   const life = home.digitalLife;
   const empty = (life?.owned ?? home.assets.total) === 0;
+  const processingHot = (home.workstation?.processing ?? []).filter(
+    (item) => item.status === "FAILED" || item.status === "PROCESSING",
+  );
+  const attention = life?.attention ?? [];
+  const replayReady = home.workstation?.replayReady ?? [];
+  const projects = life?.projects ?? [];
+  const recentAssets = life?.recentlyUpdated?.length
+    ? life.recentlyUpdated
+    : life?.topAssets ?? [];
+  const recentActivity = home.recentActivity.slice(0, 4);
+  const hasAttention =
+    attention.length > 0 || replayReady.length > 0 || processingHot.length > 0;
 
   return (
-    <section className="page">
+    <section className="page home-page">
       <header className="page-head">
-        <div className="eyebrow">Digital Life</div>
+        <div className="eyebrow">Studio</div>
         <h1>{home.greeting}</h1>
-        <p>One Digital Life. Operate it here. Let visitors experience it publicly.</p>
+        <p>Operate your Digital Life. Publish when ready.</p>
+        <div className="actions" style={{ marginTop: "0.85rem" }}>
+          {brand?.slug ? (
+            <AppLink className="btn" to={publicExperiencePath(brand.slug)}>
+              View public app
+            </AppLink>
+          ) : (
+            <AppLink className="btn" to="/brand">
+              Set up Brand
+            </AppLink>
+          )}
+          <AppLink className="btn ghost" to="/brand/preview">
+            Preview
+          </AppLink>
+        </div>
       </header>
 
-      <div className="actions" style={{ marginBottom: 16 }}>
-        {brand?.slug ? <AppLink className="btn" to={publicExperiencePath(brand.slug)}>View App</AppLink> : null}
-        <AppLink className="btn" to="/brand/preview">
-          Preview My Digital Life
-        </AppLink>
-        <AppLink className="btn ghost" to="/website">
-          Website
-        </AppLink>
-        <AppLink className="btn ghost" to="/recording">
-          Recording Studio
-        </AppLink>
-      </div>
-
-      <article className="panel" style={{ marginBottom: 16 }}>
-        <div className="eyebrow">Your Digital Life</div>
+      <section className="home-section" aria-labelledby="home-overview">
+        <div className="home-section-head">
+          <h2 id="home-overview">Overview</h2>
+        </div>
         <div className="grid grid-3">
-          <div>
-            <strong>Public Experience</strong>
-            <p className="small muted">{home.workstation?.brand.visibilityLabel ?? "PRIVATE"}</p>
-          </div>
-          <div>
-            <strong>Website</strong>
-            <p className="small muted">Manage official information in Website</p>
-          </div>
-          <div>
-            <strong>Needs attention</strong>
+          <article className="panel stat">
+            <div className="eyebrow">Assets</div>
+            <b>{life?.owned ?? home.assets.total}</b>
             <p className="small muted">
-              {(home.workstation?.processing.filter((item) => item.status === "FAILED" || item.status === "PROCESSING").length ?? 0) +
-                (home.assets.draft ?? 0)}{" "}
-              from drafts/processing
+              {home.assets.created} created · {home.assets.imported} imported
             </p>
-          </div>
+          </article>
+          <article className="panel stat">
+            <div className="eyebrow">Published</div>
+            <b>{life?.published ?? home.assets.published}</b>
+            <p className="small muted">
+              {home.workstation?.assetCounts.drafts ?? home.assets.draft} drafts private
+            </p>
+          </article>
+          <article className="panel stat">
+            <div className="eyebrow">Public app</div>
+            <b>{home.workstation?.brand.visibilityLabel ?? "PRIVATE"}</b>
+            <p className="small muted">{home.workstation?.brand.detail ?? "Brand visibility"}</p>
+          </article>
         </div>
-      </article>
+      </section>
 
-      <SoftwareInvitations />
-
-      <form className="toolbar" style={{ marginBottom: 16 }} onSubmit={(e) => { e.preventDefault(); navigate(query.trim() ? `/search?q=${encodeURIComponent(query.trim())}` : "/search"); }}>
-        <input name="q" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search assets, projects, and activity" />
-        <button className="btn" type="submit">Search</button>
-      </form>
-
-      <div className="grid grid-3" style={{ marginBottom: "1rem" }}>
-        <article className="panel stat">
-          <div className="eyebrow">Assets</div>
-          <b>{life?.owned ?? home.assets.total}</b>
-          <p className="small muted">{home.assets.created} created · {home.assets.imported} imported</p>
-        </article>
-        <article className="panel stat">
-          <div className="eyebrow">Published works</div>
-          <b>{life?.published ?? home.assets.published}</b>
-          <p className="small muted">{home.workstation?.assetCounts.drafts ?? home.assets.draft} drafts stay private</p>
-        </article>
-        <article className="panel stat">
-          <div className="eyebrow">Brand</div>
-          <b>{home.workstation?.brand.visibilityLabel ?? "PRIVATE"}</b>
-          <p className="small muted">{home.workstation?.brand.detail ?? home.trustIdStatus.detail}</p>
-        </article>
-        <article className="panel stat">
-          <div className="eyebrow">Active Live</div>
-          <b>{home.workstation?.live.activeTitle || life?.liveNow?.title || "—"}</b>
-          <p className="small muted">{home.workstation?.live.capabilityAvailable ? "Broadcast ready" : "live_unavailable"}</p>
-        </article>
-        <article className="panel stat">
-          <div className="eyebrow">Processing</div>
-          <b>{home.workstation?.processing.filter((item) => item.status === "PROCESSING").length ?? 0}</b>
-          <p className="small muted">{home.workstation?.processingDetail ?? "Background processing status"}</p>
-        </article>
-        <article className="panel stat">
-          <div className="eyebrow">Payments</div>
-          <b>{home.revenue.walletBound && home.revenue.period != null ? home.revenue.period.toLocaleString() : "—"}</b>
-          <p className="small muted">{home.revenue.walletBound ? home.revenue.currency : "Payments are currently unavailable"}</p>
-        </article>
-      </div>
-
-      {home.workstation?.replayReady.length ? (
-        <article className="panel" style={{ marginBottom: 16 }}>
-          <div className="eyebrow">Your live replay is ready</div>
-          {home.workstation.replayReady.map((item) => (
-            <div className="list-row" key={item.sessionId}>
-              <div>
-                <strong>{item.title}</strong>
-                <div className="small muted">{item.detail}</div>
-              </div>
-              <AppLink to={item.href}>Open Watch</AppLink>
-            </div>
-          ))}
-        </article>
-      ) : null}
-
-      <article className="panel" style={{ marginBottom: 16 }}>
-        <div className="eyebrow">Command Center</div>
-        <p className="small muted">Create, import, publish, go live, and manage your Digital Life from existing modules.</p>
-        <div className="actions">
-          <AppLink className="btn" to="/command-center">Open Command Center</AppLink>
-          <AppLink className="btn ghost" to="/live">Live</AppLink>
-          <AppLink className="btn ghost" to="/publish">Publish</AppLink>
-          <AppLink className="btn ghost" to="/distribution">Distribute</AppLink>
-          <AppLink className="btn ghost" to="/processing">Processing</AppLink>
-          <AppLink className="btn ghost" to="/collaboration">Collaboration</AppLink>
-        </div>
-        {home.commandPreview.slice(0, 3).map((item) => (
-          <div className="list-row" key={item.id}>
-            <div>
-              <strong>{item.title}</strong>
-              <div className="small muted">{item.detail}</div>
-            </div>
-            {item.actionPath ? <AppLink to={item.actionPath}>Open</AppLink> : null}
+      {hasAttention ? (
+        <section className="home-section" aria-labelledby="home-attention">
+          <div className="home-section-head">
+            <h2 id="home-attention">Needs attention</h2>
           </div>
-        ))}
-      </article>
-
-      {empty ? (
-        <article className="panel" style={{ marginBottom: 16 }}>
-          <div className="eyebrow">Get started</div>
-          <p>Your Digital Life is empty. Create something, or import work you already have. Origin is only metadata — imported work is first-class.</p>
-          <div className="actions">
-            <AppLink className="btn" to="/create">Create</AppLink>
-            <AppLink className="btn ghost" to="/import">Import</AppLink>
-          </div>
-        </article>
-      ) : null}
-
-      <div className="grid grid-2" style={{ marginBottom: "1rem" }}>
-        <article className="panel">
-          <div className="eyebrow">Needs attention</div>
-          {(life?.attention.length ?? 0) === 0 ? (
-            <p className="muted">Nothing needs attention right now.</p>
-          ) : (
-            life?.attention.map((item) => (
-              <div className="list-row" key={item.id}>
-                <div>
-                  <strong>{item.title}</strong>
-                  <div className="small muted">{item.detail}</div>
+          <SoftwareInvitations />
+          {replayReady.length ? (
+            <article className="panel">
+              <div className="eyebrow">Live replay ready</div>
+              {replayReady.map((item) => (
+                <div className="list-row" key={item.sessionId}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <div className="small muted">{item.detail}</div>
+                  </div>
+                  <AppLink to={item.href}>Open</AppLink>
                 </div>
-                <AppLink to={item.href}>Open</AppLink>
-              </div>
-            ))
-          )}
-        </article>
-        <article className="panel">
-          <div className="eyebrow">What I can do</div>
-          {(life?.opportunities.length ?? 0) === 0 ? (
-            <p className="muted">Publish or import an asset to see grounded next steps.</p>
-          ) : (
-            life?.opportunities.map((item) => (
-              <div className="list-row" key={item.id}>
-                <div>
-                  <strong>{item.title}</strong>
-                  <div className="small muted">{item.detail}</div>
+              ))}
+            </article>
+          ) : null}
+          {processingHot.length ? (
+            <article className="panel">
+              <div className="eyebrow">Processing</div>
+              {processingHot.slice(0, 4).map((item) => (
+                <div className="list-row" key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <div className="small muted">{item.detail || item.status}</div>
+                  </div>
+                  <AppLink to={item.href}>Open</AppLink>
                 </div>
-                <AppLink to={item.href}>Open</AppLink>
-              </div>
-            ))
-          )}
-        </article>
-      </div>
-
-      <h2>Active projects</h2>
-      {(life?.projects.length ?? 0) === 0 ? (
-        <p className="muted">No active projects. Start one from Create.</p>
+              ))}
+            </article>
+          ) : null}
+          {attention.length ? (
+            <article className="panel">
+              {attention.map((item) => (
+                <div className="list-row" key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <div className="small muted">{item.detail}</div>
+                  </div>
+                  <AppLink to={item.href}>Open</AppLink>
+                </div>
+              ))}
+            </article>
+          ) : null}
+        </section>
       ) : (
-        <div className="grid grid-2" style={{ marginBottom: 16 }}>
-          {life?.projects.slice(0, 4).map((project) => (
-            <AppLink className="panel" key={project.id} to={`/create/${project.id}`}>
-              <div className="eyebrow">{PROJECT_TYPE_LABELS[project.projectType as ProjectType] ?? project.projectType}</div>
-              <strong>{project.title}</strong>
-              <p className="small muted">{PROJECT_STATUS_LABELS[project.status as ProjectStatus] ?? project.status}</p>
-            </AppLink>
-          ))}
-        </div>
+        <SoftwareInvitations />
       )}
 
-      <h2>Published work</h2>
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
-        {(life?.topAssets ?? []).map((asset) => <AssetCard key={asset.id} asset={asset} />)}
-      </div>
-      {(life?.topAssets.length ?? 0) === 0 ? <p className="muted">Nothing published yet.</p> : null}
-
-      <h2>Recently updated</h2>
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
-        {(life?.recentlyUpdated ?? []).map((asset) => <AssetCard key={asset.id} asset={asset} />)}
-      </div>
-
-      <article className="panel">
-        <div className="eyebrow">What happened recently</div>
-        {home.recentActivity.length === 0 ? (
-          <p className="muted">No activity yet.</p>
+      <section className="home-section" aria-labelledby="home-work">
+        <div className="home-section-head">
+          <h2 id="home-work">Work in progress</h2>
+          {!empty ? <AppLink className="small" to="/create">All projects</AppLink> : null}
+        </div>
+        {empty ? (
+          <article className="panel">
+            <p>Nothing here yet. Create something new, or import work you already have.</p>
+            <div className="actions">
+              <AppLink className="btn" to="/create">
+                Create
+              </AppLink>
+              <AppLink className="btn ghost" to="/import">
+                Import
+              </AppLink>
+            </div>
+          </article>
+        ) : projects.length === 0 ? (
+          <article className="panel">
+            <p className="muted">No active projects.</p>
+            <div className="actions">
+              <AppLink className="btn" to="/create">
+                Start creating
+              </AppLink>
+            </div>
+          </article>
         ) : (
-          home.recentActivity.map((item) => (
-            <div className="list-row" key={item.id}>
-              <div>
-                <strong>{item.title}</strong>
-                <div className="small muted">{item.detail}</div>
-              </div>
-              <span className="chip">{item.kind}</span>
-            </div>
-          ))
+          <div className="grid grid-2">
+            {projects.slice(0, 4).map((project) => (
+              <AppLink className="panel" key={project.id} to={`/create/${project.id}`}>
+                <div className="eyebrow">
+                  {PROJECT_TYPE_LABELS[project.projectType as ProjectType] ?? project.projectType}
+                </div>
+                <strong>{project.title}</strong>
+                <p className="small muted">
+                  {PROJECT_STATUS_LABELS[project.status as ProjectStatus] ?? project.status}
+                </p>
+              </AppLink>
+            ))}
+          </div>
         )}
-        <AppLink className="small" to="/activity">Open activity</AppLink>
-      </article>
+      </section>
 
-      {(home.workstation?.destinations.length ?? 0) > 0 ? (
-        <article className="panel" style={{ marginTop: 16, marginBottom: 16 }}>
-          <div className="eyebrow">Destinations</div>
-          {home.workstation?.destinations.map((item) => (
-            <div className="list-row" key={item.destination}>
-              <span>{item.destination}</span>
-              <span className="chip">{item.ready ? "Ready" : item.connection}</span>
-            </div>
-          ))}
-        </article>
-      ) : null}
-
-      <div className="actions" style={{ marginTop: "1.2rem" }}>
-        <AppLink className="btn" to="/create">Create</AppLink>
-        <AppLink className="btn ghost" to="/import">Import</AppLink>
-        <AppLink className="btn ghost" to="/assets">Assets</AppLink>
-        <AppLink className="btn ghost" to="/brand">Brand</AppLink>
-        <AppLink className="btn ghost" to="/audience">Audience</AppLink>
-        <AppLink className="btn ghost" to="/commerce">Commerce</AppLink>
-      </div>
+      <section className="home-section" aria-labelledby="home-recent">
+        <div className="home-section-head">
+          <h2 id="home-recent">Recent</h2>
+          <AppLink className="small" to="/activity">
+            Activity
+          </AppLink>
+        </div>
+        {recentAssets.length ? (
+          <div className="grid grid-2" style={{ marginBottom: recentActivity.length ? 12 : 0 }}>
+            {recentAssets.slice(0, 4).map((asset) => (
+              <AssetCard key={asset.id} asset={asset} />
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No recent assets yet.</p>
+        )}
+        {recentActivity.length ? (
+          <article className="panel">
+            {recentActivity.map((item) => (
+              <div className="list-row" key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <div className="small muted">{item.detail}</div>
+                </div>
+                <span className="chip">{item.kind}</span>
+              </div>
+            ))}
+          </article>
+        ) : null}
+      </section>
     </section>
   );
 }
