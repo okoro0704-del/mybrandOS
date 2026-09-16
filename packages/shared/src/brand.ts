@@ -115,7 +115,11 @@ export interface PublicAssetCard {
   assetType: AssetType;
   publishedAt: string;
   coverAvailable: boolean;
+  /** True when public streamable media bytes exist (VIDEO/MUSIC/SOFTWARE package). */
+  mediaAvailable: boolean;
   presentationTypes: PresentationType[];
+  durationMs?: number | null;
+  aspectRatio?: string | null;
   isLiveReplay: boolean;
   /** Derived from Asset.analytics — public-safe engagement only. */
   engagement: {
@@ -297,7 +301,10 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "assetType",
     "publishedAt",
     "coverAvailable",
+    "mediaAvailable",
     "presentationTypes",
+    "durationMs",
+    "aspectRatio",
     "isLiveReplay",
     "engagement",
     "isPodcast",

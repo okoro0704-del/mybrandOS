@@ -11,6 +11,7 @@ export * from "./creation.js";
 export * from "./book.js";
 export * from "./course.js";
 export * from "./video.js";
+export * from "./video-renditions.js";
 export * from "./music.js";
 export * from "./writing.js";
 export * from "./software.js";

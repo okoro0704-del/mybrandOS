@@ -1,6 +1,7 @@
 /** Publish Center — application orchestration types. Not a primitive. */
 
 import type { AssetType } from "./asset.js";
+import type { PresentationType } from "./presentation.js";
 
 export const PUBLISH_CATEGORY_IDS = [
   "content",
@@ -197,6 +198,8 @@ export interface PublishExecuteInput {
   scheduledAt?: string | null;
   contentFormat?: PublishContentFormat | null;
   category: PublishCategoryId;
+  /** VIDEO content: exactly one presentation for this publish action. */
+  presentationType?: PresentationType | null;
 }
 
 export interface PublishExecuteResult {

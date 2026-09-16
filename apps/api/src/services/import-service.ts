@@ -1,5 +1,6 @@
 import {
   inferAssetTypeFromMime,
+  ensureMasterRendition,
   type Asset,
   type AssetOrigin,
   type AssetType,
@@ -109,21 +110,30 @@ export async function importFiles(
       mimeType: file.mimeType,
       bytes: file.bytes,
     });
+    const assetType = inferAssetTypeFromMime(file.mimeType, file.filename);
+    const baseMeta: Record<string, unknown> = {
+      filename: file.filename,
+      mimeType: file.mimeType,
+      sizeBytes: stored.sizeBytes,
+      originHash: stored.originHash,
+      dataZoneBound: primitives.dataZone.bound,
+    };
+    const metadata =
+      assetType === "VIDEO"
+        ? ensureMasterRendition(baseMeta, stored.dataZoneId, {
+            mimeType: file.mimeType,
+            detail: "Master uploaded to DataZone.",
+          })
+        : baseMeta;
     const asset = await persistNativeAsset({
       ownerId,
       title: titleFromFilename(file.filename),
-      assetType: inferAssetTypeFromMime(file.mimeType, file.filename),
+      assetType,
       origin: "IMPORTED_FILE",
       originSource: file.filename,
       originRef: stored.dataZoneId,
       dataZoneId: stored.dataZoneId,
-      metadata: {
-        filename: file.filename,
-        mimeType: file.mimeType,
-        sizeBytes: stored.sizeBytes,
-        originHash: stored.originHash,
-        dataZoneBound: primitives.dataZone.bound,
-      },
+      metadata,
     });
     const project = await openImportedProject({
       ownerId,
