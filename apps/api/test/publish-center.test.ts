@@ -22,7 +22,7 @@ import {
   listPublishSources,
   requestExternalDistribute,
 } from "../src/publish/service.js";
-import { getPublicBrandExperience, getPublicAsset, updateBrandConfig } from "../src/services/brand-service.js";
+import { getPublicBrandExperience, getPublicAsset, getPublicAssetCover, updateBrandConfig } from "../src/services/brand-service.js";
 import type { TrustIdIdentity } from "@mybrandos/shared";
 
 const OWNER = "TD-PUBLISH-CENTER-OWNER";
@@ -336,6 +336,112 @@ test("photo publish creates POST presentation, public projection, and LifeOS int
 
   const summary = await buildDistributionSummary(OWNER, draft.id, primitives());
   assert.ok(summary.items.some((item) => item.id === "lifeos" && item.state === "published"));
+});
+
+test("POST presentation is not treated as generic discovery chip content", async () => {
+  const dz = new LocalDataZoneAdapter();
+  const stored = await dz.storeBytes({
+    filename: "post-route.png",
+    mimeType: "image/png",
+    bytes: Buffer.from("png"),
+  });
+  const asset = await createAsset({
+    ownerId: OWNER,
+    title: "Immersive Only",
+    description: "caption body",
+    assetType: "DESIGN",
+    origin: "IMPORTED_FILE",
+    status: "PUBLISHED",
+    visibility: "public",
+    dataZoneId: stored.dataZoneId,
+    metadata: { presentationTypes: ["POST"], postBody: "caption body", mimeType: "image/png" },
+  });
+  await updateBrandConfig(identity(), {
+    slug: "post-route-life",
+    publicEnabled: true,
+    displayName: "Post Route",
+  });
+  const experience = await getPublicBrandExperience("post-route-life");
+  const card = experience.publishedAssets.find((item) => item.id === asset.id);
+  assert.ok(card?.presentationTypes.includes("POST"));
+  assert.equal(card?.presentation.body, "caption body");
+  assert.equal(card?.coverAvailable, true);
+  const posts = assetsForSpecialtyChip(experience.publishedAssets, "posts");
+  assert.ok(posts.every((item) => item.presentationTypes.includes("POST")));
+  assert.ok(posts.some((item) => item.id === asset.id));
+  const books = assetsForSpecialtyChip(experience.publishedAssets, "books");
+  assert.ok(!books.some((item) => item.id === asset.id));
+});
+
+test("draft and private posts are excluded from public experience", async () => {
+  const dz = new LocalDataZoneAdapter();
+  const stored = await dz.storeBytes({
+    filename: "private.png",
+    mimeType: "image/png",
+    bytes: Buffer.from("png"),
+  });
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Draft Photo",
+    assetType: "DESIGN",
+    origin: "IMPORTED_FILE",
+    status: "DRAFT",
+    visibility: "private",
+    dataZoneId: stored.dataZoneId,
+    metadata: { presentationTypes: ["POST"] },
+  });
+  const priv = await createAsset({
+    ownerId: OWNER,
+    title: "Private Photo",
+    assetType: "DESIGN",
+    origin: "IMPORTED_FILE",
+    status: "PUBLISHED",
+    visibility: "private",
+    dataZoneId: stored.dataZoneId,
+    metadata: { presentationTypes: ["POST"] },
+  });
+  await updateBrandConfig(identity(), {
+    slug: "private-post-life",
+    publicEnabled: true,
+    displayName: "Private Gate",
+  });
+  const experience = await getPublicBrandExperience("private-post-life");
+  assert.ok(!experience.publishedAssets.some((item) => item.id === draft.id));
+  assert.ok(!experience.publishedAssets.some((item) => item.id === priv.id));
+});
+
+test("public cover bytes resolve from DataZone for published photo Post", async () => {
+  const dz = new LocalDataZoneAdapter();
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const stored = await dz.storeBytes({
+    filename: "cover-test.png",
+    mimeType: "image/png",
+    bytes: png,
+  });
+  const asset = await createAsset({
+    ownerId: OWNER,
+    title: "Cover Post",
+    assetType: "DESIGN",
+    origin: "IMPORTED_FILE",
+    status: "PUBLISHED",
+    visibility: "public",
+    dataZoneId: stored.dataZoneId,
+    metadata: { presentationTypes: ["POST"], mimeType: "image/png" },
+  });
+  await updateBrandConfig(identity(), {
+    slug: "cover-post-life",
+    publicEnabled: true,
+    displayName: "Cover Gate",
+  });
+  const cover = await getPublicAssetCover("cover-post-life", asset.id, {
+    ...primitives(),
+    dataZone: dz,
+  });
+  assert.ok(cover.bytes.length > 0);
+  assert.match(cover.mimeType, /image/);
 });
 
 test("distribution summary stays honest and external site can be configured", async () => {

@@ -23,6 +23,7 @@ import {
   favoritesDiscoveryLanes,
   favoritesPath,
 } from "../digital-life/routes";
+import { ImmersivePostFeed, isPostPresentation } from "./ImmersivePostFeed";
 
 export function ExperienceView({
   experience,
@@ -223,13 +224,26 @@ function AppHomeBody({
           )}
         </section>
       ) : (
-        <section className="dl-section-panel">
+        <section className={`dl-section-panel${stream.some(isPostPresentation) && (selected === "posts" || stream.every(isPostPresentation)) ? " dl-section-panel--immersive" : ""}`}>
           {experience.publishedAssets.length === 0 ? (
             <p className="dl-empty">{name} has not published work yet.</p>
           ) : stream.length === 0 ? (
             <p className="muted">Nothing in this section yet.</p>
+          ) : selected === "posts" || stream.every(isPostPresentation) ? (
+            <ImmersivePostFeed
+              assets={stream}
+              author={experience.slug || experience.identity.displayName || "creator"}
+              mediaBase={mediaBase}
+              empty="No posts yet."
+            />
           ) : (
-            <WorkGrid assets={stream} basePath={basePath} mediaBase={mediaBase} experience={experience} explore />
+            <WorkGrid
+              assets={stream.filter((a) => !isPostPresentation(a))}
+              basePath={basePath}
+              mediaBase={mediaBase}
+              experience={experience}
+              explore
+            />
           )}
         </section>
       )}
@@ -763,12 +777,13 @@ function WorkGrid({
   large?: boolean;
   explore?: boolean;
 }) {
+  const discovery = assets.filter((asset) => !asset.presentationTypes.includes("POST"));
   return (
     <section>
       {title ? <h2>{title}</h2> : null}
-      {assets.length === 0 ? <p className="muted">{empty}</p> : null}
+      {discovery.length === 0 ? <p className="muted">{empty}</p> : null}
       <div className={`be-grid${large ? " dl-grid-featured" : ""}`}>
-        {assets.map((asset) => {
+        {discovery.map((asset) => {
           const offer = offerFor(experience, asset.id);
           const cta = explore
             ? "Explore"
@@ -790,7 +805,7 @@ function WorkGrid({
               )}
               <div>
                 <div className="eyebrow">
-                  {asset.assetType === "VIDEO" && asset.presentationTypes[0]
+                  {asset.presentationTypes[0]
                     ? PRESENTATION_TYPE_LABELS[asset.presentationTypes[0]]
                     : ASSET_TYPE_LABELS[asset.assetType]}
                 </div>

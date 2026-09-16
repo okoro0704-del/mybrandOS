@@ -752,8 +752,8 @@ export function assetsForSpecialtyChip(assets: PublicAssetCard[], chipId: string
   if (!group) return assets;
   if (chipId === "posts") {
     const posts = assets.filter(group.match);
-    // LifeOS Posts = posts when they exist; otherwise the chronological stream.
-    return posts.length ? posts : [...assets].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+    // Only real POST presentations — never fall back to generic discovery cards.
+    return posts;
   }
   return assets.filter(group.match);
 }
