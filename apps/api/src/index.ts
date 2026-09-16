@@ -32,6 +32,7 @@ import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
 import { registerPublishRoutes } from "./routes/publish.js";
 import { registerStaticWeb } from "./static-web.js";
+import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
 
 console.log("mybrandos: boot", { node: process.version, cwd: process.cwd(), port: config.port });
 
@@ -70,14 +71,7 @@ await app.register(cors, {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (corsAllow.length === 0) return cb(null, true);
-    if (corsAllow.includes(origin)) return cb(null, true);
-    try {
-      const host = new URL(origin).hostname.toLowerCase();
-      if (host === "getlifeos.app" || host.endsWith(".getlifeos.app")) return cb(null, true);
-    } catch {
-      /* ignore */
-    }
-    return cb(null, false);
+    return cb(null, isAllowedBrowserOrigin(origin, corsAllow));
   },
   credentials: true,
 });
