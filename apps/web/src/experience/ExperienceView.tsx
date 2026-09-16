@@ -20,6 +20,7 @@ import {
   favoritesDiscoveryLanes,
 } from "../digital-life/routes";
 import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
+import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 
 export function ExperienceView({
   experience,
@@ -735,8 +736,31 @@ function PublicAssetBody({
       <p>
         <Link to={assetsPath(basePath)}>← Assets</Link>
       </p>
-      {asset.assetType === "VIDEO" ? (
-        <video className="be-asset-cover" controls playsInline src={`${mediaBase}/assets/${asset.id}/media`} />
+      {asset.assetType === "VIDEO" && asset.mediaAvailable ? (
+        <AdaptiveVideoPlayer
+          className="be-asset-cover"
+          src={`${mediaBase}/assets/${asset.id}/media`}
+          presentation={
+            asset.presentationTypes.includes("REEL")
+              ? "REEL"
+              : asset.presentationTypes.includes("CINEMA")
+                ? "CINEMA"
+                : asset.presentationTypes.includes("POST")
+                  ? "POST"
+                  : "WATCH"
+          }
+          poster={asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null}
+          title={asset.title}
+          creatorLabel={experience.identity.displayName}
+          caption={asset.description || undefined}
+          meta={
+            <p className="small muted">
+              {asset.presentationTypes[0]
+                ? PRESENTATION_TYPE_LABELS[asset.presentationTypes[0]]
+                : ASSET_TYPE_LABELS.VIDEO}
+            </p>
+          }
+        />
       ) : asset.coverAvailable ? (
         <img className="be-asset-cover" src={`${mediaBase}/assets/${asset.id}/cover`} alt="" />
       ) : null}

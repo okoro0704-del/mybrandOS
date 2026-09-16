@@ -655,7 +655,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* Branded public experience â theme config, not a generated CSS bundle */
+/* Branded public experience Ã¢ÂÂ theme config, not a generated CSS bundle */
 .brand-exp {
   min-height: 100dvh;
   background: var(--be-bg, var(--bos-bg));
@@ -887,7 +887,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .track-row { grid-template-columns: 1fr; }
 }
 
-/* ââ Branded Digital Life app shell ââ */
+/* Ã¢ÂÂÃ¢ÂÂ Branded Digital Life app shell Ã¢ÂÂÃ¢ÂÂ */
 .digital-life-app {
   --dl-top: 3.4rem;
   --dl-bottom: calc(4.1rem + env(safe-area-inset-bottom, 0px));
@@ -1605,7 +1605,7 @@ button.linkish {
 .publish-next { margin-top: 1.25rem; text-align: left; }
 .publish-schedule-fields { display: grid; gap: 0.75rem; }
 
-/* Immersive Post presentation â LifeOS ImmersiveMediaFeed lineage */
+/* Immersive Post presentation Ã¢ÂÂ LifeOS ImmersiveMediaFeed lineage */
 .dl-section-panel--immersive {
   padding: 0;
   margin: 0 -1rem;
@@ -1770,7 +1770,7 @@ button.linkish {
 }
 
 
-/* ===== Personal OS (public Digital Life)  LifeOS-inspired shell ===== */
+/* ===== Personal OS (public Digital Life) Â LifeOS-inspired shell ===== */
 .personal-os {
   --os-bg: #e8eaef;
   --os-surface: rgba(255, 255, 255, 0.92);
@@ -2289,7 +2289,7 @@ button.linkish {
 .os-bottom-nav__label { max-width: 4.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ===== Home direction-aware chrome (FULL_HOME / IMMERSIVE_FEED / NAVIGATION_RETURN) ===== */
-/* Layout heights stay stable — chrome exits via transform so the feed does not jump. */
+/* Layout heights stay stable â chrome exits via transform so the feed does not jump. */
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-topbar,
 .personal-os[data-home-chrome="NAVIGATION_RETURN"] .os-topbar {
   transform: translateY(calc(-100% - 0.5rem));
@@ -2331,7 +2331,7 @@ button.linkish {
 
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-dock,
 .personal-os .os-dock--immersive {
-  /* Bottom-nav safe slot — same bottom inset, lift removed via transform. */
+  /* Bottom-nav safe slot â same bottom inset, lift removed via transform. */
   transform: translate(-50%, 0);
 }
 
@@ -2427,3 +2427,80 @@ button.linkish {
   outline: 2px solid var(--os-accent);
   outline-offset: 2px;
 }
+
+/* ===== Adaptive video player (shared session; presentation CSS only) ===== */
+.adaptive-video {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+}
+.adaptive-video__stage {
+  position: relative;
+  width: 100%;
+  background: #0b0c10;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.adaptive-video--post .adaptive-video__stage { aspect-ratio: 1 / 1; }
+.adaptive-video--reel .adaptive-video__stage { aspect-ratio: 9 / 16; max-height: min(78dvh, 720px); margin: 0 auto; }
+.adaptive-video--cinema .adaptive-video__stage { aspect-ratio: 21 / 9; }
+.adaptive-video--reel-landscape .adaptive-video__stage {
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,0.06), transparent 55%),
+    #0b0c10;
+}
+.adaptive-video--reel-landscape .adaptive-video__el {
+  width: auto;
+  height: 100%;
+  max-width: 42%;
+  object-fit: contain;
+}
+.adaptive-video--immersive {
+  position: relative;
+}
+.adaptive-video--immersive .adaptive-video__stage {
+  aspect-ratio: auto;
+  min-height: min(70dvh, 560px);
+  border-radius: 12px;
+}
+.adaptive-video__el {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.adaptive-video__loading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #14171f, #1d212c, #14171f);
+  background-size: 200% 100%;
+  animation: os-shimmer 1.2s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+.adaptive-video__meta {
+  display: grid;
+  gap: 0.35rem;
+}
+.adaptive-video__creator { font-size: 0.85rem; color: var(--os-muted, #6b7285); }
+.adaptive-video__title { font-size: 1.05rem; }
+.adaptive-video__caption { margin: 0; color: var(--os-muted, #6b7285); white-space: pre-wrap; }
+.os-card__media--video { display: block; }
+.os-card__media--video .adaptive-video__stage { border-radius: 14px; }
+.publish-presentation {
+  border: 1px solid rgba(20, 23, 31, 0.08);
+  border-radius: 14px;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+  display: grid;
+  gap: 0.45rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adaptive-video__loading { animation: none; }
+}
+

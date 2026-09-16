@@ -9,6 +9,7 @@ import {
 } from "@mybrandos/shared";
 import { assetDetailPath, assetsForSpecialtyChip, communitiesPath } from "../routes";
 import { Icons } from "../../nav/icons";
+import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
 import {
   OS_MORE_TABS,
   OS_PRIMARY_TABS,
@@ -96,6 +97,10 @@ function PostCard({
   const name = experience.identity.displayName || experience.slug;
   const handle = `@${experience.slug}`;
   const body = asset.presentation?.body || asset.description;
+  const isVideoPost = asset.assetType === "VIDEO" && asset.mediaAvailable;
+  const presentation = asset.presentationTypes.includes("POST")
+    ? "POST"
+    : asset.presentationTypes[0] ?? "POST";
   return (
     <article className="os-card os-card--post">
       <header className="os-card__head">
@@ -114,7 +119,18 @@ function PostCard({
         </div>
       </header>
       {body ? <p className="os-card__body">{body}</p> : null}
-      {asset.coverAvailable ? (
+      {isVideoPost ? (
+        <div className="os-card__media os-card__media--video">
+          <AdaptiveVideoPlayer
+            src={`${mediaBase}/assets/${asset.id}/media`}
+            presentation={presentation === "REEL" ? "REEL" : "POST"}
+            poster={asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null}
+            autoPlayMuted={presentation === "REEL"}
+            creatorLabel={name}
+            caption={body || undefined}
+          />
+        </div>
+      ) : asset.coverAvailable ? (
         <Link to={assetDetailPath(basePath, asset.id)} className="os-card__media">
           <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" loading="lazy" />
         </Link>
@@ -171,18 +187,38 @@ function MediaCard({
 
   return (
     <article className={`os-card os-card--${kind}`}>
-      <Link to={href} className="os-card__media os-card__media--lg">
-        {asset.coverAvailable ? (
-          <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" loading="lazy" />
-        ) : (
-          <div className="os-card__fallback" aria-hidden />
-        )}
-        {kind === "videos" || kind === "audio" ? (
-          <span className="os-card__play" aria-hidden>
-            ▶
-          </span>
-        ) : null}
-      </Link>
+      {asset.assetType === "VIDEO" && asset.mediaAvailable ? (
+        <div className="os-card__media os-card__media--lg os-card__media--video">
+          <AdaptiveVideoPlayer
+            src={`${mediaBase}/assets/${asset.id}/media`}
+            presentation={
+              asset.presentationTypes.includes("REEL")
+                ? "REEL"
+                : asset.presentationTypes.includes("CINEMA")
+                  ? "CINEMA"
+                  : "WATCH"
+            }
+            poster={asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null}
+            title={asset.title}
+            creatorLabel={experience.identity.displayName || experience.slug}
+            caption={asset.description || undefined}
+            autoPlayMuted={asset.presentationTypes.includes("REEL")}
+          />
+        </div>
+      ) : (
+        <Link to={href} className="os-card__media os-card__media--lg">
+          {asset.coverAvailable ? (
+            <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" loading="lazy" />
+          ) : (
+            <div className="os-card__fallback" aria-hidden />
+          )}
+          {kind === "videos" || kind === "audio" ? (
+            <span className="os-card__play" aria-hidden>
+              ▶
+            </span>
+          ) : null}
+        </Link>
+      )}
       <div className="os-card__copy">
         <span className="os-card__eyebrow">
           {asset.presentationTypes[0]

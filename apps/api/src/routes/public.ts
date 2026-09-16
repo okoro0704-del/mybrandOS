@@ -177,9 +177,28 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
   app.get("/public/:slug/assets/:id/media", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
     const file = await getPublicAssetMedia(slug, id, primitives);
-    return reply
-      .header("content-type", file.mimeType)
-      .header("content-disposition", `inline; filename="${file.filename}"`)
-      .send(file.bytes);
+    const bytes = file.bytes;
+    const total = bytes.byteLength;
+    const range = String(req.headers.range || "");
+    reply.header("accept-ranges", "bytes");
+    reply.header("content-type", file.mimeType);
+    reply.header("content-disposition", `inline; filename="${file.filename}"`);
+    if (range.startsWith("bytes=") && total > 0) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      if (match) {
+        const start = match[1] ? Number(match[1]) : 0;
+        const end = match[2] ? Number(match[2]) : total - 1;
+        if (Number.isFinite(start) && Number.isFinite(end) && start <= end && start < total) {
+          const safeEnd = Math.min(end, total - 1);
+          const slice = bytes.subarray(start, safeEnd + 1);
+          return reply
+            .code(206)
+            .header("content-range", `bytes ${start}-${safeEnd}/${total}`)
+            .header("content-length", String(slice.byteLength))
+            .send(slice);
+        }
+      }
+    }
+    return reply.header("content-length", String(total)).send(bytes);
   });
 }

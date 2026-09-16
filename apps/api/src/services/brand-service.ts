@@ -70,6 +70,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
   const music = (asset.metadata?.music ?? {}) as Record<string, unknown>;
   const writing = (asset.metadata?.writing ?? {}) as Record<string, unknown>;
   const software = (asset.metadata?.software ?? {}) as Record<string, unknown>;
+  const processing = (asset.metadata?.videoProcessing ?? {}) as Record<string, unknown>;
   const views = Number(asset.analytics?.views ?? 0) || 0;
   const plays = Number(asset.analytics?.plays ?? 0) || 0;
   const score =
@@ -108,19 +109,43 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
     presentation.downloadAvailable = Boolean(software.hasPublicPackage);
     presentation.storeAvailable = false;
   }
+  const mediaAvailable =
+    asset.assetType === "VIDEO" || asset.assetType === "MUSIC"
+      ? Boolean(asset.dataZoneId)
+      : asset.assetType === "SOFTWARE"
+        ? Boolean(software.hasPublicPackage && asset.dataZoneId)
+        : false;
+  const coverAvailable =
+    asset.assetType === "MUSIC"
+      ? Boolean(music.hasCover)
+      : asset.assetType === "SOFTWARE"
+        ? false
+        : asset.assetType === "VIDEO"
+          ? Boolean(asset.metadata?.posterAvailable || asset.metadata?.thumbnailFileId)
+          : Boolean(asset.dataZoneId);
+  const durationMs =
+    typeof asset.metadata?.durationMs === "number"
+      ? asset.metadata.durationMs
+      : typeof processing.durationMs === "number"
+        ? processing.durationMs
+        : null;
+  const aspectRatio =
+    typeof asset.metadata?.aspectRatio === "string"
+      ? asset.metadata.aspectRatio
+      : typeof processing.aspectRatio === "string"
+        ? processing.aspectRatio
+        : null;
   return {
     id: asset.id,
     title: asset.title,
     description: asset.description,
     assetType: asset.assetType,
     publishedAt: asset.updatedAt,
-    coverAvailable:
-      asset.assetType === "MUSIC"
-        ? Boolean(music.hasCover)
-        : asset.assetType === "SOFTWARE"
-          ? false
-          : Boolean(asset.dataZoneId),
+    coverAvailable,
+    mediaAvailable,
     presentationTypes: parsePresentationTypes(presentationTypes),
+    durationMs,
+    aspectRatio,
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
     engagement: { views, plays, score },
     isPodcast,
