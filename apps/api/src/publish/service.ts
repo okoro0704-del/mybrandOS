@@ -6,8 +6,15 @@ import {
   TAG_MAX_COUNT,
   assetTypesForContentFormat,
   assetTypesForPublishCategory,
+  ensureMasterRendition,
+  isPresentationType,
   parsePresentationTypes,
+  parseVideoProcessing,
+  reelRequiresExplicitCut,
   digitalLifePath,
+  validateDestinationForVideo,
+  videoIsPlayableReady,
+  DESTINATION_MEDIA_PROFILES,
   type PublishCandidate,
   type PublishCategoryId,
   type PublishCategoryInfo,
@@ -20,6 +27,7 @@ import {
   type PublishScheduleMode,
   type PublishSourceAvailability,
   type PublishVisibility,
+  type PresentationType,
   PUBLISH_CATEGORY_DETAILS,
   PUBLISH_CATEGORY_IDS,
   PUBLISH_CATEGORY_LABELS,
@@ -47,6 +55,7 @@ async function projectInternalLifeOsPost(
     title: string;
     body: string;
     dataZoneId: string | null;
+    presentationType: PresentationType;
     platformJobsBound: boolean;
     platformJobs: PrimitiveBindings["platformJobs"];
   },
@@ -68,7 +77,7 @@ async function projectInternalLifeOsPost(
         payload: {
           assetId,
           channels: ["lifeos"],
-          presentationType: "POST",
+          presentationType: input.presentationType,
           destination: "LIFEOS",
           destinationKind: "internal",
           title: input.title,
@@ -87,21 +96,30 @@ async function projectInternalLifeOsPost(
     }
   }
 
+  const payload = {
+    presentationType: input.presentationType,
+    profileId:
+      input.presentationType === "REEL"
+        ? "REEL_VERTICAL"
+        : input.presentationType === "WATCH"
+          ? "WATCH_STANDARD"
+          : input.presentationType === "CINEMA"
+            ? "CINEMA_FULL"
+            : "POST_STANDARD",
+    destination: "LIFEOS",
+    destinationKind: "internal",
+    title: input.title,
+    body: input.body,
+    dataZoneId: input.dataZoneId,
+    platformJobId: jobId,
+  };
+
   if (existing) {
     return prisma.distributionIntent.update({
       where: { id: existing.id },
       data: {
         status,
-        payload: writeJson({
-          presentationType: "POST",
-          profileId: "POST_STANDARD",
-          destination: "LIFEOS",
-          destinationKind: "internal",
-          title: input.title,
-          body: input.body,
-          dataZoneId: input.dataZoneId,
-          platformJobId: jobId,
-        }),
+        payload: writeJson(payload),
       },
     });
   }
@@ -113,16 +131,7 @@ async function projectInternalLifeOsPost(
       assetId,
       mode: "LIFEOS_POST",
       status,
-      payload: writeJson({
-        presentationType: "POST",
-        profileId: "POST_STANDARD",
-        destination: "LIFEOS",
-        destinationKind: "internal",
-        title: input.title,
-        body: input.body,
-        dataZoneId: input.dataZoneId,
-        platformJobId: jobId,
-      }),
+      payload: writeJson(payload),
     },
   });
 }
@@ -404,7 +413,63 @@ export async function executePublish(
     (input.category === "content" &&
       (asset.assetType === "DESIGN" ||
         String(existingMeta.mimeType ?? "").toLowerCase().startsWith("image/")));
-  if (
+  const isVideo =
+    input.contentFormat === "video" ||
+    asset.assetType === "VIDEO" ||
+    String(existingMeta.mimeType ?? "").toLowerCase().startsWith("video/");
+
+  if (isVideo) {
+    if (!asset.dataZoneId) {
+      throw badRequest("video_media_missing", "This Video has no stored master media in DataZone.");
+    }
+    let videoMeta = ensureMasterRendition({ ...existingMeta }, asset.dataZoneId, {
+      mimeType: typeof existingMeta.mimeType === "string" ? existingMeta.mimeType : null,
+      durationMs: typeof existingMeta.durationMs === "number" ? existingMeta.durationMs : null,
+    });
+    Object.assign(existingMeta, videoMeta);
+    if (!videoIsPlayableReady(existingMeta, asset.dataZoneId)) {
+      const processing = parseVideoProcessing(existingMeta.videoProcessing);
+      throw badRequest(
+        "video_not_ready",
+        processing?.state === "FAILED"
+          ? "Video processing failed. Retry upload before publishing."
+          : "Video is not READY for playback yet.",
+      );
+    }
+    const selected =
+      input.presentationType && isPresentationType(input.presentationType)
+        ? input.presentationType
+        : null;
+    if (!selected) {
+      throw badRequest(
+        "presentation_required",
+        "Choose a presentation: POST, REEL, WATCH, or CINEMA.",
+      );
+    }
+    const durationMs =
+      typeof existingMeta.durationMs === "number"
+        ? existingMeta.durationMs
+        : parseVideoProcessing(existingMeta.videoProcessing)?.durationMs ?? null;
+    const trim = (existingMeta.trim ?? null) as { startMs: number; endMs: number } | null;
+    if (selected === "REEL" && reelRequiresExplicitCut(durationMs, trim, typeof existingMeta.highlightFromAssetId === "string" ? existingMeta.highlightFromAssetId : null)) {
+      throw badRequest(
+        "reel_trim_required",
+        "Reels cannot silently clip a video longer than 3 minutes. Trim first or choose WATCH/CINEMA.",
+      );
+    }
+    // One publish action → one primary presentation (do not accumulate silent duplicates).
+    presentationTypes.length = 0;
+    presentationTypes.push(selected);
+    existingMeta.presentationType = selected;
+    existingMeta[`profile:${selected}`] =
+      selected === "REEL"
+        ? "REEL_VERTICAL"
+        : selected === "WATCH"
+          ? "WATCH_STANDARD"
+          : selected === "CINEMA"
+            ? "CINEMA_FULL"
+            : "POST_STANDARD";
+  } else if (
     input.category === "content" &&
     !presentationTypes.includes("POST") &&
     (asset.assetType === "WRITING" || input.contentFormat === "text" || isPhotoPost)
@@ -428,7 +493,7 @@ export async function executePublish(
       publishPending: false,
       scheduledPublishAt: null,
       ...(presentationTypes.length ? { presentationTypes } : {}),
-      ...(presentationTypes.includes("POST") ? { postBody: writeup } : {}),
+      ...(presentationTypes.includes("POST") || isVideo ? { postBody: writeup } : {}),
       ...(asset.assetType === "WRITING"
         ? {
             writing: {
@@ -459,11 +524,14 @@ export async function executePublish(
 
   // Internal Digiconomy distribution: one publish projects to mybrandOS public + LifeOS.
   // Idempotent — one LIFEOS_POST intent per asset.
-  if (input.visibility === "public" && presentationTypes.includes("POST")) {
+  const lifeosPresentation = (presentationTypes.find((t) => isPresentationType(t)) ??
+    null) as PresentationType | null;
+  if (input.visibility === "public" && lifeosPresentation) {
     await projectInternalLifeOsPost(ownerId, updated.id, {
       title,
       body: writeup,
       dataZoneId: updated.dataZoneId,
+      presentationType: lifeosPresentation,
       platformJobsBound: primitives.platformJobs.bound,
       platformJobs: primitives.platformJobs,
     });
@@ -549,6 +617,45 @@ export async function buildDistributionSummary(
       state: destination.ready ? "connected" : "not_connected",
       detail: destination.detail,
     });
+  }
+
+  if (asset.assetType === "VIDEO") {
+    const presentation =
+      parsePresentationTypes(asset.metadata?.presentationTypes)[0] ??
+      (isPresentationType(asset.metadata?.presentationType) ? asset.metadata.presentationType : "WATCH");
+    const durationMs =
+      typeof asset.metadata?.durationMs === "number"
+        ? asset.metadata.durationMs
+        : parseVideoProcessing(asset.metadata?.videoProcessing)?.durationMs ?? null;
+    const mimeType =
+      typeof asset.metadata?.mimeType === "string"
+        ? asset.metadata.mimeType
+        : parseVideoProcessing(asset.metadata?.videoProcessing)?.mimeType ?? null;
+    const processingReady = videoIsPlayableReady(asset.metadata ?? {}, asset.dataZoneId);
+    for (const dest of Object.keys(DESTINATION_MEDIA_PROFILES) as Array<keyof typeof DESTINATION_MEDIA_PROFILES>) {
+      const verdict = validateDestinationForVideo({
+        destination: dest,
+        presentationType: presentation as PresentationType,
+        durationMs,
+        mimeType,
+        processingReady,
+      });
+      const existing = items.find((item) => item.id === dest.toLowerCase());
+      const readinessDetail = `${verdict.result}: ${verdict.detail}`;
+      if (existing) {
+        existing.detail = `${existing.detail} · ${readinessDetail}`;
+      } else if (dest !== "LIFEOS") {
+        items.push({
+          id: dest.toLowerCase(),
+          label: verdict.profile.label,
+          state: verdict.result === "READY" ? "eligible" : "unavailable",
+          detail: readinessDetail,
+        });
+      } else {
+        const life = items.find((item) => item.id === "lifeos");
+        if (life) life.detail = `${life.detail} · ${readinessDetail}`;
+      }
+    }
   }
 
   for (const site of externalSites) {

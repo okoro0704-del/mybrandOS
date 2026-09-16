@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ASSET_TYPE_LABELS,
   DEFAULT_PUBLISH_RIGHTS,
+  PRESENTATION_TYPES,
+  PRESENTATION_TYPE_LABELS,
   PUBLISH_CONTENT_FORMATS,
   PUBLISH_CONTENT_FORMAT_DETAILS,
   PUBLISH_CONTENT_FORMAT_LABELS,
@@ -13,6 +15,7 @@ import {
   PUBLISH_VISIBILITY_LABELS,
   TITLE_MAX_CHARS,
   WRITEUP_MAX_CHARS,
+  type PresentationType,
   type PublishCandidate,
   type PublishCategoryId,
   type PublishCategoryInfo,
@@ -78,6 +81,7 @@ export function PublishCenterPage() {
   const [siteUrl, setSiteUrl] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [distributeDetail, setDistributeDetail] = useState("");
+  const [presentationType, setPresentationType] = useState<PresentationType>("WATCH");
 
   useEffect(() => {
     void api<{ categories: PublishCategoryInfo[]; sources: PublishSourceAvailability[] }>("/publish/center")
@@ -260,6 +264,44 @@ export function PublishCenterPage() {
     }
   }
 
+  async function uploadVideo(file: File) {
+    setBusy(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const data = await api<{ assets: Array<{ id: string; title: string; assetType: string; status: string; visibility: string; origin: string; dataZoneId?: string | null; createdAt?: string; updatedAt?: string }> }>(
+        "/import/file",
+        { method: "POST", body: form },
+      );
+      const asset = data.assets?.[0];
+      if (!asset) throw new Error("Upload did not create an Asset.");
+      if (asset.assetType !== "VIDEO") {
+        throw new Error("That file was not imported as a VIDEO Asset.");
+      }
+      setPresentationType("WATCH");
+      chooseCandidate({
+        id: asset.id,
+        title: asset.title,
+        assetType: asset.assetType as PublishCandidate["assetType"],
+        status: asset.status ?? "DRAFT",
+        visibility: asset.visibility ?? "private",
+        origin: asset.origin ?? "IMPORTED_FILE",
+        createdAt: asset.createdAt ?? new Date().toISOString(),
+        updatedAt: asset.updatedAt ?? new Date().toISOString(),
+        coverAvailable: Boolean(asset.dataZoneId),
+        sourceProjectId: null,
+        dataZoneId: asset.dataZoneId ?? null,
+        presentationTypes: [],
+        detail: "Uploaded video — master preserved in DataZone",
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Video upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function publish() {
     if (!selected || !category) return;
     setBusy(true);
@@ -282,6 +324,9 @@ export function PublishCenterPage() {
           scheduledAt,
           contentFormat: format,
           category,
+          ...(format === "video" || selected.assetType === "VIDEO"
+            ? { presentationType }
+            : {}),
         }),
       });
       setResult(data);
@@ -470,6 +515,25 @@ export function PublishCenterPage() {
             </article>
           ) : null}
 
+          {format === "video" ? (
+            <article className="panel" style={{ marginBottom: 12 }}>
+              <div className="eyebrow">Upload video</div>
+              <p className="small muted">
+                Select one real video. It becomes a canonical VIDEO Asset in DataZone. One master — presentations are chosen next.
+              </p>
+              <input
+                type="file"
+                accept="video/*"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadVideo(file);
+                  e.currentTarget.value = "";
+                }}
+              />
+            </article>
+          ) : null}
+
           {source === "external" ? (
             <article className="panel">
               <div className="eyebrow">From External</div>
@@ -572,7 +636,44 @@ export function PublishCenterPage() {
               ))}
             </div>
           ) : null}
-          <button className="btn" onClick={() => setStep("schedule")}>
+          {format === "video" || selected.assetType === "VIDEO" ? (
+            <fieldset className="publish-presentation">
+              <legend>Presentation</legend>
+              <p className="small muted">Same Video Asset. Choose how this publish appears. One selection per publish.</p>
+              {PRESENTATION_TYPES.map((id) => (
+                <label key={id} className={`publish-radio${presentationType === id ? " on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="presentation"
+                    checked={presentationType === id}
+                    onChange={() => setPresentationType(id)}
+                  />
+                  <span>
+                    <strong>{PRESENTATION_TYPE_LABELS[id]}</strong>
+                    <span className="small muted">
+                      {id === "POST"
+                        ? "Feed-first social post"
+                        : id === "REEL"
+                          ? "Short-form vertical (≤ 3 minutes)"
+                          : id === "WATCH"
+                            ? "Standard long-form watch"
+                            : "Cinematic / full-length watching"}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          <button
+            className="btn"
+            onClick={() => {
+              if ((format === "video" || selected.assetType === "VIDEO") && !presentationType) {
+                setError("Choose a presentation for this Video.");
+                return;
+              }
+              setStep("schedule");
+            }}
+          >
             Continue
           </button>
         </div>
