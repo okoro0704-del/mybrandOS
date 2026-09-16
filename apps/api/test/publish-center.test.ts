@@ -480,3 +480,144 @@ test("cannot distribute before publish", async () => {
     (err: unknown) => err instanceof HttpError && err.code === "not_published",
   );
 });
+
+test("video publish requires presentation, preserves master rendition, projects LifeOS once", async () => {
+  const { ensureMasterRendition, parseVideoRenditions, validateDestinationForVideo, videoIsPlayableReady } =
+    await import("@mybrandos/shared");
+  const meta = ensureMasterRendition(
+    { mimeType: "video/mp4", durationMs: 45_000 },
+    "dz-video-master-1",
+    { mimeType: "video/mp4", durationMs: 45_000 },
+  );
+  assert.equal(videoIsPlayableReady(meta, "dz-video-master-1"), true);
+  const renditions = parseVideoRenditions(meta.videoRenditions);
+  assert.equal(renditions.filter((r) => r.purpose === "master").length, 1);
+  assert.equal(renditions[0]?.dataZoneId, "dz-video-master-1");
+
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Harbor Clip",
+    description: "",
+    assetType: "VIDEO",
+    origin: "IMPORTED_FILE",
+    status: "DRAFT",
+    visibility: "private",
+    dataZoneId: "dz-video-master-1",
+    metadata: meta,
+  });
+
+  await assert.rejects(
+    () =>
+      executePublish(
+        OWNER,
+        {
+          assetId: draft.id,
+          title: "Harbor Clip",
+          writeup: "MYBRANDOS-VIDEO-TEST-01-fixture",
+          visibility: "public",
+          rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+          scheduleMode: "now",
+          category: "content",
+          contentFormat: "video",
+        },
+        primitives(),
+      ),
+    (err: unknown) => err instanceof HttpError && err.code === "presentation_required",
+  );
+
+  const long = await createAsset({
+    ownerId: OWNER,
+    title: "Long Harbor",
+    assetType: "VIDEO",
+    origin: "IMPORTED_FILE",
+    status: "DRAFT",
+    visibility: "private",
+    dataZoneId: "dz-video-master-long",
+    metadata: ensureMasterRendition({ mimeType: "video/mp4", durationMs: 10 * 60_000 }, "dz-video-master-long", {
+      mimeType: "video/mp4",
+      durationMs: 10 * 60_000,
+    }),
+  });
+  await assert.rejects(
+    () =>
+      executePublish(
+        OWNER,
+        {
+          assetId: long.id,
+          title: "Long Harbor",
+          writeup: "too long for silent reel",
+          visibility: "public",
+          rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+          scheduleMode: "now",
+          category: "content",
+          contentFormat: "video",
+          presentationType: "REEL",
+        },
+        primitives(),
+      ),
+    (err: unknown) => err instanceof HttpError && err.code === "reel_trim_required",
+  );
+
+  const published = await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Harbor Clip",
+      writeup: "MYBRANDOS-VIDEO-TEST-01-fixture",
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "video",
+      presentationType: "WATCH",
+    },
+    primitives(),
+  );
+  assert.equal(published.status, "PUBLISHED");
+  const row = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
+  const saved = JSON.parse(row.metadata) as Record<string, unknown>;
+  assert.deepEqual(saved.presentationTypes, ["WATCH"]);
+  assert.equal(videoIsPlayableReady(saved, row.dataZoneId), true);
+  assert.equal(parseVideoRenditions(saved.videoRenditions).some((r) => r.isMaster), true);
+
+  const intents = await prisma.distributionIntent.findMany({
+    where: { ownerId: OWNER, assetId: draft.id, mode: "LIFEOS_POST" },
+  });
+  assert.equal(intents.length, 1);
+
+  await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Harbor Clip",
+      writeup: "MYBRANDOS-VIDEO-TEST-01-fixture",
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "video",
+      presentationType: "WATCH",
+    },
+    primitives(),
+  );
+  const intents2 = await prisma.distributionIntent.findMany({
+    where: { ownerId: OWNER, assetId: draft.id, mode: "LIFEOS_POST" },
+  });
+  assert.equal(intents2.length, 1);
+
+  const lifeos = validateDestinationForVideo({
+    destination: "LIFEOS",
+    presentationType: "WATCH",
+    durationMs: 45_000,
+    mimeType: "video/mp4",
+    processingReady: true,
+  });
+  assert.equal(lifeos.result, "READY");
+
+  await updateBrandConfig(identity(), { slug: "publish-center-life", publicEnabled: true, displayName: "Publish Creator" });
+  const experience = await getPublicBrandExperience("publish-center-life");
+  const card = experience.publishedAssets.find((item) => item.id === draft.id);
+  assert.ok(card);
+  assert.equal(card!.mediaAvailable, true);
+  assert.deepEqual(card!.presentationTypes, ["WATCH"]);
+});
