@@ -5,6 +5,9 @@ import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
+import { BottomSheet } from "../personal-os/BottomSheet";
+import { UtilityDock } from "../personal-os/UtilityDock";
+import { communitiesPath } from "../routes";
 
 export function DigitalLifeShell({
   experience,
@@ -26,6 +29,8 @@ export function DigitalLifeShell({
   children: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const theme = experience.theme;
 
   useEffect(() => {
@@ -36,11 +41,13 @@ export function DigitalLifeShell({
 
   useEffect(() => {
     setMenuOpen(false);
+    setNotifyOpen(false);
+    setMessagesOpen(false);
   }, [primary]);
 
   return (
     <div
-      className={`brand-exp digital-life-app digital-life-surface surface-${primary === "website" ? "website" : "app"}`}
+      className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "website" ? "website" : "app"}`}
       data-bg={theme.background}
       data-surface={preview ? "studio-preview" : primary === "website" ? "website" : "public_app"}
       data-accent={theme.accent}
@@ -58,21 +65,52 @@ export function DigitalLifeShell({
         </div>
       ) : null}
 
-      <DigitalLifeTopBar
-        experience={experience}
-        basePath={basePath}
-        mediaBase={mediaBase}
-        websiteBase={websiteBase}
-        primary={primary}
-        menuOpen={menuOpen}
-        onToggleMenu={() => setMenuOpen((v) => !v)}
-      />
+      <div className="os-phone-frame">
+        <DigitalLifeTopBar
+          experience={experience}
+          basePath={basePath}
+          mediaBase={mediaBase}
+          websiteBase={websiteBase}
+          primary={primary}
+          menuOpen={menuOpen}
+          onToggleMenu={() => setMenuOpen((v) => !v)}
+        />
 
-      <main className="dl-main be-main">{children}</main>
+        <main className="dl-main be-main os-main">{children}</main>
 
-      {!preview ? <InstallPrompt experience={experience} /> : null}
+        {!preview ? <InstallPrompt experience={experience} /> : null}
 
-      <DigitalLifeBottomNav basePath={basePath} websiteBase={websiteBase} primary={primary} />
+        <UtilityDock
+          experience={experience}
+          basePath={basePath}
+          onNotifications={() => setNotifyOpen(true)}
+          onMessages={() => setMessagesOpen(true)}
+        />
+
+        <DigitalLifeBottomNav basePath={basePath} websiteBase={websiteBase} primary={primary} />
+      </div>
+
+      <BottomSheet open={notifyOpen} title="Notifications" onClose={() => setNotifyOpen(false)}>
+        <p className="os-sheet__empty">
+          {/* TEMP_FALLBACK: public notification inbox API not exposed yet */}
+          No notifications yet. Activity from this Digital Life will appear here.
+        </p>
+      </BottomSheet>
+
+      <BottomSheet open={messagesOpen} title="Messages" onClose={() => setMessagesOpen(false)}>
+        {experience.messaging.available ? (
+          <div className="os-sheet__stack">
+            <p>Messaging is available for this Digital Life.</p>
+            <Link className="os-btn" to={communitiesPath(basePath)} onClick={() => setMessagesOpen(false)}>
+              Open community messaging
+            </Link>
+          </div>
+        ) : (
+          <p className="os-sheet__empty">
+            {experience.messaging.detail || "Messages open when messaging is enabled for this Digital Life."}
+          </p>
+        )}
+      </BottomSheet>
     </div>
   );
 }

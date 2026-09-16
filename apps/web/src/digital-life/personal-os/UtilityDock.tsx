@@ -1,0 +1,43 @@
+import { Link } from "react-router-dom";
+import type { PublicBrandExperience } from "@mybrandos/shared";
+import { joinPublicPath } from "@mybrandos/shared";
+import { Icons } from "../../nav/icons";
+
+export function UtilityDock({
+  experience,
+  basePath,
+  onNotifications,
+  onMessages,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  onNotifications: () => void;
+  onMessages: () => void;
+}) {
+  const live = experience.liveNow;
+  const livePath = joinPublicPath(basePath, "live");
+
+  return (
+    <div className="os-dock" aria-label="Quick actions">
+      <button type="button" className="os-dock__btn os-dock__btn--notify" onClick={onNotifications} aria-label="Notifications">
+        <Icons.bell size={20} />
+      </button>
+
+      {live ? (
+        <Link className="os-dock__live os-dock__live--on" to={livePath} aria-label={`Live now: ${live.title}`}>
+          <span className="os-dock__live-dot" aria-hidden />
+          <span>LIVE</span>
+        </Link>
+      ) : (
+        <Link className="os-dock__live os-dock__live--off" to={livePath} aria-label="Live is offline">
+          <span className="os-dock__live-dot" aria-hidden />
+          <span>OFFLINE</span>
+        </Link>
+      )}
+
+      <button type="button" className="os-dock__btn os-dock__btn--msg" onClick={onMessages} aria-label="Messages">
+        <Icons.messages size={20} />
+      </button>
+    </div>
+  );
+}

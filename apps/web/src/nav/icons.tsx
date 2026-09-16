@@ -97,6 +97,18 @@ export const Icons = {
       <path d="M4 19c.7-3 2.8-4.8 5-4.8s4.3 1.8 5 4.8M14 19c.3-1.7 1.4-2.8 2.8-2.8S19.4 17.3 20 19" />
     </Svg>
   ),
+  search: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16.5 16.5 20 20" strokeLinecap="round" />
+    </Svg>
+  ),
+  bell: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M6 16h12l-1.2-1.4a6.2 6.2 0 0 1-1.3-3.8V9.2A3.5 3.5 0 0 0 12 5.7 3.5 3.5 0 0 0 8.5 9.2v1.6c0 1.4-.45 2.7-1.3 3.8L6 16Z" />
+      <path d="M10 18.2a2 2 0 0 0 4 0" />
+    </Svg>
+  ),
 };
 
 export type IconName = keyof typeof Icons;

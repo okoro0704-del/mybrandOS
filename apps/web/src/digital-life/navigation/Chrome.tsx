@@ -3,6 +3,7 @@ import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
 import { communitiesPath, favoritesPath, managementPath, profilePath } from "../routes";
+import { initialsFrom, personalOsName } from "../personal-os/osIdentity";
 
 type Primary = "home" | "favorites" | "management" | "communities" | "website" | "profile" | string;
 
@@ -24,6 +25,7 @@ export function DigitalLifeTopBar({
   onToggleMenu: () => void;
 }) {
   const name = experience.identity.displayName || "Digital Life";
+  const os = personalOsName(experience.slug, name);
   const home = publicHomePath(basePath);
   const links = [
     { id: "home", label: "Home", to: home },
@@ -31,64 +33,50 @@ export function DigitalLifeTopBar({
     { id: "management", label: "Management", to: managementPath(basePath) },
     { id: "communities", label: "Communities", to: communitiesPath(basePath) },
     { id: "website", label: "Website", to: websiteBase },
+    { id: "profile", label: "Profile", to: profilePath(basePath) },
   ] as const;
 
   return (
-    <header className="dl-topbar">
-      <div className="dl-topbar-inner">
-        <Link className="dl-brand" to={home} aria-label={name}>
-          {experience.identity.hasLogo ? (
-            <img src={`${mediaBase}/media/logo`} alt="" className="dl-brand-logo" />
-          ) : experience.identity.hasAvatar ? (
-            <img src={`${mediaBase}/media/avatar`} alt="" className="dl-brand-logo" />
-          ) : (
-            <span className="dl-brand-mark" aria-hidden>
-              {name.slice(0, 1)}
-            </span>
-          )}
-          <span className="dl-brand-name">{name}</span>
+    <header className="os-topbar">
+      <div className="os-topbar__inner">
+        <button
+          type="button"
+          className="os-topbar__main"
+          aria-expanded={menuOpen}
+          aria-controls="os-main-menu"
+          onClick={onToggleMenu}
+        >
+          Main
+        </button>
+
+        <Link className="os-wordmark" to={home} aria-label={os.full}>
+          <span className="os-wordmark__stem">{os.stem}</span>
+          <span className="os-wordmark__os">{os.suffix}</span>
         </Link>
 
-        <nav className="dl-top-nav" aria-label="Primary">
-          {links.map((item) => (
-            <Link key={item.id} className={primary === item.id ? "active" : ""} to={item.to}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="dl-top-actions">
-          <Link
-            className={`dl-profile-entry${primary === "profile" ? " active" : ""}`}
-            to={profilePath(basePath)}
-            aria-label="Profile"
-          >
-            {experience.identity.hasAvatar ? (
-              <img src={`${mediaBase}/media/avatar`} alt="" />
-            ) : experience.identity.hasLogo ? (
-              <img src={`${mediaBase}/media/logo`} alt="" />
-            ) : (
-              <Icons.audience size={18} />
-            )}
-            <span className="dl-profile-label">You</span>
-          </Link>
-          <button type="button" className="dl-menu-btn" aria-expanded={menuOpen} aria-label="Menu" onClick={onToggleMenu}>
-            <span />
-            <span />
-            <span />
-          </button>
-        </div>
+        <Link className="os-topbar__avatar" to={profilePath(basePath)} aria-label={`${name} profile`}>
+          {experience.identity.hasAvatar ? (
+            <img src={`${mediaBase}/media/avatar`} alt="" />
+          ) : experience.identity.hasLogo ? (
+            <img src={`${mediaBase}/media/logo`} alt="" />
+          ) : (
+            <span>{initialsFrom(name)}</span>
+          )}
+        </Link>
       </div>
+
       {menuOpen ? (
-        <nav className="dl-mobile-menu" aria-label="Menu">
+        <nav id="os-main-menu" className="os-main-menu" aria-label="Main menu">
           {links.map((item) => (
-            <Link key={item.id} className={primary === item.id ? "active" : ""} to={item.to} onClick={onToggleMenu}>
+            <Link
+              key={item.id}
+              className={primary === item.id ? "active" : ""}
+              to={item.to}
+              onClick={onToggleMenu}
+            >
               {item.label}
             </Link>
           ))}
-          <Link className={primary === "profile" ? "active" : ""} to={profilePath(basePath)} onClick={onToggleMenu}>
-            Profile
-          </Link>
         </nav>
       ) : null}
     </header>
@@ -105,24 +93,32 @@ export function DigitalLifeBottomNav({
   primary: Primary;
 }) {
   const items = [
-    { id: "home", label: "Home", to: publicHomePath(basePath), icon: Icons.home },
-    { id: "favorites", label: "Favorites", to: favoritesPath(basePath), icon: Icons.favorites },
-    { id: "management", label: "Management", to: managementPath(basePath), icon: Icons.management },
-    { id: "communities", label: "Communities", to: communitiesPath(basePath), icon: Icons.communities },
-    { id: "website", label: "Website", to: websiteBase, icon: Icons.brand },
+    { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
+    { id: "favorites", label: "Favorites", short: "Favorites", to: favoritesPath(basePath), icon: Icons.favorites },
+    { id: "management", label: "Management", short: "Manage", to: managementPath(basePath), icon: Icons.management },
+    { id: "communities", label: "Communities", short: "Community", to: communitiesPath(basePath), icon: Icons.communities },
+    { id: "website", label: "Website", short: "Website", to: websiteBase, icon: Icons.brand },
   ] as const;
 
   return (
-    <nav className="dl-bottom-nav" aria-label="Digital Life">
+    <nav className="os-bottom-nav" aria-label="Digital Life">
       {items.map((item) => {
         const Icon = item.icon;
         const active =
           primary === item.id ||
           (item.id === "home" && (primary === "asset" || primary === "collection" || primary === "feed"));
         return (
-          <Link key={item.id} className={active ? "active" : ""} to={item.to}>
+          <Link
+            key={item.id}
+            className={active ? "active" : ""}
+            to={item.to}
+            aria-label={item.label}
+            aria-current={active ? "page" : undefined}
+          >
             <Icon size={20} />
-            <span>{item.label}</span>
+            <span className="os-bottom-nav__label" data-short={item.short}>
+              {item.short}
+            </span>
           </Link>
         );
       })}

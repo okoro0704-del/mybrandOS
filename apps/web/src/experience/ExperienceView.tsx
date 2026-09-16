@@ -17,13 +17,9 @@ import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
 import {
   assetDetailPath,
   assetsPath,
-  assetsForSpecialtyChip,
-  buildStickyLandingPlan,
-  communitiesPath,
   favoritesDiscoveryLanes,
-  favoritesPath,
 } from "../digital-life/routes";
-import { ImmersivePostFeed, isPostPresentation } from "./ImmersivePostFeed";
+import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
 
 export function ExperienceView({
   experience,
@@ -132,7 +128,6 @@ export function ExperienceView({
           experience={experience}
           basePath={appBase}
           mediaBase={mediaBase}
-          websiteBase={websiteBase}
         />
       )}
     </DigitalLifeShell>
@@ -147,126 +142,12 @@ function AppHomeBody({
   experience,
   basePath,
   mediaBase,
-  websiteBase,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
   mediaBase: string;
-  websiteBase: string;
 }) {
-  const name = experience.identity.displayName || "this Digital Life";
-  const plan = useMemo(
-    () =>
-      buildStickyLandingPlan({
-        assets: experience.publishedAssets,
-        featuredAssets: experience.featuredAssets,
-        basePath,
-        hints: {
-          displayName: experience.identity.displayName,
-          tagline: experience.identity.tagline,
-          bio: experience.identity.bio,
-        },
-        presentation: experience.presentation,
-        liveNow: Boolean(experience.liveNow),
-        offersCount: experience.offers?.length ?? 0,
-      }),
-    [experience, basePath],
-  );
-  const [activeChip, setActiveChip] = useState(plan.primaryChipId);
-  useEffect(() => {
-    setActiveChip(plan.primaryChipId);
-  }, [plan.primaryChipId, experience.slug]);
-
-  const sections = plan.sections;
-  const selected = sections.some((c) => c.id === activeChip) ? activeChip : plan.primaryChipId;
-  const stream =
-    selected === "live" || selected === "products"
-      ? []
-      : assetsForSpecialtyChip(experience.publishedAssets, selected);
-
-  return (
-    <>
-      <nav className="dl-section-bar" aria-label="Creator sections">
-        {sections.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            className={selected === chip.id ? "active" : ""}
-            aria-current={selected === chip.id ? "true" : undefined}
-            onClick={() => setActiveChip(chip.id)}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </nav>
-
-      {experience.liveNow && selected === "live" ? (
-        <aside className="dl-live-banner">
-          <div className="eyebrow">LIVE NOW</div>
-          <h2>{experience.liveNow.title}</h2>
-          <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
-            Join live
-          </Link>
-        </aside>
-      ) : null}
-
-      {selected === "products" ? (
-        <StoreBody experience={experience} basePath={basePath} mediaBase={mediaBase} />
-      ) : selected === "live" ? (
-        <section className="dl-section-panel">
-          <h2>Live</h2>
-          {experience.liveNow ? (
-            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
-              Open live session
-            </Link>
-          ) : (
-            <p className="muted">Nothing live right now.</p>
-          )}
-        </section>
-      ) : (
-        <section className={`dl-section-panel${stream.some(isPostPresentation) && (selected === "posts" || stream.every(isPostPresentation)) ? " dl-section-panel--immersive" : ""}`}>
-          {experience.publishedAssets.length === 0 ? (
-            <p className="dl-empty">{name} has not published work yet.</p>
-          ) : stream.length === 0 ? (
-            <p className="muted">Nothing in this section yet.</p>
-          ) : selected === "posts" || stream.every(isPostPresentation) ? (
-            <ImmersivePostFeed
-              assets={stream}
-              author={experience.slug || experience.identity.displayName || "creator"}
-              mediaBase={mediaBase}
-              empty="No posts yet."
-            />
-          ) : (
-            <WorkGrid
-              assets={stream.filter((a) => !isPostPresentation(a))}
-              basePath={basePath}
-              mediaBase={mediaBase}
-              experience={experience}
-              explore
-            />
-          )}
-        </section>
-      )}
-
-      <section className="dl-home-destinations">
-        <h2>More of this world</h2>
-        <div className="dl-dest-grid">
-          <Link className="dl-dest-card" to={favoritesPath(basePath)}>
-            <strong>Favorites</strong>
-            <span className="small muted">What people engage with most</span>
-          </Link>
-          <Link className="dl-dest-card" to={communitiesPath(basePath)}>
-            <strong>Community</strong>
-            <span className="small muted">People around this Digital Life</span>
-          </Link>
-          <Link className="dl-dest-card" to={websiteBase}>
-            <strong>Website</strong>
-            <span className="small muted">Official information</span>
-          </Link>
-        </div>
-      </section>
-    </>
-  );
+  return <PersonalOsHome experience={experience} basePath={basePath} mediaBase={mediaBase} />;
 }
 
 function FavoritesBody({
