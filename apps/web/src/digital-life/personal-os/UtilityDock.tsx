@@ -8,17 +8,24 @@ export function UtilityDock({
   basePath,
   onNotifications,
   onMessages,
+  immersiveDock = false,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
   onNotifications: () => void;
   onMessages: () => void;
+  /** Home IMMERSIVE_FEED: dock sits in the bottom-nav safe slot. */
+  immersiveDock?: boolean;
 }) {
   const live = experience.liveNow;
   const livePath = joinPublicPath(basePath, "live");
 
   return (
-    <div className="os-dock" aria-label="Quick actions">
+    <div
+      className={`os-dock${immersiveDock ? " os-dock--immersive" : ""}`}
+      aria-label="Quick actions"
+      data-chrome-dock={immersiveDock ? "immersive" : "stack"}
+    >
       <button type="button" className="os-dock__btn os-dock__btn--notify" onClick={onNotifications} aria-label="Notifications">
         <Icons.bell size={20} />
       </button>

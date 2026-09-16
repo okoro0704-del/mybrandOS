@@ -15,6 +15,7 @@ export function DigitalLifeTopBar({
   primary,
   menuOpen,
   onToggleMenu,
+  chromeHidden = false,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
@@ -23,6 +24,7 @@ export function DigitalLifeTopBar({
   primary: Primary;
   menuOpen: boolean;
   onToggleMenu: () => void;
+  chromeHidden?: boolean;
 }) {
   const name = experience.identity.displayName || "Digital Life";
   const os = personalOsName(experience.slug, name);
@@ -37,24 +39,30 @@ export function DigitalLifeTopBar({
   ] as const;
 
   return (
-    <header className="os-topbar">
+    <header className="os-topbar" aria-hidden={chromeHidden || undefined} data-chrome-hidden={chromeHidden ? "true" : undefined}>
       <div className="os-topbar__inner">
         <button
           type="button"
           className="os-topbar__main"
           aria-expanded={menuOpen}
           aria-controls="os-main-menu"
+          tabIndex={chromeHidden ? -1 : undefined}
           onClick={onToggleMenu}
         >
           Main
         </button>
 
-        <Link className="os-wordmark" to={home} aria-label={os.full}>
+        <Link className="os-wordmark" to={home} aria-label={os.full} tabIndex={chromeHidden ? -1 : undefined}>
           <span className="os-wordmark__stem">{os.stem}</span>
           <span className="os-wordmark__os">{os.suffix}</span>
         </Link>
 
-        <Link className="os-topbar__avatar" to={profilePath(basePath)} aria-label={`${name} profile`}>
+        <Link
+          className="os-topbar__avatar"
+          to={profilePath(basePath)}
+          aria-label={`${name} profile`}
+          tabIndex={chromeHidden ? -1 : undefined}
+        >
           {experience.identity.hasAvatar ? (
             <img src={`${mediaBase}/media/avatar`} alt="" />
           ) : experience.identity.hasLogo ? (
@@ -65,7 +73,7 @@ export function DigitalLifeTopBar({
         </Link>
       </div>
 
-      {menuOpen ? (
+      {menuOpen && !chromeHidden ? (
         <nav id="os-main-menu" className="os-main-menu" aria-label="Main menu">
           {links.map((item) => (
             <Link
@@ -87,10 +95,12 @@ export function DigitalLifeBottomNav({
   basePath,
   websiteBase,
   primary,
+  chromeHidden = false,
 }: {
   basePath: string;
   websiteBase: string;
   primary: Primary;
+  chromeHidden?: boolean;
 }) {
   const items = [
     { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
@@ -101,7 +111,12 @@ export function DigitalLifeBottomNav({
   ] as const;
 
   return (
-    <nav className="os-bottom-nav" aria-label="Digital Life">
+    <nav
+      className="os-bottom-nav"
+      aria-label="Digital Life"
+      aria-hidden={chromeHidden || undefined}
+      data-chrome-hidden={chromeHidden ? "true" : undefined}
+    >
       {items.map((item) => {
         const Icon = item.icon;
         const active =
@@ -114,6 +129,7 @@ export function DigitalLifeBottomNav({
             to={item.to}
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
+            tabIndex={chromeHidden ? -1 : undefined}
           >
             <Icon size={20} />
             <span className="os-bottom-nav__label" data-short={item.short}>

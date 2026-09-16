@@ -16,6 +16,7 @@ import {
   initialsFrom,
   type OsHomeCategory,
 } from "./osIdentity";
+import { useHomeChromeState } from "./HomeChromeContext";
 
 function offerFor(experience: PublicBrandExperience, assetId: string) {
   return (experience.offers ?? []).find((item) => item.assetId === assetId);
@@ -294,10 +295,17 @@ export function PersonalOsHome({
   }, [category, searchOpen, debounced, experience.slug]);
 
   const creator = experience.identity.displayName || experience.slug;
+  const homeChrome = useHomeChromeState();
+  const segmentsHidden = homeChrome === "IMMERSIVE_FEED";
 
   return (
     <section className="os-home">
-      <div className="os-segments-wrap">
+      <div
+        className="os-segments-wrap"
+        aria-hidden={segmentsHidden || undefined}
+        data-chrome-hidden={segmentsHidden ? "true" : undefined}
+        inert={segmentsHidden ? true : undefined}
+      >
         {searchOpen ? (
           <div className="os-search" role="search">
             <Icons.search size={18} aria-hidden />

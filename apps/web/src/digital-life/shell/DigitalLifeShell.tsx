@@ -6,7 +6,9 @@ import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
 import { BottomSheet } from "../personal-os/BottomSheet";
+import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { UtilityDock } from "../personal-os/UtilityDock";
+import { useHomeChromeScroll } from "../personal-os/useHomeChromeScroll";
 import { communitiesPath } from "../routes";
 
 export function DigitalLifeShell({
@@ -32,6 +34,12 @@ export function DigitalLifeShell({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const theme = experience.theme;
+  /** Immersive chrome is Home-tab only — never Favorites / Manage / etc. */
+  const homeChromeEnabled = primary === "home";
+  const homeChrome = useHomeChromeScroll(homeChromeEnabled);
+  const topBarHidden = homeChromeEnabled && homeChrome !== "FULL_HOME";
+  const bottomNavHidden = homeChromeEnabled && homeChrome === "IMMERSIVE_FEED";
+  const dockImmersive = homeChromeEnabled && homeChrome === "IMMERSIVE_FEED";
 
   useEffect(() => {
     applyBrandDocument(experience, { assetTitle });
@@ -45,7 +53,12 @@ export function DigitalLifeShell({
     setMessagesOpen(false);
   }, [primary]);
 
+  useEffect(() => {
+    if (homeChrome === "IMMERSIVE_FEED") setMenuOpen(false);
+  }, [homeChrome]);
+
   return (
+    <HomeChromeContext.Provider value={homeChromeEnabled ? homeChrome : null}>
     <div
       className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "website" ? "website" : "app"}`}
       data-bg={theme.background}
@@ -54,6 +67,7 @@ export function DigitalLifeShell({
       data-type={theme.typography}
       data-buttons={theme.buttons}
       data-density={theme.density}
+      data-home-chrome={homeChromeEnabled ? homeChrome : undefined}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -74,6 +88,7 @@ export function DigitalLifeShell({
           primary={primary}
           menuOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((v) => !v)}
+          chromeHidden={topBarHidden}
         />
 
         <main className="dl-main be-main os-main">{children}</main>
@@ -85,9 +100,15 @@ export function DigitalLifeShell({
           basePath={basePath}
           onNotifications={() => setNotifyOpen(true)}
           onMessages={() => setMessagesOpen(true)}
+          immersiveDock={dockImmersive}
         />
 
-        <DigitalLifeBottomNav basePath={basePath} websiteBase={websiteBase} primary={primary} />
+        <DigitalLifeBottomNav
+          basePath={basePath}
+          websiteBase={websiteBase}
+          primary={primary}
+          chromeHidden={bottomNavHidden}
+        />
       </div>
 
       <BottomSheet open={notifyOpen} title="Notifications" onClose={() => setNotifyOpen(false)}>
@@ -112,5 +133,6 @@ export function DigitalLifeShell({
         )}
       </BottomSheet>
     </div>
+    </HomeChromeContext.Provider>
   );
 }
