@@ -32,26 +32,6 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  fn: (store: IDBObjectStore) => IDBRequest<T> | void,
-): Promise<T | void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const store = tx.objectStore(STORE);
-    const result = fn(store);
-    tx.oncomplete = () => resolve(result ? (result as IDBRequest<T>).result : undefined);
-    tx.onerror = () => reject(tx.error ?? new Error("offline_kernel_tx_failed"));
-    if (result && "onsuccess" in result) {
-      result.onsuccess = () => {
-        /* resolved on tx complete */
-      };
-      result.onerror = () => reject(result.error);
-    }
-  });
-}
-
 export async function listOfflinePublications(): Promise<OfflinePublication[]> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
