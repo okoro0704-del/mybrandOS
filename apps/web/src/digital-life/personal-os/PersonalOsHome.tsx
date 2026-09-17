@@ -465,7 +465,7 @@ export function PersonalOsHome({
             }
           />
         ) : (
-          <div className="os-feed">
+          <div className={`os-feed${category === "posts" && !searchOpen ? " os-feed--posts" : ""}`}>
             {stream.map((asset) =>
               category === "posts" && !searchOpen ? (
                 <PostCard
@@ -473,7 +473,6 @@ export function PersonalOsHome({
                   asset={asset}
                   experience={experience}
                   mediaBase={mediaBase}
-                  basePath={basePath}
                 />
               ) : (
                 <MediaCard

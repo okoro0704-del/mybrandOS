@@ -262,3 +262,43 @@ export async function getPublicDigiPedia(slug: string) {
   }
   return { available: true as const, digipedia };
 }
+
+export async function getSpotlightPinsAdmin(identity: TrustIdIdentity) {
+  const space = await spaceOf(identity.trustId, identity.displayName);
+  const pinnedIds = presentationOf(space).spotlightPinnedIds ?? [];
+  const videos = await prisma.asset.findMany({
+    where: { ownerId: identity.trustId, assetType: "VIDEO", status: "PUBLISHED", visibility: "public" },
+    select: { id: true, title: true },
+    orderBy: { updatedAt: "desc" },
+    take: 40,
+  });
+  return { pinnedIds, videos };
+}
+
+export async function setSpotlightPinsAdmin(identity: TrustIdIdentity, pinnedIds: string[]) {
+  const ids = [...new Set(pinnedIds.map((id) => String(id).trim()).filter(Boolean))].slice(0, 2);
+  if (ids.length > 2) throw badRequest("pin_limit", "A creator can pin at most two videos.");
+  const space = await spaceOf(identity.trustId, identity.displayName);
+  if (ids.length) {
+    const owned = await prisma.asset.findMany({
+      where: {
+        id: { in: ids },
+        ownerId: identity.trustId,
+        assetType: "VIDEO",
+        status: "PUBLISHED",
+        visibility: "public",
+      },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      throw badRequest("invalid_pin", "Only your published public videos can be pinned.");
+    }
+  }
+  const presentation = presentationOf(space);
+  const updated = normalizePresentation({ ...presentation, spotlightPinnedIds: ids });
+  await prisma.personalSpace.update({
+    where: { id: space.id },
+    data: { presentationConfig: writeJson(updated) },
+  });
+  return { pinnedIds: ids };
+}

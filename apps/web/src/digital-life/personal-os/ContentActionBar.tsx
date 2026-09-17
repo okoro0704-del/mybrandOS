@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { PresentationType, PublicAssetCard } from "@mybrandos/shared";
 import { Icons } from "../../nav/icons";
-import { ApiError, api } from "../../lib/api";
+import { ApiError, api, getToken } from "../../lib/api";
 import {
+  extensionForMime,
+  fetchMediaForDownload,
   isSavedOffline,
   removePublicationOffline,
   savePublicationOffline,
 } from "../offline/offlineKernel";
+import { studioPath } from "@mybrandos/shared";
 
 const LONG_PRESS_MS = 520;
 
@@ -123,20 +126,24 @@ export function ContentActionBar({
       flash("Removed from Offline");
       return;
     }
-    await savePublicationOffline({
-      id: asset.id,
-      slug,
-      title: asset.title,
-      caption: asset.presentation?.body || asset.description || "",
-      assetType: asset.assetType,
-      presentationTypes: asset.presentationTypes as PresentationType[],
-      mediaUrl,
-      coverUrl,
-      savedAt: new Date().toISOString(),
-      mediaCached: false,
-    });
-    setSaved(true);
-    flash("Saved Offline");
+    try {
+      const row = await savePublicationOffline({
+        id: asset.id,
+        slug,
+        title: asset.title,
+        caption: asset.presentation?.body || asset.description || "",
+        assetType: asset.assetType,
+        presentationTypes: asset.presentationTypes as PresentationType[],
+        mediaUrl,
+        coverUrl,
+        savedAt: new Date().toISOString(),
+        mediaCached: false,
+      });
+      setSaved(true);
+      flash(row.mediaCached || !mediaUrl ? "Saved Offline" : "Saved Offline (metadata only)");
+    } catch {
+      flash("Could not save offline.");
+    }
   }
 
   async function downloadToDevice() {
@@ -144,23 +151,31 @@ export function ContentActionBar({
       flash("Download is not allowed by the creator.");
       return;
     }
-    const url = mediaUrl || coverUrl;
-    if (!url) {
-      flash("No downloadable media.");
-      return;
-    }
     try {
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error("download_failed");
-      const blob = await res.blob();
+      const { blob, mime } = await fetchMediaForDownload(asset.id, mediaUrl, coverUrl);
+      const safeName = `${asset.title || asset.id}`.replace(/[^\w.-]+/g, "_");
+      const filename = `${safeName}.${extensionForMime(mime)}`;
+      const file = new File([blob], filename, { type: mime });
+
+      const nav = navigator as Navigator & {
+        canShare?: (data?: ShareData) => boolean;
+        share?: (data?: ShareData) => Promise<void>;
+      };
+      if (typeof nav.canShare === "function" && nav.canShare({ files: [file] }) && typeof nav.share === "function") {
+        await nav.share({ files: [file], title: asset.title });
+        flash("Shared to device");
+        return;
+      }
+
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = `${asset.title || asset.id}`.replace(/[^\w.-]+/g, "_");
+      a.download = filename;
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(objectUrl);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
       flash("Downloading…");
     } catch {
       flash("Download failed.");
@@ -244,12 +259,26 @@ export function ContentActionBar({
     }
   }
 
-  function onReuse() {
+  async function onReuse() {
+    if (!getToken()) {
+      flash("Only creators can Reuse.");
+      return;
+    }
+    try {
+      const studio = await api<{ slug: string | null }>("/auth/studio");
+      if (!studio.slug) {
+        flash("Only creators can Reuse. Create your Digital Life app first.");
+        return;
+      }
+    } catch {
+      flash("Only creators can Reuse.");
+      return;
+    }
     if (!social.allowReuse) {
       flash("Reuse is not allowed by the creator.");
       return;
     }
-    flash("Reuse opens in Create when remix is available.");
+    window.location.href = studioPath("/create", window.location.hostname);
   }
 
   return (

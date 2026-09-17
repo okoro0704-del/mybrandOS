@@ -197,6 +197,7 @@ export type DigitalLifeRoutePrimary =
   | "website"
   | "info"
   | "vip"
+  | "spotlight"
   | "profile"
   | "asset"
   | "collection"
@@ -263,6 +264,9 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
   if (parts[0] === "vip") {
     return { surface: "app", section: "vip", primary: "vip" };
   }
+  if (parts[0] === "spotlight") {
+    return { surface: "app", section: "spotlight", primary: "spotlight" };
+  }
 
   if (parts[0] === "a" || parts[0] === "assets") {
     if (parts[1]) {
@@ -328,6 +332,10 @@ export function vipPath(basePath: string) {
   return joinPublicPath(basePath, "vip");
 }
 
+export function spotlightPath(basePath: string) {
+  return joinPublicPath(basePath, "spotlight");
+}
+
 export function infoPath(basePath: string, section?: "website" | "digipedia" | "news" | "blog") {
   return section ? joinPublicPath(basePath, "info", section) : joinPublicPath(basePath, "info");
 }
@@ -364,6 +372,70 @@ export function rankFavorites(assets: PublicAssetCard[]): PublicAssetCard[] {
     if (viewDiff !== 0) return viewDiff;
     return b.publishedAt.localeCompare(a.publishedAt);
   });
+}
+
+export type SpotlightMarker = "pinned" | "most_watched" | "trending";
+
+export type SpotlightItem = {
+  asset: PublicAssetCard;
+  markers: SpotlightMarker[];
+};
+
+/** Build Spotlight playlist: pinned (≤2) + most watched + trending, then shuffle order. */
+export function buildSpotlightPlaylist(
+  assets: PublicAssetCard[],
+  pinnedIds: string[] | null | undefined,
+): SpotlightItem[] {
+  const videos = assets.filter((a) => a.assetType === "VIDEO" && a.mediaAvailable);
+  if (!videos.length) return [];
+
+  const byId = new Map(videos.map((v) => [v.id, v]));
+  const markerMap = new Map<string, Set<SpotlightMarker>>();
+
+  function mark(id: string, marker: SpotlightMarker) {
+    const set = markerMap.get(id) ?? new Set<SpotlightMarker>();
+    set.add(marker);
+    markerMap.set(id, set);
+  }
+
+  const pins = (pinnedIds ?? []).map((id) => byId.get(id)).filter((v): v is PublicAssetCard => Boolean(v)).slice(0, 2);
+  for (const pin of pins) mark(pin.id, "pinned");
+
+  const byPlays = [...videos].sort((a, b) => (b.engagement?.plays ?? 0) - (a.engagement?.plays ?? 0));
+  const mostWatched = byPlays[0];
+  if (mostWatched) mark(mostWatched.id, "most_watched");
+
+  const byScore = [...videos].sort((a, b) => (b.engagement?.score ?? 0) - (a.engagement?.score ?? 0));
+  const trending = byScore.find((v) => v.id !== mostWatched?.id) ?? byScore[0];
+  if (trending) mark(trending.id, "trending");
+
+  const poolIds = new Set<string>([
+    ...pins.map((p) => p.id),
+    ...(mostWatched ? [mostWatched.id] : []),
+    ...(trending ? [trending.id] : []),
+  ]);
+
+  // Fill with remaining videos so Spotlight isn't empty when signals are sparse.
+  for (const v of byScore) {
+    if (poolIds.size >= Math.min(12, videos.length)) break;
+    poolIds.add(v.id);
+  }
+
+  const items: SpotlightItem[] = [...poolIds]
+    .map((id) => byId.get(id))
+    .filter((v): v is PublicAssetCard => Boolean(v))
+    .map((asset) => ({
+      asset,
+      markers: [...(markerMap.get(asset.id) ?? [])],
+    }));
+
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = tmp;
+  }
+  return items;
 }
 
 export type SpecialtyChip = {
@@ -422,6 +494,8 @@ export type PublicExperiencePresentation = {
   digipedia?: DigiPediaRecord | null;
   /** Creator-specific annual VIP membership configuration. */
   creatorVip?: CreatorVipConfig | null;
+  /** Up to two VIDEO asset ids the creator pins into Spotlight. */
+  spotlightPinnedIds?: string[] | null;
 };
 
 export type DigiPediaSection = {
@@ -532,6 +606,12 @@ export function normalizePresentation(
             : [],
           offerId: input.creatorVip.offerId ? String(input.creatorVip.offerId) : null,
         }
+      : null,
+    spotlightPinnedIds: Array.isArray(input?.spotlightPinnedIds)
+      ? input!
+          .spotlightPinnedIds!.map((id) => String(id).trim())
+          .filter(Boolean)
+          .slice(0, 2)
       : null,
   };
 }

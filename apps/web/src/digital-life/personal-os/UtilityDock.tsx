@@ -33,12 +33,12 @@ export function UtilityDock({
       {live ? (
         <Link className="os-dock__live os-dock__live--on" to={livePath} aria-label={`Live now: ${live.title}`}>
           <span className="os-dock__live-dot" aria-hidden />
-          <span>LIVE</span>
+          <span className="os-dock__live-label">LIVE</span>
         </Link>
       ) : (
         <Link className="os-dock__live os-dock__live--off" to={livePath} aria-label="Live is offline">
           <span className="os-dock__live-dot" aria-hidden />
-          <span>OFFLINE</span>
+          <span className="os-dock__live-label">LIVE</span>
         </Link>
       )}
 

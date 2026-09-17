@@ -10,6 +10,8 @@ import {
   getDigiPediaAdmin,
   publishDigiPediaAdmin,
   getPublicDigiPedia,
+  getSpotlightPinsAdmin,
+  setSpotlightPinsAdmin,
 } from "../services/creator-info.js";
 import { prisma } from "../lib/prisma.js";
 import { normalizeSlug } from "@mybrandos/shared";
@@ -27,6 +29,19 @@ export function registerCreatorInfoRoutes(app: FastifyInstance, primitives: Prim
     const identity = await requireIdentity(req, reply, primitives);
     if (!identity) return;
     return upsertCreatorVipAdmin(identity.identity, (req.body ?? {}) as Record<string, unknown>);
+  });
+
+  app.get("/info/spotlight", async (req, reply) => {
+    const identity = await requireIdentity(req, reply, primitives);
+    if (!identity) return;
+    return getSpotlightPinsAdmin(identity.identity);
+  });
+
+  app.put("/info/spotlight", async (req, reply) => {
+    const identity = await requireIdentity(req, reply, primitives);
+    if (!identity) return;
+    const body = (req.body ?? {}) as { pinnedIds?: string[] };
+    return setSpotlightPinsAdmin(identity.identity, Array.isArray(body.pinnedIds) ? body.pinnedIds : []);
   });
 
   app.get("/info/digipedia", async (req, reply) => {

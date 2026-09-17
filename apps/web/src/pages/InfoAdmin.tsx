@@ -9,7 +9,7 @@ import {
 } from "@mybrandos/shared";
 import { ApiError, api } from "../lib/api";
 
-type Tab = "website" | "digipedia" | "news" | "blog" | "vip";
+type Tab = "website" | "digipedia" | "news" | "blog" | "vip" | "spotlight";
 
 type WebsiteList = {
   pages: WebsitePage[];
@@ -26,7 +26,7 @@ export function InfoAdminPage() {
         <div>
           <p className="eyebrow">Studio</p>
           <h1>Info</h1>
-          <p className="muted">Website, DigiPedia, News, Blog, and Creator VIP — one Digital Life.</p>
+          <p className="muted">Website, DigiPedia, News, Blog, Spotlight pins, and Creator VIP — one Digital Life.</p>
         </div>
         <Link className="btn ghost" to={appPath("/website")}>
           Classic Website editor
@@ -39,6 +39,7 @@ export function InfoAdminPage() {
             ["digipedia", "DigiPedia"],
             ["news", "News"],
             ["blog", "Blog"],
+            ["spotlight", "Spotlight"],
             ["vip", "VIP"],
           ] as const
         ).map(([id, label]) => (
@@ -49,6 +50,7 @@ export function InfoAdminPage() {
       </nav>
       {tab === "website" || tab === "news" || tab === "blog" ? <WebsiteAdminPanel filter={tab} /> : null}
       {tab === "digipedia" ? <DigiPediaAdminPanel /> : null}
+      {tab === "spotlight" ? <SpotlightAdminPanel /> : null}
       {tab === "vip" ? <VipAdminPanel /> : null}
     </section>
   );
@@ -284,6 +286,66 @@ function DigiPediaAdminPanel() {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function SpotlightAdminPanel() {
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const [videos, setVideos] = useState<Array<{ id: string; title: string }>>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void api<{ pinnedIds: string[]; videos: Array<{ id: string; title: string }> }>("/info/spotlight")
+      .then((d) => {
+        setPinnedIds(d.pinnedIds ?? []);
+        setVideos(d.videos ?? []);
+      })
+      .catch(() => setError("Could not load Spotlight pins."));
+  }, []);
+
+  function toggle(id: string) {
+    setPinnedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return prev;
+      return [...prev, id];
+    });
+  }
+
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api<{ pinnedIds: string[] }>("/info/spotlight", {
+        method: "PUT",
+        body: JSON.stringify({ pinnedIds }),
+      });
+      setPinnedIds(next.pinnedIds);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save pins.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="panel stack">
+      {error ? <p className="error">{error}</p> : null}
+      <p className="muted">Pin up to two public videos for Spotlight. Most watched and trending are computed automatically.</p>
+      {!videos.length ? <p className="muted">No published public videos yet.</p> : null}
+      {videos.map((v) => {
+        const on = pinnedIds.includes(v.id);
+        return (
+          <label key={v.id} className="row" style={{ gap: "0.65rem" }}>
+            <input type="checkbox" checked={on} disabled={!on && pinnedIds.length >= 2} onChange={() => toggle(v.id)} />
+            <span>{v.title}</span>
+          </label>
+        );
+      })}
+      <button type="button" className="btn primary" disabled={busy} onClick={() => void save()}>
+        Save Spotlight pins
+      </button>
     </div>
   );
 }

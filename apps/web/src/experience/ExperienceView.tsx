@@ -74,7 +74,8 @@ export function ExperienceView({
           primary === "profile" ||
           primary === "home" ||
           primary === "info" ||
-          primary === "vip"
+          primary === "vip" ||
+          primary === "spotlight"
         ? primary
         : primary === "assets" || primary === "asset" || primary === "collection" || primary === "feed"
           ? "home"
@@ -98,6 +99,8 @@ export function ExperienceView({
         ) : (
           <p className="muted">This work is not available.</p>
         )
+      ) : primary === "spotlight" || section === "spotlight" ? (
+        <SpotlightBody experience={experience} mediaBase={mediaBase} basePath={appBase} />
       ) : primary === "vip" || section === "vip" ? (
         <VipBody experience={experience} />
       ) : primary === "info" ||
@@ -752,6 +755,143 @@ function BlogPublicBody({
           <Link to={assetDetailPath(basePath, item.id)}>Open</Link>
         </div>
       ))}
+    </section>
+  );
+}
+
+type SpotlightMarker = "pinned" | "most_watched" | "trending";
+
+function shuffleSpotlight<T>(items: T[]): T[] {
+  const next = [...items];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = next[i]!;
+    next[i] = next[j]!;
+    next[j] = tmp;
+  }
+  return next;
+}
+
+function buildSpotlightItems(experience: PublicBrandExperience) {
+  const videos = experience.publishedAssets.filter((a) => a.assetType === "VIDEO" && a.mediaAvailable);
+  const pinnedIds = (experience.presentation?.spotlightPinnedIds ?? []).slice(0, 2);
+  const markers = new Map<string, Set<SpotlightMarker>>();
+
+  function mark(id: string, marker: SpotlightMarker) {
+    const set = markers.get(id) ?? new Set<SpotlightMarker>();
+    set.add(marker);
+    markers.set(id, set);
+  }
+
+  for (const id of pinnedIds) mark(id, "pinned");
+
+  const byPlays = [...videos].sort((a, b) => (b.engagement?.plays ?? 0) - (a.engagement?.plays ?? 0));
+  if (byPlays[0]) mark(byPlays[0].id, "most_watched");
+
+  const byScore = [...videos].sort((a, b) => (b.engagement?.score ?? 0) - (a.engagement?.score ?? 0));
+  const trending = byScore.find((v) => v.id !== byPlays[0]?.id) ?? byScore[0];
+  if (trending) mark(trending.id, "trending");
+
+  const selectedIds = new Set<string>([...pinnedIds, byPlays[0]?.id, trending?.id].filter(Boolean) as string[]);
+  // Fill with other videos so Spotlight has a watchable queue.
+  for (const v of byScore) {
+    if (selectedIds.size >= 12) break;
+    selectedIds.add(v.id);
+  }
+
+  const pool = videos
+    .filter((v) => selectedIds.has(v.id))
+    .map((asset) => ({
+      asset,
+      markers: [...(markers.get(asset.id) ?? [])],
+    }));
+
+  return shuffleSpotlight(pool);
+}
+
+function SpotlightBody({
+  experience,
+  mediaBase,
+  basePath,
+}: {
+  experience: PublicBrandExperience;
+  mediaBase: string;
+  basePath: string;
+}) {
+  const items = useMemo(() => buildSpotlightItems(experience), [experience]);
+  const name = experience.identity.displayName || experience.slug;
+
+  if (!items.length) {
+    return (
+      <section className="os-home">
+        <header className="dl-section-head">
+          <div>
+            <p className="eyebrow">Spotlight</p>
+            <h1>Spotlight</h1>
+            <p className="be-lead">Pinned, most watched, and trending videos from {name}.</p>
+          </div>
+        </header>
+        <p className="muted">No public videos yet.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="os-home spotlight-surface">
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Spotlight</p>
+          <h1>Spotlight</h1>
+          <p className="be-lead">Pinned, most watched, and trending — shuffled each visit.</p>
+        </div>
+      </header>
+      <div className="os-feed os-feed--spotlight">
+        {items.map(({ asset, markers }) => (
+          <article className="os-card os-card--spotlight" key={asset.id}>
+            <div className="spotlight-markers" aria-label="Spotlight markers">
+              {markers.includes("pinned") ? (
+                <span className="spotlight-marker spotlight-marker--pinned" title="Pinned by creator">
+                  ✦ Pin
+                </span>
+              ) : null}
+              {markers.includes("most_watched") ? (
+                <span className="spotlight-marker spotlight-marker--watched" title="Most watched">
+                  Most watched
+                </span>
+              ) : null}
+              {markers.includes("trending") ? (
+                <span className="spotlight-marker spotlight-marker--trending" title="Trending">
+                  Trending
+                </span>
+              ) : null}
+            </div>
+            <div className="os-card__media os-card__media--lg os-card__media--video">
+              <AdaptiveVideoPlayer
+                src={`${mediaBase}/assets/${asset.id}/media`}
+                presentation={
+                  asset.presentationTypes.includes("REEL")
+                    ? "REEL"
+                    : asset.presentationTypes.includes("CINEMA")
+                      ? "CINEMA"
+                      : "WATCH"
+                }
+                poster={asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null}
+                title={asset.title}
+                creatorLabel={name}
+                caption={asset.description || undefined}
+                autoPlayMuted={asset.presentationTypes.includes("REEL")}
+              />
+            </div>
+            <div className="os-card__copy">
+              <h3>
+                <Link to={assetDetailPath(basePath, asset.id)}>{asset.title}</Link>
+              </h3>
+              {asset.description ? <p>{asset.description}</p> : null}
+            </div>
+            <ContentActionBar asset={asset} slug={experience.slug} mediaBase={mediaBase} creatorLabel={name} />
+          </article>
+        ))}
+      </div>
     </section>
   );
 }

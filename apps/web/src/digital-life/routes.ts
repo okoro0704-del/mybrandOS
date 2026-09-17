@@ -7,6 +7,7 @@ export {
   communitiesPath,
   profilePath,
   vipPath,
+  spotlightPath,
   infoPath,
   digipediaPath,
   newsPath,
