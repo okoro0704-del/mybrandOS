@@ -12,7 +12,8 @@ import {
   getPublicBrandMedia,
   getPublicLive,
 } from "../services/brand-service.js";
-import { getPublicAssetSocial, togglePublicAssetLove } from "../services/public-social.js";
+import { getPublicAssetSocial, togglePublicAssetLove, addPublicAssetComment } from "../services/public-social.js";
+import { peekInteractionKey, resolveInteractionIdentity } from "../lib/interaction-identity.js";
 import { resolveRequestIdentity } from "../lib/auth.js";
 import { unauthorized } from "../lib/errors.js";
 
@@ -179,7 +180,8 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.get("/public/:slug/assets/:id/media", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const file = await getPublicAssetMedia(slug, id, primitives);
+    const viewer = await resolveRequestIdentity(req, primitives);
+    const file = await getPublicAssetMedia(slug, id, primitives, viewer?.ownerId ?? null);
     const bytes = file.bytes;
     const total = bytes.byteLength;
     const range = String(req.headers.range || "");
@@ -207,16 +209,21 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.get("/public/:slug/assets/:id/social", async (req) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const viewer = await resolveRequestIdentity(req, primitives);
-    return getPublicAssetSocial(slug, id, viewer?.ownerId ?? null);
+    const viewerKey = await peekInteractionKey(req, primitives);
+    return getPublicAssetSocial(slug, id, viewerKey);
   });
 
   app.post("/public/:slug/assets/:id/love", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const viewer = await resolveRequestIdentity(req, primitives);
-    if (!viewer) {
-      throw unauthorized("Sign in with Trust ID to Love this publication.");
-    }
-    return togglePublicAssetLove(slug, id, viewer.ownerId);
+    const identity = await resolveInteractionIdentity(req, reply, primitives);
+    if (!identity.key) throw unauthorized("A session is required to Love this publication.");
+    return togglePublicAssetLove(slug, id, identity.key);
+  });
+
+  app.post("/public/:slug/assets/:id/comments", async (req, reply) => {
+    const { slug, id } = req.params as { slug: string; id: string };
+    const body = (req.body as { body?: string } | undefined)?.body ?? "";
+    const identity = await resolveInteractionIdentity(req, reply, primitives);
+    return addPublicAssetComment(slug, id, identity, body);
   });
 }

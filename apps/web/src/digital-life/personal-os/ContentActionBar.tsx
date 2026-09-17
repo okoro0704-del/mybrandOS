@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { PresentationType, PublicAssetCard } from "@mybrandos/shared";
 import { Icons } from "../../nav/icons";
-import { ApiError, api, getToken } from "../../lib/api";
+import { ApiError, api } from "../../lib/api";
 import {
   isSavedOffline,
   removePublicationOffline,
@@ -10,13 +10,36 @@ import {
 
 const LONG_PRESS_MS = 520;
 
+type PublicComment = {
+  id: string;
+  body: string;
+  displayName: string;
+  createdAt: string;
+  mine: boolean;
+};
+
 type SocialState = {
   loves: number;
   lovedByMe: boolean;
   downloadAllowed: boolean;
   allowSharing: boolean;
   allowReuse: boolean;
+  comments: PublicComment[];
 };
+
+function formatCommentAge(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const delta = Math.max(0, Date.now() - then);
+  const mins = Math.floor(delta / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export function ContentActionBar({
   asset,
@@ -35,10 +58,14 @@ export function ContentActionBar({
     downloadAllowed: Boolean(asset.downloadAllowed),
     allowSharing: asset.allowSharing !== false,
     allowReuse: Boolean(asset.allowReuse),
+    comments: [],
   });
   const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState("");
   const [busyLove, setBusyLove] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busyComment, setBusyComment] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
   const mediaUrl = asset.mediaAvailable ? `${mediaBase}/assets/${asset.id}/media` : null;
@@ -50,7 +77,13 @@ export function ContentActionBar({
 
   useEffect(() => {
     void api<SocialState>(`/public/${slug}/assets/${asset.id}/social`)
-      .then((data) => setSocial((prev) => ({ ...prev, ...data })))
+      .then((data) =>
+        setSocial((prev) => ({
+          ...prev,
+          ...data,
+          comments: Array.isArray(data.comments) ? data.comments : [],
+        })),
+      )
       .catch(() => {
         /* public card defaults remain */
       });
@@ -67,10 +100,6 @@ export function ContentActionBar({
   }
 
   async function toggleLove() {
-    if (!getToken()) {
-      flash("Sign in to Love this publication.");
-      return;
-    }
     if (busyLove) return;
     setBusyLove(true);
     try {
@@ -191,8 +220,28 @@ export function ContentActionBar({
     }
   }
 
-  function onComment() {
-    flash("Comments open soon.");
+  async function submitComment() {
+    if (busyComment) return;
+    const body = draft.trim();
+    if (!body) {
+      flash("Write a comment first.");
+      return;
+    }
+    setBusyComment(true);
+    try {
+      const created = await api<PublicComment>(`/public/${slug}/assets/${asset.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      });
+      setSocial((s) => ({ ...s, comments: [...s.comments, created] }));
+      setDraft("");
+      setCommentsOpen(true);
+      flash("Comment posted");
+    } catch (err) {
+      flash(err instanceof ApiError ? err.message : "Could not post comment.");
+    } finally {
+      setBusyComment(false);
+    }
   }
 
   function onReuse() {
@@ -213,7 +262,12 @@ export function ContentActionBar({
           onClick={() => void toggleLove()}
           icon={<Icons.love size={20} filled={social.lovedByMe} />}
         />
-        <ActionBtn label="Comment" onClick={onComment} icon={<Icons.messages size={20} />} />
+        <ActionBtn
+          label="Comment"
+          count={social.comments.length || undefined}
+          onClick={() => setCommentsOpen((v) => !v)}
+          icon={<Icons.messages size={20} />}
+        />
         <ActionBtn
           label={saved ? "Saved" : "Save"}
           active={saved}
@@ -228,6 +282,47 @@ export function ContentActionBar({
         <ActionBtn label="Share" onClick={() => void onShare()} icon={<Icons.distribute size={20} />} />
         <ActionBtn label="Reuse" onClick={onReuse} icon={<Icons.reuse size={20} />} />
       </div>
+
+      {commentsOpen ? (
+        <div className="content-actions__comments" id={`comments-${asset.id}`}>
+          <ul className="content-actions__comment-list">
+            {social.comments.length ? (
+              social.comments.map((c) => (
+                <li key={c.id}>
+                  <strong>{c.displayName}</strong>
+                  <span className="content-actions__comment-age">{formatCommentAge(c.createdAt)}</span>
+                  <p>{c.body}</p>
+                </li>
+              ))
+            ) : (
+              <li className="muted">Be the first to comment.</li>
+            )}
+          </ul>
+          <form
+            className="content-actions__comment-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitComment();
+            }}
+          >
+            <label className="sr-only" htmlFor={`comment-input-${asset.id}`}>
+              Comment
+            </label>
+            <input
+              id={`comment-input-${asset.id}`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Write a comment…"
+              maxLength={2000}
+              disabled={busyComment}
+            />
+            <button type="submit" className="os-btn os-btn--soft" disabled={busyComment}>
+              Post
+            </button>
+          </form>
+        </div>
+      ) : null}
+
       {toast ? (
         <p className="content-actions__toast" role="status">
           {toast}
@@ -275,9 +370,7 @@ function ActionBtn({
       onContextMenu={onContextMenu}
     >
       {icon}
-      <span>
-        {typeof count === "number" && count > 0 ? count : label}
-      </span>
+      <span>{typeof count === "number" && count > 0 ? count : label}</span>
     </button>
   );
 }

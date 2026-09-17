@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ASSET_TYPE_LABELS,
@@ -14,7 +14,7 @@ import {
 } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
-import { assetDetailPath, assetsPath } from "../digital-life/routes";
+import { assetDetailPath, assetsPath, infoPath, digipediaPath, newsPath } from "../digital-life/routes";
 import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
@@ -67,12 +67,14 @@ export function ExperienceView({
 
   const shellPrimary =
     surface === "website"
-      ? "website"
+      ? "info"
       : primary === "favorites" ||
           primary === "management" ||
           primary === "communities" ||
           primary === "profile" ||
-          primary === "home"
+          primary === "home" ||
+          primary === "info" ||
+          primary === "vip"
         ? primary
         : primary === "assets" || primary === "asset" || primary === "collection" || primary === "feed"
           ? "home"
@@ -89,13 +91,32 @@ export function ExperienceView({
       assetTitle={asset?.title}
     >
       {surface === "website" ? (
-        <WebsiteBody experience={experience} page={selectedWebsitePage} websiteBase={websiteBase} />
+        <InfoBody experience={experience} section="website" page={selectedWebsitePage} basePath={appBase} websiteBase={websiteBase} />
       ) : assetId ? (
         asset ? (
           <PublicAssetBody asset={asset} experience={experience} mediaBase={mediaBase} basePath={appBase} />
         ) : (
           <p className="muted">This work is not available.</p>
         )
+      ) : primary === "vip" || section === "vip" ? (
+        <VipBody experience={experience} />
+      ) : primary === "info" ||
+        section === "info" ||
+        section === "digipedia" ||
+        section === "news" ||
+        section === "blog" ||
+        section === "website" ? (
+        <InfoBody
+          experience={experience}
+          section={
+            section === "digipedia" || section === "news" || section === "blog" || section === "website"
+              ? section
+              : "hub"
+          }
+          page={selectedWebsitePage}
+          basePath={appBase}
+          websiteBase={websiteBase}
+        />
       ) : primary === "favorites" || section === "favorites" ? (
         <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
       ) : primary === "management" || section === "management" ? (
@@ -573,6 +594,271 @@ function WebsiteBody({
           ))}
         </>
       ) : null}
+    </section>
+  );
+}
+
+function InfoBody({
+  experience,
+  section,
+  page,
+  basePath,
+  websiteBase,
+}: {
+  experience: PublicBrandExperience;
+  section: "hub" | "website" | "digipedia" | "news" | "blog";
+  page?: PublicWebsitePage;
+  basePath: string;
+  websiteBase: string;
+}) {
+  const tabs = [
+    { id: "website" as const, label: "Website", to: infoPath(basePath, "website") },
+    { id: "digipedia" as const, label: "DigiPedia", to: digipediaPath(basePath) },
+    { id: "news" as const, label: "News", to: newsPath(basePath) },
+    { id: "blog" as const, label: "Blog", to: infoPath(basePath, "blog") },
+  ];
+
+  return (
+    <section className="os-home info-surface">
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Info</p>
+          <h1>{experience.identity.displayName || "Creator"} information</h1>
+          <p className="be-lead">Website, DigiPedia, News, and writing from this Digital Life.</p>
+        </div>
+      </header>
+      <nav className="dl-section-bar" aria-label="Info sections">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.id}
+            to={tab.to}
+            className={section === tab.id ? "active" : ""}
+            aria-current={section === tab.id ? "page" : undefined}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+      {section === "hub" || section === "website" ? (
+        <WebsiteBody experience={experience} page={page} websiteBase={websiteBase} />
+      ) : section === "digipedia" ? (
+        <DigiPediaPublicBody experience={experience} />
+      ) : section === "news" ? (
+        <NewsPublicBody experience={experience} websiteBase={websiteBase} />
+      ) : (
+        <BlogPublicBody experience={experience} websiteBase={websiteBase} />
+      )}
+    </section>
+  );
+}
+
+function DigiPediaPublicBody({ experience }: { experience: PublicBrandExperience }) {
+  const [state, setState] = useState<{
+    available: boolean;
+    digipedia: null | {
+      title: string;
+      summary: string;
+      sections: Array<{ id: string; heading: string; body: string }>;
+      updatedAt: string;
+    };
+  } | null>(null);
+  useEffect(() => {
+    void api<NonNullable<typeof state>>(`/public/${experience.slug}/digipedia`)
+      .then(setState)
+      .catch(() => setState({ available: false, digipedia: null }));
+  }, [experience.slug]);
+
+  if (!state) return <p className="muted">Opening DigiPedia…</p>;
+  if (!state.available || !state.digipedia) {
+    return <p className="muted">DigiPedia has not been published for this Digital Life yet.</p>;
+  }
+  const d = state.digipedia;
+  return (
+    <article className="website-article">
+      <div className="eyebrow">DigiPedia</div>
+      <h2>{d.title}</h2>
+      {d.summary ? <p className="be-lead">{d.summary}</p> : null}
+      <p className="small muted">Updated {new Date(d.updatedAt).toLocaleDateString()}</p>
+      {d.sections.map((sec) => (
+        <section key={sec.id} style={{ marginTop: 20 }}>
+          <h3>{sec.heading}</h3>
+          <div className="website-body" style={{ whiteSpace: "pre-wrap" }}>
+            {sec.body}
+          </div>
+        </section>
+      ))}
+    </article>
+  );
+}
+
+function NewsPublicBody({
+  experience,
+  websiteBase,
+}: {
+  experience: PublicBrandExperience;
+  websiteBase: string;
+}) {
+  const news = experience.websitePages.filter((p) => p.type === "NEWS" || p.type === "PRESS" || p.type === "EVENT");
+  return (
+    <section>
+      <h2>News</h2>
+      <p className="be-lead">What is happening with {experience.identity.displayName || "this creator"}.</p>
+      {!news.length ? <p className="muted">No news published yet.</p> : null}
+      {news.map((item) => (
+        <div className="list-row" key={item.id}>
+          <div>
+            <strong>{item.title}</strong>
+            <div className="small muted">{new Date(item.publishedAt).toLocaleDateString()}</div>
+          </div>
+          <Link to={`${websiteBase}/${item.slug}`}>Read</Link>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function BlogPublicBody({
+  experience,
+  websiteBase,
+}: {
+  experience: PublicBrandExperience;
+  websiteBase: string;
+}) {
+  const articles = experience.websitePages.filter((p) => p.type === "ARTICLE");
+  const writing = experience.publishedAssets.filter(
+    (a) => a.assetType === "WRITING" && !a.presentationTypes.includes("POST"),
+  );
+  const basePath = websiteBase.replace(/\/website\/?$/, "") || "";
+  return (
+    <section>
+      <h2>Blog & articles</h2>
+      <p className="be-lead">Longer writing from this Digital Life.</p>
+      {!articles.length && !writing.length ? <p className="muted">No articles published yet.</p> : null}
+      {articles.map((item) => (
+        <div className="list-row" key={item.id}>
+          <div>
+            <strong>{item.title}</strong>
+            <div className="small muted">{new Date(item.publishedAt).toLocaleDateString()}</div>
+          </div>
+          <Link to={`${websiteBase}/${item.slug}`}>Read</Link>
+        </div>
+      ))}
+      {writing.map((item) => (
+        <div className="list-row" key={item.id}>
+          <div>
+            <strong>{item.title}</strong>
+            <div className="small muted">{new Date(item.publishedAt).toLocaleDateString()}</div>
+          </div>
+          <Link to={assetDetailPath(basePath, item.id)}>Open</Link>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function VipBody({ experience }: { experience: PublicBrandExperience }) {
+  const [vip, setVip] = useState<{
+    enabled: boolean;
+    annualPrice: number;
+    currency: string;
+    description: string;
+    benefits: string[];
+    offerId: string | null;
+    checkoutAvailable: boolean;
+    checkoutDetail: string;
+    activeForViewer: boolean;
+    expiresAt: string | null;
+  } | null>(null);
+  const [detail, setDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void api<NonNullable<typeof vip>>(`/public/${experience.slug}/vip`)
+      .then(setVip)
+      .catch(() => setVip(null));
+  }, [experience.slug]);
+
+  async function checkout() {
+    setBusy(true);
+    setDetail("");
+    try {
+      const result = await api<{ state: string; detail: string }>(`/public/${experience.slug}/vip/checkout`, {
+        method: "POST",
+        body: JSON.stringify({ idempotencyKey: `vip-${experience.slug}-${Date.now()}` }),
+      });
+      setDetail(result.detail || result.state);
+      const refreshed = await api<NonNullable<typeof vip>>(`/public/${experience.slug}/vip`);
+      setVip(refreshed);
+    } catch (err) {
+      setDetail(err instanceof ApiError ? err.message : "Checkout unavailable.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!vip) {
+    return (
+      <section className="os-home">
+        <p className="muted">Opening VIP…</p>
+      </section>
+    );
+  }
+
+  const name = experience.identity.displayName || experience.slug;
+
+  return (
+    <section className="os-home">
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">VIP</p>
+          <h1>{name} VIP</h1>
+          <p className="be-lead">
+            Annual membership for this creator only — separate from any LifeOS / Digiconomy VIP.
+          </p>
+        </div>
+      </header>
+      {!vip.enabled ? (
+        <p className="muted">Creator VIP is not enabled for this Digital Life yet.</p>
+      ) : (
+        <article className="panel">
+          {vip.description ? <p>{vip.description}</p> : null}
+          <p>
+            <strong>
+              {vip.annualPrice} {vip.currency}
+            </strong>{" "}
+            / year
+          </p>
+          {vip.benefits.length ? (
+            <ul>
+              {vip.benefits.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
+          ) : null}
+          {vip.activeForViewer ? (
+            <p className="placeholder-note">
+              Your {name} VIP is active
+              {vip.expiresAt ? ` until ${new Date(vip.expiresAt).toLocaleDateString()}` : ""}.
+            </p>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="be-btn"
+                disabled={busy || !vip.checkoutAvailable}
+                onClick={() => void checkout()}
+              >
+                {busy ? "Starting…" : "Join annual VIP"}
+              </button>
+              <p className="small muted">{vip.checkoutDetail}</p>
+              <p className="placeholder-note">
+                Payment runs through FundzMan when bound. Unavailable payments fail honestly — no fake paid state.
+              </p>
+            </>
+          )}
+          {detail ? <p className="placeholder-note">{detail}</p> : null}
+        </article>
+      )}
     </section>
   );
 }

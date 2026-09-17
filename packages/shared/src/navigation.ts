@@ -14,14 +14,14 @@ export const SECONDARY_NAV = [
   { id: "audience", label: "Audience", path: "/audience", icon: "audience" },
   { id: "commerce", label: "Commerce", path: "/commerce", icon: "commerce" },
   { id: "brand", label: "Brand", path: "/brand", icon: "brand" },
-  { id: "website", label: "Website", path: "/website", icon: "space" },
+  { id: "info", label: "Info", path: "/info", icon: "space" },
   { id: "system", label: "Settings", path: "/system", icon: "settings" },
 ] as const;
 
 export const OWNER_SURFACE_NAV = [
   { id: "workstation", label: "Workstation", path: "/", detail: "Operate your Digital Life" },
   { id: "digital_life", label: "My Digital Life", path: "/brand/preview", detail: "Preview the public experience" },
-  { id: "website", label: "Website", path: "/website", detail: "Official information surface" },
+  { id: "info", label: "Info", path: "/info", detail: "Website, DigiPedia, News, Blog" },
 ] as const;
 
 export const DOCK_NAV = [

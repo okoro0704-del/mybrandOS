@@ -195,6 +195,8 @@ export type DigitalLifeRoutePrimary =
   | "communities"
   | "assets"
   | "website"
+  | "info"
+  | "vip"
   | "profile"
   | "asset"
   | "collection"
@@ -232,7 +234,34 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
       surface: "website",
       websitePageSlug: parts[1],
       primary: "website",
+      section: "website",
     };
+  }
+
+  if (parts[0] === "info") {
+    const sub = parts[1];
+    if (sub === "website" || sub === "digipedia" || sub === "news" || sub === "blog") {
+      return {
+        surface: sub === "website" ? "website" : "app",
+        websitePageSlug: sub === "website" ? parts[2] : undefined,
+        primary: "info",
+        section: sub,
+      };
+    }
+    return { surface: "app", section: "info", primary: "info" };
+  }
+
+  if (parts[0] === "digipedia") {
+    return { surface: "app", section: "digipedia", primary: "info" };
+  }
+  if (parts[0] === "news") {
+    return { surface: "app", section: "news", primary: "info" };
+  }
+  if (parts[0] === "blog" || parts[0] === "articles") {
+    return { surface: "app", section: "blog", primary: "info", websitePageSlug: parts[1] };
+  }
+  if (parts[0] === "vip") {
+    return { surface: "app", section: "vip", primary: "vip" };
   }
 
   if (parts[0] === "a" || parts[0] === "assets") {
@@ -293,6 +322,22 @@ export function communitiesPath(basePath: string) {
 
 export function profilePath(basePath: string) {
   return joinPublicPath(basePath, "profile");
+}
+
+export function vipPath(basePath: string) {
+  return joinPublicPath(basePath, "vip");
+}
+
+export function infoPath(basePath: string, section?: "website" | "digipedia" | "news" | "blog") {
+  return section ? joinPublicPath(basePath, "info", section) : joinPublicPath(basePath, "info");
+}
+
+export function digipediaPath(basePath: string) {
+  return joinPublicPath(basePath, "digipedia");
+}
+
+export function newsPath(basePath: string) {
+  return joinPublicPath(basePath, "news");
 }
 
 /** Join base (`/u/slug` or ``) with path segments without producing `//`. */
@@ -373,6 +418,43 @@ export type PublicExperiencePresentation = {
   sectionOrder?: string[] | null;
   /** Show featured Assets in the sticky landing hero when available. */
   homeShowFeatured?: boolean;
+  /** DigiPedia living knowledge record for this Digital Life. */
+  digipedia?: DigiPediaRecord | null;
+  /** Creator-specific annual VIP membership configuration. */
+  creatorVip?: CreatorVipConfig | null;
+};
+
+export type DigiPediaSection = {
+  id: string;
+  heading: string;
+  body: string;
+  updatedAt: string;
+};
+
+export type DigiPediaRevision = {
+  id: string;
+  savedAt: string;
+  title: string;
+  sectionCount: number;
+};
+
+export type DigiPediaRecord = {
+  title: string;
+  summary: string;
+  sections: DigiPediaSection[];
+  revisions: DigiPediaRevision[];
+  publishedAt: string | null;
+  updatedAt: string;
+};
+
+export type CreatorVipConfig = {
+  enabled: boolean;
+  annualPrice: number;
+  currency: string;
+  description: string;
+  benefits: string[];
+  /** Linked Commerce MEMBERSHIP offer id when provisioned. */
+  offerId: string | null;
 };
 
 export const PUBLIC_EXPERIENCE_CHIP_IDS = [
@@ -438,6 +520,19 @@ export function normalizePresentation(
     specialtyOverride: validSpecialty,
     sectionOrder: sectionOrder?.length ? sectionOrder : null,
     homeShowFeatured: input?.homeShowFeatured !== false,
+    digipedia: input?.digipedia ?? null,
+    creatorVip: input?.creatorVip
+      ? {
+          enabled: Boolean(input.creatorVip.enabled),
+          annualPrice: Math.max(0, Number(input.creatorVip.annualPrice) || 0),
+          currency: String(input.creatorVip.currency || "NGN").slice(0, 8),
+          description: String(input.creatorVip.description || "").slice(0, 2000),
+          benefits: Array.isArray(input.creatorVip.benefits)
+            ? input.creatorVip.benefits.map((b) => String(b).slice(0, 200)).filter(Boolean).slice(0, 20)
+            : [],
+          offerId: input.creatorVip.offerId ? String(input.creatorVip.offerId) : null,
+        }
+      : null,
   };
 }
 

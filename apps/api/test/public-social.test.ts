@@ -87,22 +87,33 @@ test("Love toggles persist on Asset.analytics and reject duplicates per Trust ID
 
   await togglePublicAssetLove("social-love", asset.id, VIEWER);
   await togglePublicAssetLove("social-love", asset.id, OTHER);
+  const guest = await togglePublicAssetLove("social-love", asset.id, "guest:abc123");
+  assert.equal(guest.lovedByMe, true);
   const social = await getPublicAssetSocial("social-love", asset.id, VIEWER);
-  assert.equal(social.loves, 2);
+  assert.equal(social.loves, 3);
   assert.equal(social.lovedByMe, true);
   assert.equal(social.downloadAllowed, true);
   assert.equal(social.allowSharing, true);
   assert.equal(social.allowReuse, false);
 
-  await assert.rejects(
-    () => togglePublicAssetLove("social-love", asset.id, ""),
-    (err: unknown) => err instanceof HttpError && err.statusCode === 401,
+  const { addPublicAssetComment } = await import("../src/services/public-social.js");
+  const comment = await addPublicAssetComment(
+    "social-love",
+    asset.id,
+    { key: "guest:abc123", displayName: "Guest ABC" },
+    "Hello from a guest",
   );
+  assert.equal(comment.body, "Hello from a guest");
+  assert.ok(comment.createdAt);
+  const after = await getPublicAssetSocial("social-love", asset.id, "guest:abc123");
+  assert.equal(after.comments.length, 1);
+  assert.equal(after.comments[0]?.mine, true);
+  assert.equal(after.comments[0]?.createdAt, comment.createdAt);
 
   const exp = await getPublicBrandExperience("social-love");
   const card = exp.publishedAssets.find((a) => a.id === asset.id);
   assert.ok(card);
-  assert.equal(card!.engagement.loves, 2);
+  assert.equal(card!.engagement.loves, 3);
   assert.equal(card!.downloadAllowed, true);
 });
 

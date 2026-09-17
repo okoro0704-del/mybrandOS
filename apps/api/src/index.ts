@@ -24,6 +24,7 @@ import { registerIntelligenceRoutes } from "./routes/intelligence.js";
 import { registerGatewayRoutes } from "./routes/gateway.js";
 import { registerBrandRoutes } from "./routes/brand.js";
 import { registerWebsiteRoutes } from "./routes/website.js";
+import { registerCreatorInfoRoutes } from "./routes/creator-info.js";
 import { registerPublicRoutes } from "./routes/public.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerCommerceRoutes } from "./routes/commerce.js";
@@ -160,6 +161,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerRecordingRoutes(instance, primitives);
   registerBrandRoutes(instance, primitives);
   registerWebsiteRoutes(instance, primitives);
+  registerCreatorInfoRoutes(instance, primitives);
   registerPublicRoutes(instance, primitives);
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);

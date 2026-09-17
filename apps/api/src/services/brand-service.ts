@@ -756,7 +756,12 @@ export async function getPublicAssetCover(slug: string, assetId: string, primiti
   return readAssetCover(asset.dataZoneId, primitives);
 }
 
-export async function getPublicAssetMedia(slug: string, assetId: string, primitives: PrimitiveBindings) {
+export async function getPublicAssetMedia(
+  slug: string,
+  assetId: string,
+  primitives: PrimitiveBindings,
+  viewerBuyerId?: string | null,
+) {
   await getPublicAsset(slug, assetId);
   await bumpPublicEngagement(assetId, "play");
   const space = await prisma.personalSpace.findUnique({ where: { slug: normalizeSlug(slug) } });
@@ -777,6 +782,18 @@ export async function getPublicAssetMedia(slug: string, assetId: string, primiti
     if (!software.hasPublicPackage || !asset.dataZoneId) throw notFound("This work is not available.");
   }
   if (!asset?.dataZoneId) throw notFound("This work is not available.");
+
+  const meta = readJson<Record<string, unknown>>(asset.metadata, {});
+  const accessPolicy = typeof meta.accessPolicy === "string" ? meta.accessPolicy : "PUBLIC";
+  if (accessPolicy === "CREATOR_VIP") {
+    const { viewerHasCreatorVip } = await import("./creator-info.js");
+    const access = await viewerHasCreatorVip(space.ownerId, viewerBuyerId);
+    if (!access.active) {
+      const { forbidden } = await import("../lib/errors.js");
+      throw forbidden("This publication requires an active Creator VIP membership.");
+    }
+  }
+
   return readAssetCover(asset.dataZoneId, primitives);
 }
 

@@ -30,11 +30,10 @@ export function DigitalLifeShell({
   assetTitle?: string;
   children: ReactNode;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const theme = experience.theme;
-  /** Immersive chrome is Home-tab only — never Favorites / Manage / etc. */
+  /** Immersive chrome is Home-tab only — never Info / VIP / Manage / etc. */
   const homeChromeEnabled = primary === "home";
   const homeChrome = useHomeChromeScroll(homeChromeEnabled);
   const topBarHidden = homeChromeEnabled && homeChrome !== "FULL_HOME";
@@ -48,21 +47,16 @@ export function DigitalLifeShell({
   }, [experience, assetTitle]);
 
   useEffect(() => {
-    setMenuOpen(false);
     setNotifyOpen(false);
     setMessagesOpen(false);
   }, [primary]);
 
-  useEffect(() => {
-    if (homeChrome === "IMMERSIVE_FEED") setMenuOpen(false);
-  }, [homeChrome]);
-
   return (
     <HomeChromeContext.Provider value={homeChromeEnabled ? homeChrome : null}>
     <div
-      className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "website" ? "website" : "app"}`}
+      className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "info" || primary === "website" ? "website" : "app"}`}
       data-bg={theme.background}
-      data-surface={preview ? "studio-preview" : primary === "website" ? "website" : "public_app"}
+      data-surface={preview ? "studio-preview" : primary === "info" || primary === "website" ? "website" : "public_app"}
       data-accent={theme.accent}
       data-type={theme.typography}
       data-buttons={theme.buttons}
@@ -86,8 +80,6 @@ export function DigitalLifeShell({
           mediaBase={mediaBase}
           websiteBase={websiteBase}
           primary={primary}
-          menuOpen={menuOpen}
-          onToggleMenu={() => setMenuOpen((v) => !v)}
           chromeHidden={topBarHidden}
         />
 

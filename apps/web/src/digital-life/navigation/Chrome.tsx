@@ -2,55 +2,34 @@ import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
-import { communitiesPath, managementPath, profilePath } from "../routes";
+import { communitiesPath, infoPath, profilePath, vipPath } from "../routes";
 import { initialsFrom, personalOsName } from "../personal-os/osIdentity";
 
-type Primary = "home" | "management" | "communities" | "website" | "profile" | string;
+type Primary = "home" | "vip" | "communities" | "info" | "website" | "profile" | string;
 
 export function DigitalLifeTopBar({
   experience,
   basePath,
   mediaBase,
-  websiteBase,
-  primary,
-  menuOpen,
-  onToggleMenu,
+  primary: _primary,
   chromeHidden = false,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
   mediaBase: string;
-  websiteBase: string;
+  websiteBase?: string;
   primary: Primary;
-  menuOpen: boolean;
-  onToggleMenu: () => void;
+  menuOpen?: boolean;
+  onToggleMenu?: () => void;
   chromeHidden?: boolean;
 }) {
   const name = experience.identity.displayName || "Digital Life";
   const os = personalOsName(experience.slug, name);
   const home = publicHomePath(basePath);
-  const links = [
-    { id: "home", label: "Home", to: home },
-    { id: "management", label: "Management", to: managementPath(basePath) },
-    { id: "communities", label: "Communities", to: communitiesPath(basePath) },
-    { id: "website", label: "Website", to: websiteBase },
-    { id: "profile", label: "Profile", to: profilePath(basePath) },
-  ] as const;
 
   return (
     <header className="os-topbar" aria-hidden={chromeHidden || undefined} data-chrome-hidden={chromeHidden ? "true" : undefined}>
-      <div className="os-topbar__inner">
-        <button
-          type="button"
-          className="os-topbar__main"
-          aria-expanded={menuOpen}
-          aria-controls="os-main-menu"
-          tabIndex={chromeHidden ? -1 : undefined}
-          onClick={onToggleMenu}
-        >
-          Main
-        </button>
-
+      <div className="os-topbar__inner os-topbar__inner--no-main">
         <Link className="os-wordmark" to={home} aria-label={os.full} tabIndex={chromeHidden ? -1 : undefined}>
           <span className="os-wordmark__stem">{os.stem}</span>
           <span className="os-wordmark__os">{os.suffix}</span>
@@ -71,41 +50,25 @@ export function DigitalLifeTopBar({
           )}
         </Link>
       </div>
-
-      {menuOpen && !chromeHidden ? (
-        <nav id="os-main-menu" className="os-main-menu" aria-label="Main menu">
-          {links.map((item) => (
-            <Link
-              key={item.id}
-              className={primary === item.id ? "active" : ""}
-              to={item.to}
-              onClick={onToggleMenu}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      ) : null}
     </header>
   );
 }
 
 export function DigitalLifeBottomNav({
   basePath,
-  websiteBase,
   primary,
   chromeHidden = false,
 }: {
   basePath: string;
-  websiteBase: string;
+  websiteBase?: string;
   primary: Primary;
   chromeHidden?: boolean;
 }) {
   const items = [
     { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
-    { id: "management", label: "Management", short: "Manage", to: managementPath(basePath), icon: Icons.management },
+    { id: "vip", label: "VIP", short: "VIP", to: vipPath(basePath), icon: Icons.love },
     { id: "communities", label: "Communities", short: "Community", to: communitiesPath(basePath), icon: Icons.communities },
-    { id: "website", label: "Website", short: "Website", to: websiteBase, icon: Icons.brand },
+    { id: "info", label: "Info", short: "Info", to: infoPath(basePath), icon: Icons.brand },
   ] as const;
 
   return (
@@ -120,7 +83,9 @@ export function DigitalLifeBottomNav({
         const active =
           primary === item.id ||
           (item.id === "home" &&
-            (primary === "asset" || primary === "collection" || primary === "feed"));
+            (primary === "asset" || primary === "collection" || primary === "feed")) ||
+          (item.id === "info" &&
+            (primary === "website" || primary === "digipedia" || primary === "news" || primary === "blog"));
         return (
           <Link
             key={item.id}

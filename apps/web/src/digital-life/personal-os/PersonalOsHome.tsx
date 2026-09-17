@@ -88,12 +88,11 @@ function PostCard({
   asset,
   experience,
   mediaBase,
-  basePath,
 }: {
   asset: PublicAssetCard;
   experience: PublicBrandExperience;
   mediaBase: string;
-  basePath: string;
+  basePath?: string;
 }) {
   const name = experience.identity.displayName || experience.slug;
   const handle = `@${experience.slug}`;
@@ -132,9 +131,9 @@ function PostCard({
           />
         </div>
       ) : asset.coverAvailable ? (
-        <Link to={assetDetailPath(basePath, asset.id)} className="os-card__media">
+        <div className="os-card__media" aria-hidden={false}>
           <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" loading="lazy" />
-        </Link>
+        </div>
       ) : null}
       <ContentActionBar
         asset={asset}

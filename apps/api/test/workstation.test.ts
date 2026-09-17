@@ -89,7 +89,7 @@ after(cleanup);
 
 test("creator workstation navigation is one coherent Digital Life", () => {
   assert.deepEqual(PRIMARY_NAV.map((item) => item.id), ["home", "create", "publish", "assets", "live", "recording", "production", "distribute"]);
-  assert.deepEqual(SECONDARY_NAV.map((item) => item.id), ["audience", "commerce", "brand", "website", "system"]);
+  assert.deepEqual(SECONDARY_NAV.map((item) => item.id), ["audience", "commerce", "brand", "info", "system"]);
   assert.equal(LIFEOS_PRIMITIVE_IDS.length, 6);
 });
 

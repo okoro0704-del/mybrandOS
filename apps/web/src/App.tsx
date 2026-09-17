@@ -20,6 +20,7 @@ import { ProjectsPage } from "./pages/Projects";
 import { ActivityPage } from "./pages/Activity";
 import { BrandPage } from "./pages/Brand";
 import { WebsitePage } from "./pages/Website";
+import { InfoAdminPage } from "./pages/InfoAdmin";
 import { BrandPreviewPage, PublicExperiencePage } from "./pages/PublicExperience";
 import { LiveCenterPage } from "./pages/LiveCenter";
 import { ProductionJoinPage } from "./pages/ProductionJoin";
@@ -66,6 +67,8 @@ function WorkstationRoutes() {
           <Route path={s("/activity")} element={<ActivityPage />} />
           <Route path={s("/brand")} element={<BrandPage />} />
           <Route path={s("/website")} element={<WebsitePage />} />
+          <Route path={s("/info")} element={<InfoAdminPage />} />
+          <Route path={s("/info/*")} element={<InfoAdminPage />} />
           <Route path={s("/command-center")} element={<CommandCenterPage />} />
           <Route path={s("/collaboration")} element={<CollaborationPage />} />
           <Route path={s("/elfcom")} element={<ElfComPage />} />
