@@ -14,12 +14,9 @@ import {
 } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
-import {
-  assetDetailPath,
-  assetsPath,
-  favoritesDiscoveryLanes,
-} from "../digital-life/routes";
+import { assetDetailPath, assetsPath } from "../digital-life/routes";
 import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
+import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 
 export function ExperienceView({
@@ -154,86 +151,26 @@ function AppHomeBody({
 function FavoritesBody({
   experience,
   basePath,
-  mediaBase,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
-  mediaBase: string;
+  mediaBase?: string;
 }) {
-  const lanes = useMemo(
-    () =>
-      favoritesDiscoveryLanes({
-        assets: experience.publishedAssets,
-        basePath,
-        liveNow: Boolean(experience.liveNow),
-      }),
-    [experience.publishedAssets, experience.liveNow, basePath],
-  );
-  const [active, setActive] = useState(lanes[0]?.id ?? "videos");
-  useEffect(() => {
-    if (!lanes.some((l) => l.id === active)) setActive(lanes[0]?.id ?? "videos");
-  }, [lanes, active]);
-
-  const selected = lanes.find((l) => l.id === active) ?? lanes[0];
-
   return (
-    <section>
-      <header className="dl-section-head">
-        <div>
-          <p className="eyebrow">Favorites</p>
-          <h1>Discover what is compelling now</h1>
-          <p className="be-lead">
-            Ranked from real engagement when available — never fabricated popularity.
-          </p>
-        </div>
-      </header>
-
-      {lanes.length ? (
-        <nav className="dl-section-bar" aria-label="Favorites discovery">
-          {lanes.map((lane) => (
-            <button
-              key={lane.id}
-              type="button"
-              className={selected?.id === lane.id ? "active" : ""}
-              aria-current={selected?.id === lane.id ? "true" : undefined}
-              onClick={() => setActive(lane.id)}
-            >
-              {lane.label}
-            </button>
-          ))}
-        </nav>
-      ) : null}
-
-      {!lanes.length ? (
-        <p className="dl-empty">No public interactions yet. Published work will rise here as people watch and play.</p>
-      ) : selected?.id === "live" ? (
-        experience.liveNow ? (
-          <aside className="dl-live-banner">
-            <div className="eyebrow">LIVE NOW</div>
-            <h2>{experience.liveNow.title}</h2>
-            <Link className="be-btn" to={joinPublicPath(basePath, "live")}>
-              Join live
-            </Link>
-          </aside>
-        ) : (
-          <p className="muted">Nothing live right now.</p>
-        )
-      ) : (
-        <>
-          <div className="dl-section-head">
-            <h2>{selected?.label}</h2>
-            <span className="small muted">
-              {selected?.signal === "engagement" ? "From real views & plays" : "Newest published"}
-            </span>
-          </div>
-          <WorkGrid
-            assets={selected?.assets ?? []}
-            basePath={basePath}
-            mediaBase={mediaBase}
-            experience={experience}
-          />
-        </>
-      )}
+    <section className="os-home">
+      <p className="os-feed-state os-feed-state--empty" role="status">
+        <strong>Favorites removed</strong>
+        <span>
+          Personal Favorites are no longer part of the public app. Use Save on a publication to keep it in your Offline
+          kernel.
+        </span>
+      </p>
+      <p style={{ textAlign: "center" }}>
+        <Link className="os-btn" to={publicHomePath(basePath)}>
+          Back to Home
+        </Link>
+      </p>
+      <span className="sr-only">{experience.slug}</span>
     </section>
   );
 }
@@ -859,6 +796,12 @@ function PublicAssetBody({
           <p className="placeholder-note">Private source files are never exposed on the public surface.</p>
         </div>
       ) : null}
+      <ContentActionBar
+        asset={asset}
+        slug={experience.slug}
+        mediaBase={mediaBase}
+        creatorLabel={experience.identity.displayName}
+      />
       <p className="small muted">Published {new Date(asset.publishedAt).toLocaleDateString()}</p>
       {related.length ? (
         <section style={{ marginTop: 28 }}>

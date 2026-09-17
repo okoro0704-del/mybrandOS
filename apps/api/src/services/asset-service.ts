@@ -232,9 +232,16 @@ export function isPubliclyEligible(asset: { status: string; visibility: string }
 export async function listPublicEligible(ownerId: string): Promise<Asset[]> {
   const rows = await prisma.asset.findMany({
     where: { ownerId, status: "PUBLISHED", visibility: "public" },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
-  return rows.map(toAsset);
+  const mapped = rows.map(toAsset);
+  return mapped.sort((a, b) => {
+    const aAt =
+      typeof a.metadata?.publishedAt === "string" ? a.metadata.publishedAt : a.createdAt;
+    const bAt =
+      typeof b.metadata?.publishedAt === "string" ? b.metadata.publishedAt : b.createdAt;
+    return bAt.localeCompare(aAt);
+  });
 }
 
 export async function recentActivity(ownerId: string, take = 8) {

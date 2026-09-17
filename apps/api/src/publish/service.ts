@@ -492,6 +492,10 @@ export async function executePublish(
       scheduleMode: "now",
       publishPending: false,
       scheduledPublishAt: null,
+      publishedAt:
+        typeof existingMeta.publishedAt === "string" && existingMeta.publishedAt
+          ? existingMeta.publishedAt
+          : new Date().toISOString(),
       ...(presentationTypes.length ? { presentationTypes } : {}),
       ...(presentationTypes.includes("POST") || isVideo ? { postBody: writeup } : {}),
       ...(asset.assetType === "WRITING"

@@ -10,6 +10,7 @@ import {
 import { assetDetailPath, assetsForSpecialtyChip, communitiesPath } from "../routes";
 import { Icons } from "../../nav/icons";
 import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
+import { ContentActionBar } from "./ContentActionBar";
 import {
   OS_MORE_TABS,
   OS_PRIMARY_TABS,
@@ -135,24 +136,12 @@ function PostCard({
           <img src={`${mediaBase}/assets/${asset.id}/cover`} alt="" loading="lazy" />
         </Link>
       ) : null}
-      <footer className="os-card__actions">
-        <button type="button" aria-label="Like">
-          <Icons.favorites size={18} />
-          <span>{asset.engagement?.views ? asset.engagement.views : "Like"}</span>
-        </button>
-        <button type="button" aria-label="Comment">
-          <Icons.messages size={18} />
-          <span>Comment</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Share"
-          onClick={() => void navigator.clipboard?.writeText(window.location.origin + assetDetailPath(basePath, asset.id))}
-        >
-          <Icons.distribute size={18} />
-          <span>Share</span>
-        </button>
-      </footer>
+      <ContentActionBar
+        asset={asset}
+        slug={experience.slug}
+        mediaBase={mediaBase}
+        creatorLabel={name}
+      />
     </article>
   );
 }
@@ -238,6 +227,14 @@ function MediaCard({
           {label}
         </Link>
       </div>
+      {(asset.assetType === "VIDEO" || asset.presentationTypes.includes("POST") || asset.presentationTypes.includes("REEL")) ? (
+        <ContentActionBar
+          asset={asset}
+          slug={experience.slug}
+          mediaBase={mediaBase}
+          creatorLabel={experience.identity.displayName || experience.slug}
+        />
+      ) : null}
     </article>
   );
 }

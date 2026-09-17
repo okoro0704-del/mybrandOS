@@ -82,6 +82,25 @@ export const Icons = {
       <path d="M12 3.5 14.6 9l6 .5-4.6 3.9 1.5 5.8L12 16.8 6.5 19.2l1.5-5.8L3.4 9.5l6-.5L12 3.5Z" />
     </Svg>
   ),
+  love: ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+    <Svg {...p} fill={filled ? "currentColor" : "none"}>
+      <path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 7.5a3.8 3.8 0 0 1 7 3.3C19 15.6 12 20 12 20Z" />
+    </Svg>
+  ),
+  save: ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+    <Svg {...p} fill={filled ? "currentColor" : "none"}>
+      <path d="M6 4h9l3 3v13H6V4Z" />
+      <path d="M9 4v5h7" />
+      <path d="M9 14h6" />
+    </Svg>
+  ),
+  reuse: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M7 7h8a3 3 0 0 1 3 3v2" />
+      <path d="M17 17H9a3 3 0 0 1-3-3v-2" />
+      <path d="M15 4l3 3-3 3M9 20l-3-3 3-3" />
+    </Svg>
+  ),
   management: (p: IconProps) => (
     <Svg {...p}>
       <rect x="4" y="4" width="7" height="7" rx="1.5" />

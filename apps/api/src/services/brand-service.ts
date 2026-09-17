@@ -135,19 +135,28 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
       : typeof processing.aspectRatio === "string"
         ? processing.aspectRatio
         : null;
+  const rights = (asset.metadata?.publishingRights ?? {}) as Record<string, unknown>;
+  const loves = Number(asset.analytics?.loves ?? 0) || 0;
+  const publishedAt =
+    typeof asset.metadata?.publishedAt === "string" && asset.metadata.publishedAt
+      ? asset.metadata.publishedAt
+      : asset.createdAt;
   return {
     id: asset.id,
     title: asset.title,
     description: asset.description,
     assetType: asset.assetType,
-    publishedAt: asset.updatedAt,
+    publishedAt,
     coverAvailable,
     mediaAvailable,
     presentationTypes: parsePresentationTypes(presentationTypes),
     durationMs,
     aspectRatio,
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
-    engagement: { views, plays, score },
+    engagement: { views, plays, score: score + loves * 2, loves },
+    downloadAllowed: Boolean(rights.allowDownload),
+    allowSharing: rights.allowSharing !== false,
+    allowReuse: Boolean(rights.allowReuse),
     isPodcast,
     presentation,
   };

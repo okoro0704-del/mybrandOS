@@ -12,6 +12,9 @@ import {
   getPublicBrandMedia,
   getPublicLive,
 } from "../services/brand-service.js";
+import { getPublicAssetSocial, togglePublicAssetLove } from "../services/public-social.js";
+import { resolveRequestIdentity } from "../lib/auth.js";
+import { unauthorized } from "../lib/errors.js";
 
 const ACCENT_HEX: Record<string, string> = {
   gold: "#d4a24c",
@@ -200,5 +203,20 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
       }
     }
     return reply.header("content-length", String(total)).send(bytes);
+  });
+
+  app.get("/public/:slug/assets/:id/social", async (req) => {
+    const { slug, id } = req.params as { slug: string; id: string };
+    const viewer = await resolveRequestIdentity(req, primitives);
+    return getPublicAssetSocial(slug, id, viewer?.ownerId ?? null);
+  });
+
+  app.post("/public/:slug/assets/:id/love", async (req, reply) => {
+    const { slug, id } = req.params as { slug: string; id: string };
+    const viewer = await resolveRequestIdentity(req, primitives);
+    if (!viewer) {
+      throw unauthorized("Sign in with Trust ID to Love this publication.");
+    }
+    return togglePublicAssetLove(slug, id, viewer.ownerId);
   });
 }

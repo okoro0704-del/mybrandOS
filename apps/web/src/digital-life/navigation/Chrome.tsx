@@ -2,10 +2,10 @@ import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
-import { communitiesPath, favoritesPath, managementPath, profilePath } from "../routes";
+import { communitiesPath, managementPath, profilePath } from "../routes";
 import { initialsFrom, personalOsName } from "../personal-os/osIdentity";
 
-type Primary = "home" | "favorites" | "management" | "communities" | "website" | "profile" | string;
+type Primary = "home" | "management" | "communities" | "website" | "profile" | string;
 
 export function DigitalLifeTopBar({
   experience,
@@ -31,7 +31,6 @@ export function DigitalLifeTopBar({
   const home = publicHomePath(basePath);
   const links = [
     { id: "home", label: "Home", to: home },
-    { id: "favorites", label: "Favorites", to: favoritesPath(basePath) },
     { id: "management", label: "Management", to: managementPath(basePath) },
     { id: "communities", label: "Communities", to: communitiesPath(basePath) },
     { id: "website", label: "Website", to: websiteBase },
@@ -104,7 +103,6 @@ export function DigitalLifeBottomNav({
 }) {
   const items = [
     { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
-    { id: "favorites", label: "Favorites", short: "Favorites", to: favoritesPath(basePath), icon: Icons.favorites },
     { id: "management", label: "Management", short: "Manage", to: managementPath(basePath), icon: Icons.management },
     { id: "communities", label: "Communities", short: "Community", to: communitiesPath(basePath), icon: Icons.communities },
     { id: "website", label: "Website", short: "Website", to: websiteBase, icon: Icons.brand },
@@ -121,7 +119,8 @@ export function DigitalLifeBottomNav({
         const Icon = item.icon;
         const active =
           primary === item.id ||
-          (item.id === "home" && (primary === "asset" || primary === "collection" || primary === "feed"));
+          (item.id === "home" &&
+            (primary === "asset" || primary === "collection" || primary === "feed"));
         return (
           <Link
             key={item.id}

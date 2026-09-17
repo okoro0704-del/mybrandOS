@@ -106,6 +106,10 @@ export type AssetAnalytics = {
   plays?: number;
   completions?: number;
   engagementScore?: number;
+  /** Persisted Love count (mirrors lovedBy.length). */
+  loves?: number;
+  /** Trust IDs that Loved this Asset — not exposed publicly as a list. */
+  lovedBy?: string[];
 };
 export type AssetCommerce = {
   offerId?: string;

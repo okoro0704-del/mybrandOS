@@ -126,7 +126,13 @@ export interface PublicAssetCard {
     views: number;
     plays: number;
     score: number;
+    loves?: number;
+    lovedByMe?: boolean;
   };
+  /** Creator publishingRights.allowDownload — public-safe boolean only. */
+  downloadAllowed?: boolean;
+  allowSharing?: boolean;
+  allowReuse?: boolean;
   /** Podcast episode published as MUSIC/VIDEO with podcast metadata — not a new Asset type. */
   isPodcast: boolean;
   presentation: PublicAssetPresentation;
@@ -307,6 +313,9 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "aspectRatio",
     "isLiveReplay",
     "engagement",
+    "downloadAllowed",
+    "allowSharing",
+    "allowReuse",
     "isPodcast",
     "presentation",
   ];

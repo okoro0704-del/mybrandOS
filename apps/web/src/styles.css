@@ -655,7 +655,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* Branded public experience Ã¢ÂÂ theme config, not a generated CSS bundle */
+/* Branded public experience ÃÂ¢ÃÂÃÂ theme config, not a generated CSS bundle */
 .brand-exp {
   min-height: 100dvh;
   background: var(--be-bg, var(--bos-bg));
@@ -887,7 +887,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .track-row { grid-template-columns: 1fr; }
 }
 
-/* Ã¢ÂÂÃ¢ÂÂ Branded Digital Life app shell Ã¢ÂÂÃ¢ÂÂ */
+/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ Branded Digital Life app shell ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */
 .digital-life-app {
   --dl-top: 3.4rem;
   --dl-bottom: calc(4.1rem + env(safe-area-inset-bottom, 0px));
@@ -1605,7 +1605,7 @@ button.linkish {
 .publish-next { margin-top: 1.25rem; text-align: left; }
 .publish-schedule-fields { display: grid; gap: 0.75rem; }
 
-/* Immersive Post presentation Ã¢ÂÂ LifeOS ImmersiveMediaFeed lineage */
+/* Immersive Post presentation ÃÂ¢ÃÂÃÂ LifeOS ImmersiveMediaFeed lineage */
 .dl-section-panel--immersive {
   padding: 0;
   margin: 0 -1rem;
@@ -1770,7 +1770,7 @@ button.linkish {
 }
 
 
-/* ===== Personal OS (public Digital Life) Â LifeOS-inspired shell ===== */
+/* ===== Personal OS (public Digital Life) ÃÂ LifeOS-inspired shell ===== */
 .personal-os {
   --os-bg: #e8eaef;
   --os-surface: rgba(255, 255, 255, 0.92);
@@ -2132,6 +2132,64 @@ button.linkish {
 }
 .os-card__actions button:hover { background: color-mix(in srgb, var(--os-accent) 8%, white); color: var(--os-accent); }
 
+/* Public publication action bar — Love / Comment / Save / Share / Reuse */
+.content-actions {
+  position: relative;
+  padding: 0.2rem 0.45rem 0.55rem;
+  border-top: 1px solid var(--os-border);
+}
+.content-actions__row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.1rem;
+}
+.content-actions__btn {
+  border: 0;
+  background: transparent;
+  color: var(--os-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 48px;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.content-actions__btn span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.content-actions__btn:hover {
+  background: color-mix(in srgb, var(--os-accent) 8%, white);
+  color: var(--os-accent);
+}
+.content-actions__btn.is-active {
+  color: var(--os-accent);
+}
+.content-actions__btn[aria-label="Love"].is-active {
+  color: #e11d48;
+}
+.content-actions__toast {
+  margin: 0.35rem 0.2rem 0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--os-text) 88%, transparent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .os-btn {
   display: inline-flex;
   align-items: center;
@@ -2254,7 +2312,7 @@ button.linkish {
   z-index: 50;
   width: min(400px, calc(100% - 1.2rem));
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.15rem;
   padding: 0.35rem;
   border-radius: 999px;
@@ -2289,7 +2347,7 @@ button.linkish {
 .os-bottom-nav__label { max-width: 4.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ===== Home direction-aware chrome (FULL_HOME / IMMERSIVE_FEED / NAVIGATION_RETURN) ===== */
-/* Layout heights stay stable â chrome exits via transform so the feed does not jump. */
+/* Layout heights stay stable Ã¢ÂÂ chrome exits via transform so the feed does not jump. */
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-topbar,
 .personal-os[data-home-chrome="NAVIGATION_RETURN"] .os-topbar {
   transform: translateY(calc(-100% - 0.5rem));
@@ -2331,7 +2389,7 @@ button.linkish {
 
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-dock,
 .personal-os .os-dock--immersive {
-  /* Bottom-nav safe slot â same bottom inset, lift removed via transform. */
+  /* Bottom-nav safe slot Ã¢ÂÂ same bottom inset, lift removed via transform. */
   transform: translate(-50%, 0);
 }
 
