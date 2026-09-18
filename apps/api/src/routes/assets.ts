@@ -68,6 +68,50 @@ export function registerAssetRoutes(app: FastifyInstance, primitives: PrimitiveB
     return summarizeAssets(session.ownerId);
   });
 
+  app.get("/assets/galaxy", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const q = req.query as Record<string, string | undefined>;
+    const take = Math.min(Number(q.limit ?? 60) || 60, 120);
+    const cursor = q.cursor;
+    const rows = await listAssets(session.ownerId, {});
+    const media = rows.filter((a) => {
+      const mime = String((a.metadata as { mimeType?: string })?.mimeType ?? "").toLowerCase();
+      return (
+        Boolean(a.dataZoneId) &&
+        (a.assetType === "DESIGN" ||
+          a.assetType === "VIDEO" ||
+          a.assetType === "DOCUMENT" ||
+          mime.startsWith("image/") ||
+          mime.startsWith("video/"))
+      );
+    });
+    const start = cursor ? media.findIndex((a) => a.id === cursor) + 1 : 0;
+    const slice = media.slice(Math.max(0, start), Math.max(0, start) + take);
+    return {
+      items: slice.map((a) => {
+        const mime = String((a.metadata as { mimeType?: string })?.mimeType ?? "").toLowerCase();
+        const isVideo = a.assetType === "VIDEO" || mime.startsWith("video/");
+        return {
+          id: a.id,
+          title: a.title,
+          assetType: a.assetType,
+          status: a.status,
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
+          dataZoneId: a.dataZoneId,
+          coverAvailable: Boolean(a.dataZoneId),
+          durationMs:
+            typeof (a.metadata as { durationMs?: number })?.durationMs === "number"
+              ? (a.metadata as { durationMs: number }).durationMs
+              : null,
+          kind: isVideo ? "video" : "photo",
+        };
+      }),
+      nextCursor: slice.length === take ? slice[slice.length - 1]?.id ?? null : null,
+    };
+  });
+
   app.get("/assets/:id", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
@@ -102,5 +146,13 @@ export function registerAssetRoutes(app: FastifyInstance, primitives: PrimitiveB
     const asset = await updateAsset(session.ownerId, id, body);
     if (!asset) return reply.code(404).send({ error: "not_found" });
     return { asset };
+  });
+
+  app.post("/assets/:id/recover-to-draft", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const { id } = req.params as { id: string };
+    const { recoverAssetToDraft } = await import("../publish/service.js");
+    return recoverAssetToDraft(session.ownerId, id);
   });
 }

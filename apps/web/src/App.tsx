@@ -3,6 +3,7 @@ import { resolveDigitalLifeRequest, studioPath } from "@mybrandos/shared";
 import { OsShell } from "./components/OsShell";
 import { RequireAuth } from "./components/RequireAuth";
 import { AssetDetailPage } from "./pages/AssetDetail";
+import { AssetsGalaxyPage } from "./pages/AssetsGalaxy";
 import { AssetsPage } from "./pages/Assets";
 import { AudiencePage } from "./pages/Audience";
 import { CallbackPage } from "./pages/Callback";
@@ -53,6 +54,7 @@ function WorkstationRoutes() {
           <Route path={s("/import")} element={<ImportPage />} />
           <Route path={s("/search")} element={<SearchPage />} />
           <Route path={s("/assets")} element={<AssetsPage />} />
+          <Route path={s("/assets/galaxy")} element={<AssetsGalaxyPage />} />
           <Route path={s("/assets/:id")} element={<AssetDetailPage />} />
           <Route path={s("/audience")} element={<AudiencePage />} />
           <Route path={s("/commerce")} element={<CommercePage />} />

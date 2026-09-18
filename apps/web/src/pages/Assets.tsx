@@ -63,6 +63,7 @@ export function AssetsPage() {
 
       <div className="actions" style={{ marginBottom: 16 }}>
         <Link className="btn" to="/create">Create Asset</Link>
+        <Link className="btn" to="/assets/galaxy">Galaxy</Link>
         <Link className="btn ghost" to="/import">Import Asset</Link>
         <Link className="btn ghost" to="/search">Search</Link>
       </div>
