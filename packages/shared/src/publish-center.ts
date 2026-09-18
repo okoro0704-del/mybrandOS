@@ -90,6 +90,22 @@ export const PUBLISH_VISIBILITY_LABELS: Record<PublishVisibility, string> = {
 export const PUBLISH_SCHEDULE_MODES = ["now", "schedule"] as const;
 export type PublishScheduleMode = (typeof PUBLISH_SCHEDULE_MODES)[number];
 
+/** Who may consume the published Asset. Mapped onto visibility + accessPolicy. */
+export const PUBLISH_AUDIENCES = ["FREE", "PREMIUM", "VIP"] as const;
+export type PublishAudience = (typeof PUBLISH_AUDIENCES)[number];
+
+export const PUBLISH_AUDIENCE_LABELS: Record<PublishAudience, string> = {
+  FREE: "Free",
+  PREMIUM: "Premium",
+  VIP: "VIP",
+};
+
+export const PUBLISH_AUDIENCE_DETAILS: Record<PublishAudience, string> = {
+  FREE: "Anyone can view this on your public mybrandOS.",
+  PREMIUM: "Requires an active Premium entitlement (authorization when Premium offers exist).",
+  VIP: "Requires an active Creator VIP membership entitlement.",
+};
+
 export interface PublishRights {
   allowEmbedding: boolean;
   allowSharing: boolean;
@@ -198,8 +214,14 @@ export interface PublishExecuteInput {
   scheduledAt?: string | null;
   contentFormat?: PublishContentFormat | null;
   category: PublishCategoryId;
-  /** VIDEO content: exactly one presentation for this publish action. */
+  /**
+   * VIDEO: one or more compatible presentations for this publish action.
+   * Prefer presentationTypes; presentationType remains for backward compatibility.
+   */
   presentationType?: PresentationType | null;
+  presentationTypes?: PresentationType[] | null;
+  /** Consumer audience. Defaults to FREE for public visibility. */
+  audience?: PublishAudience | null;
 }
 
 export interface PublishExecuteResult {

@@ -174,14 +174,20 @@ test("private publish does not leak on public experience", async () => {
   await assert.rejects(() => getPublicAsset("publish-center-life", draft.id), (err: unknown) => err instanceof HttpError);
 });
 
-test("scheduled publish keeps asset private", async () => {
+test("scheduled publish keeps asset private until due fire", async () => {
   const draft = await createAsset({
     ownerId: OWNER,
     title: "Later Post",
-    assetType: "VIDEO",
+    assetType: "DESIGN",
     origin: "CREATED_INTERNAL",
     status: "DRAFT",
     visibility: "private",
+    metadata: { mimeType: "image/png", dataReady: true },
+  });
+  // Attach a fake data zone id so photo path can publish later
+  await prisma.asset.update({
+    where: { id: draft.id },
+    data: { dataZoneId: "dz-schedule-photo-1" },
   });
   const when = new Date(Date.now() + 86_400_000).toISOString();
   const result = await executePublish(
@@ -195,7 +201,8 @@ test("scheduled publish keeps asset private", async () => {
       scheduleMode: "schedule",
       scheduledAt: when,
       category: "content",
-      contentFormat: "video",
+      contentFormat: "photo",
+      audience: "FREE",
     },
     primitives(),
   );
@@ -203,6 +210,114 @@ test("scheduled publish keeps asset private", async () => {
   const row = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
   assert.equal(row.status, "DRAFT");
   assert.equal(row.visibility, "private");
+  const meta = JSON.parse(row.metadata) as { intendedVisibility?: string; audience?: string; publishPending?: boolean };
+  assert.equal(meta.intendedVisibility, "public");
+  assert.equal(meta.audience, "FREE");
+  assert.equal(meta.publishPending, true);
+});
+
+test("due scheduled photo fires server-side and becomes public", async () => {
+  const { fireScheduledPublish } = await import("../src/publish/service.js");
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Due Photo",
+    assetType: "DESIGN",
+    origin: "CREATED_INTERNAL",
+    status: "DRAFT",
+    visibility: "private",
+    metadata: { mimeType: "image/png" },
+  });
+  await prisma.asset.update({
+    where: { id: draft.id },
+    data: { dataZoneId: "dz-due-photo-1" },
+  });
+  const past = new Date(Date.now() - 5_000).toISOString();
+  await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Due Photo",
+      writeup: "Fire me",
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "schedule",
+      scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+      category: "content",
+      contentFormat: "photo",
+      audience: "FREE",
+    },
+    primitives(),
+  );
+  // Force due timestamp into the past after schedule validation
+  const pending = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
+  const meta = JSON.parse(pending.metadata) as Record<string, unknown>;
+  await prisma.asset.update({
+    where: { id: draft.id },
+    data: { metadata: JSON.stringify({ ...meta, scheduledPublishAt: past }) },
+  });
+
+  const fired = await fireScheduledPublish(OWNER, draft.id, primitives());
+  assert.equal(fired?.status, "PUBLISHED");
+  const row = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
+  assert.equal(row.status, "PUBLISHED");
+  assert.equal(row.visibility, "public");
+});
+
+test("video multi-presentation persists on one Asset", async () => {
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Short Dual",
+    assetType: "VIDEO",
+    origin: "CREATED_INTERNAL",
+    status: "DRAFT",
+    metadata: {
+      mimeType: "video/mp4",
+      durationMs: 90_000,
+      videoProcessing: { state: "READY", durationMs: 90_000 },
+      masterRendition: { ready: true },
+    },
+  });
+  await prisma.asset.update({ where: { id: draft.id }, data: { dataZoneId: "dz-video-dual-1" } });
+  // ensure master ready helpers pass
+  const { ensureMasterRendition, videoIsPlayableReady } = await import("@mybrandos/shared");
+  const meta = ensureMasterRendition(
+    {
+      mimeType: "video/mp4",
+      durationMs: 90_000,
+      videoProcessing: { state: "READY", durationMs: 90_000 },
+    },
+    "dz-video-dual-1",
+    { mimeType: "video/mp4", durationMs: 90_000 },
+  );
+  await prisma.asset.update({
+    where: { id: draft.id },
+    data: { metadata: JSON.stringify({ ...meta, videoProcessing: { state: "READY", durationMs: 90_000 } }) },
+  });
+  assert.equal(videoIsPlayableReady(JSON.parse((await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } })).metadata), "dz-video-dual-1"), true);
+
+  const published = await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      title: "Short Dual",
+      writeup: "Post + Reel",
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "video",
+      presentationTypes: ["POST", "REEL"],
+      audience: "FREE",
+    },
+    primitives(),
+  );
+  assert.equal(published.status, "PUBLISHED");
+  const saved = JSON.parse((await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } })).metadata) as {
+    presentationTypes?: string[];
+    audience?: string;
+  };
+  assert.deepEqual(saved.presentationTypes, ["POST", "REEL"]);
+  assert.equal(saved.audience, "FREE");
 });
 
 test("writeup validation rejects overlong content", async () => {
@@ -555,7 +670,8 @@ test("video publish requires presentation, preserves master rendition, projects 
         },
         primitives(),
       ),
-    (err: unknown) => err instanceof HttpError && err.code === "reel_trim_required",
+    (err: unknown) =>
+      err instanceof HttpError && (err.code === "reel_trim_required" || err.code === "presentation_ineligible"),
   );
 
   const published = await executePublish(

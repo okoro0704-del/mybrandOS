@@ -191,3 +191,6 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 await app.listen({ port: config.port, host: config.host });
+
+const { startScheduledPublishScanner } = await import("./publish/service.js");
+startScheduledPublishScanner(primitives);

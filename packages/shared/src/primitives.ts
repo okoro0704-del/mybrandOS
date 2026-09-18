@@ -123,6 +123,7 @@ export const STUDIO_JOB_TYPES = [
   "distribution.fan-out",
   "asset.bulk",
   "transform.long",
+  "publish.schedule",
 ] as const;
 
 export type StudioJobType = (typeof STUDIO_JOB_TYPES)[number];

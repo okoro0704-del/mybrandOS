@@ -34,6 +34,95 @@ export type DestinationKind = (typeof DESTINATION_KINDS)[DistributionDestination
 /** Reels may not silently exceed this duration. */
 export const REEL_MAX_DURATION_MS = 3 * 60 * 1000;
 
+/** Watch is long-form up to one hour (exclusive of Cinema). */
+export const WATCH_MAX_DURATION_MS = 60 * 60 * 1000;
+
+/**
+ * Product truth (audited):
+ * - POST is the general feed presentation (POST_STANDARD.maxDurationMs = null).
+ *   It is NOT a 1–10 minute video-only band.
+ * - REEL ≤ 3 minutes
+ * - WATCH ≤ 1 hour
+ * - CINEMA > 1 hour
+ */
+export type PresentationEligibility = {
+  type: PresentationType;
+  eligible: boolean;
+  reason: string | null;
+};
+
+export function presentationEligibility(
+  type: PresentationType,
+  durationMs: number | null | undefined,
+  options?: { trim?: PresentationTrim | null; highlightFromAssetId?: string | null; isVideo?: boolean },
+): PresentationEligibility {
+  const isVideo = options?.isVideo !== false;
+  if (!isVideo) {
+    if (type === "POST") return { type, eligible: true, reason: null };
+    return { type, eligible: false, reason: "Only Post applies to non-video content." };
+  }
+
+  if (type === "POST") {
+    return { type, eligible: true, reason: null };
+  }
+
+  if (type === "REEL") {
+    if (durationMs == null) {
+      return { type, eligible: false, reason: "Video duration is required before Reel can be selected." };
+    }
+    if (reelRequiresExplicitCut(durationMs, options?.trim, options?.highlightFromAssetId)) {
+      return {
+        type,
+        eligible: false,
+        reason: "Reel requires a trim of 3 minutes or less for longer source videos.",
+      };
+    }
+    return { type, eligible: true, reason: null };
+  }
+
+  if (type === "WATCH") {
+    if (durationMs == null) {
+      return { type, eligible: false, reason: "Video duration is required before Watch can be selected." };
+    }
+    if (durationMs > WATCH_MAX_DURATION_MS) {
+      return { type, eligible: false, reason: "Watch requires video of 1 hour or less. Use Cinema for longer videos." };
+    }
+    return { type, eligible: true, reason: null };
+  }
+
+  // CINEMA
+  if (durationMs == null) {
+    return { type, eligible: false, reason: "Video duration is required before Cinema can be selected." };
+  }
+  if (durationMs <= WATCH_MAX_DURATION_MS) {
+    return { type, eligible: false, reason: "Cinema requires video longer than 1 hour." };
+  }
+  return { type, eligible: true, reason: null };
+}
+
+export function listPresentationEligibility(
+  durationMs: number | null | undefined,
+  options?: { trim?: PresentationTrim | null; highlightFromAssetId?: string | null; isVideo?: boolean },
+): PresentationEligibility[] {
+  return PRESENTATION_TYPES.map((type) => presentationEligibility(type, durationMs, options));
+}
+
+export function assertPresentationsEligible(
+  selected: PresentationType[],
+  durationMs: number | null | undefined,
+  options?: { trim?: PresentationTrim | null; highlightFromAssetId?: string | null; isVideo?: boolean },
+): void {
+  if (!selected.length) {
+    throw new Error("presentation_required");
+  }
+  for (const type of selected) {
+    const row = presentationEligibility(type, durationMs, options);
+    if (!row.eligible) {
+      throw new Error(row.reason || `presentation_ineligible:${type}`);
+    }
+  }
+}
+
 export type CropPolicy = "none" | "center" | "focal" | "letterbox" | "pillarbox";
 export type CaptionPolicy = "none" | "sidecar" | "burn-in";
 export type AudioPolicy = "source" | "normalize";
@@ -92,7 +181,7 @@ export const PRESENTATION_PROFILES: Record<PresentationProfileId, PresentationPr
     label: "Standard watch",
     aspectRatio: "16:9",
     orientation: "landscape",
-    maxDurationMs: null,
+    maxDurationMs: WATCH_MAX_DURATION_MS,
     resolution: "1080p",
     cropPolicy: "none",
     letterboxPolicy: "letterbox",

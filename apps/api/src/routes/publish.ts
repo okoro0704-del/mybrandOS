@@ -102,6 +102,9 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
         scheduledAt: z.string().nullable().optional(),
         contentFormat: z.enum(PUBLISH_CONTENT_FORMATS).nullable().optional(),
         category: z.enum(PUBLISH_CATEGORY_IDS),
+        presentationType: z.enum(["POST", "REEL", "WATCH", "CINEMA"]).nullable().optional(),
+        presentationTypes: z.array(z.enum(["POST", "REEL", "WATCH", "CINEMA"])).optional(),
+        audience: z.enum(["FREE", "PREMIUM", "VIP"]).nullable().optional(),
       })
       .parse(req.body);
     const result = await executePublish(
@@ -111,10 +114,20 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
         rights: body.rights ?? DEFAULT_PUBLISH_RIGHTS,
         scheduledAt: body.scheduledAt ?? null,
         contentFormat: body.contentFormat ?? null,
+        presentationType: body.presentationType ?? null,
+        presentationTypes: body.presentationTypes ?? null,
+        audience: body.audience ?? "FREE",
       },
       primitives,
     );
     return result;
+  });
+
+  app.post("/publish/schedule/fire-due", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const { fireDueScheduledPublishes } = await import("../publish/service.js");
+    return fireDueScheduledPublishes(primitives);
   });
 
   app.get("/publish/:assetId/distribution", async (req, reply) => {

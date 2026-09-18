@@ -1,6 +1,7 @@
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import {
   DEFAULT_PUBLISH_RIGHTS,
+  DEFAULT_PROFILE_FOR_TYPE,
   TITLE_MAX_CHARS,
   WRITEUP_MAX_CHARS,
   TAG_MAX_COUNT,
@@ -10,11 +11,12 @@ import {
   isPresentationType,
   parsePresentationTypes,
   parseVideoProcessing,
-  reelRequiresExplicitCut,
+  presentationEligibility,
   digitalLifePath,
   validateDestinationForVideo,
   videoIsPlayableReady,
   DESTINATION_MEDIA_PROFILES,
+  type PublishAudience,
   type PublishCandidate,
   type PublishCategoryId,
   type PublishCategoryInfo,
@@ -42,6 +44,25 @@ import { getAsset, updateAsset, createAsset, recordActivity } from "../services/
 import { publishProject } from "../creation/publish-service.js";
 import { publishWriting } from "../writing/publish.js";
 import { videoLiveCapability } from "../live/capability.js";
+
+function resolveSelectedPresentations(input: PublishExecuteInput): PresentationType[] {
+  const fromList = parsePresentationTypes(input.presentationTypes ?? []);
+  if (fromList.length) return [...new Set(fromList)];
+  if (input.presentationType && isPresentationType(input.presentationType)) {
+    return [input.presentationType];
+  }
+  return [];
+}
+
+function audienceAccessPolicy(audience: PublishAudience | null | undefined): string {
+  if (audience === "VIP") return "CREATOR_VIP";
+  if (audience === "PREMIUM") return "PREMIUM";
+  return "PUBLIC";
+}
+
+function profileIdFor(type: PresentationType): string {
+  return DEFAULT_PROFILE_FOR_TYPE[type];
+}
 
 /**
  * Record internal LifeOS projection for a public POST. Idempotent per asset.
@@ -269,7 +290,7 @@ export async function listPublishCandidates(
       : {
           ownerId,
           assetType: { in: types },
-          status: "DRAFT" as const,
+          OR: [{ status: "DRAFT" as const }, { metadata: { contains: '"draftWorkspace":true' } }],
         };
 
   const rows = await prisma.asset.findMany({
@@ -343,6 +364,54 @@ export async function executePublish(
 
   if (input.scheduleMode === "schedule") {
     const scheduledAt = input.scheduledAt!;
+    const when = new Date(scheduledAt);
+    const delayMs = Math.max(0, when.getTime() - Date.now());
+    const selectedPresentations = resolveSelectedPresentations(input);
+    const audience = (input.audience ?? "FREE") as PublishAudience;
+    const intendedVisibility = input.visibility;
+
+    // Validate video presentations at schedule time so creators learn before the fire.
+    const isVideoEarly =
+      input.contentFormat === "video" ||
+      asset.assetType === "VIDEO" ||
+      String(existingMeta.mimeType ?? "").toLowerCase().startsWith("video/");
+    if (isVideoEarly) {
+      if (!selectedPresentations.length) {
+        throw badRequest(
+          "presentation_required",
+          "Choose a presentation: POST, REEL, WATCH, or CINEMA.",
+        );
+      }
+      const durationMs =
+        typeof existingMeta.durationMs === "number"
+          ? existingMeta.durationMs
+          : parseVideoProcessing(existingMeta.videoProcessing)?.durationMs ?? null;
+      const trim = (existingMeta.trim ?? null) as { startMs: number; endMs: number } | null;
+      const highlight =
+        typeof existingMeta.highlightFromAssetId === "string" ? existingMeta.highlightFromAssetId : null;
+      for (const type of selectedPresentations) {
+        const row = presentationEligibility(type, durationMs, { trim, highlightFromAssetId: highlight, isVideo: true });
+        if (!row.eligible) throw badRequest("presentation_ineligible", row.reason || `${type} is not eligible.`);
+      }
+    }
+
+    let platformJobId: string | null = null;
+    if (primitives.platformJobs.bound) {
+      try {
+        const dispatched = await primitives.platformJobs.dispatch({
+          type: "publish.schedule",
+          payload: { ownerId, assetId: asset.id, scheduledAt },
+          idempotencyKey: `publish.schedule:${asset.id}:${scheduledAt}`,
+          correlationId: ownerId,
+          delayMs,
+        });
+        platformJobId = dispatched.jobId;
+      } catch {
+        // Persist schedule anyway; due-scanner fires when the process is up.
+        platformJobId = null;
+      }
+    }
+
     await updateAsset(ownerId, asset.id, {
       title,
       description: writeup,
@@ -358,6 +427,19 @@ export async function executePublish(
         scheduledPublishAt: scheduledAt,
         scheduleMode: "schedule",
         publishPending: true,
+        publishScheduleFailed: false,
+        publishScheduleError: null,
+        intendedVisibility,
+        audience,
+        accessPolicy: audienceAccessPolicy(audience),
+        ...(selectedPresentations.length
+          ? {
+              presentationTypes: selectedPresentations,
+              presentationType: selectedPresentations[0],
+              ...Object.fromEntries(selectedPresentations.map((t) => [`profile:${t}`, profileIdFor(t)])),
+            }
+          : {}),
+        ...(platformJobId ? { scheduledPlatformJobId: platformJobId } : {}),
       },
     });
     await prisma.distributionIntent.create({
@@ -370,8 +452,14 @@ export async function executePublish(
         payload: writeJson({
           scheduledAt,
           destinationLabel: "mybrandOS",
-          note: "Scheduled publish recorded. Automatic fire requires Platform Jobs when bound.",
+          intendedVisibility,
+          audience,
+          presentationTypes: selectedPresentations,
+          platformJobId,
           platformJobsBound: primitives.platformJobs.bound,
+          note: platformJobId
+            ? "Scheduled publish queued on Platform Jobs."
+            : "Scheduled publish persisted. Due scanner will fire when the time arrives.",
         }),
       },
     });
@@ -388,9 +476,9 @@ export async function executePublish(
       visibility: "private",
       publicPath: null,
       scheduledAt,
-      detail: primitives.platformJobs.bound
-        ? "Publish is scheduled. The asset stays private until the scheduled publish runs."
-        : "Schedule was recorded. Automatic background publish is unavailable until Platform Jobs is bound. Asset remains private.",
+      detail: platformJobId
+        ? "Publish is scheduled on Platform Jobs. The asset stays private until the scheduled publish runs."
+        : "Schedule was recorded durably. It will publish automatically when due (server-side due scanner).",
     };
   }
 
@@ -436,11 +524,8 @@ export async function executePublish(
           : "Video is not READY for playback yet.",
       );
     }
-    const selected =
-      input.presentationType && isPresentationType(input.presentationType)
-        ? input.presentationType
-        : null;
-    if (!selected) {
+    const selected = resolveSelectedPresentations(input);
+    if (!selected.length) {
       throw badRequest(
         "presentation_required",
         "Choose a presentation: POST, REEL, WATCH, or CINEMA.",
@@ -451,24 +536,24 @@ export async function executePublish(
         ? existingMeta.durationMs
         : parseVideoProcessing(existingMeta.videoProcessing)?.durationMs ?? null;
     const trim = (existingMeta.trim ?? null) as { startMs: number; endMs: number } | null;
-    if (selected === "REEL" && reelRequiresExplicitCut(durationMs, trim, typeof existingMeta.highlightFromAssetId === "string" ? existingMeta.highlightFromAssetId : null)) {
-      throw badRequest(
-        "reel_trim_required",
-        "Reels cannot silently clip a video longer than 3 minutes. Trim first or choose WATCH/CINEMA.",
-      );
+    const highlight =
+      typeof existingMeta.highlightFromAssetId === "string" ? existingMeta.highlightFromAssetId : null;
+    for (const type of selected) {
+      const row = presentationEligibility(type, durationMs, {
+        trim,
+        highlightFromAssetId: highlight,
+        isVideo: true,
+      });
+      if (!row.eligible) {
+        throw badRequest("presentation_ineligible", row.reason || `${type} is not eligible for this video.`);
+      }
     }
-    // One publish action → one primary presentation (do not accumulate silent duplicates).
     presentationTypes.length = 0;
-    presentationTypes.push(selected);
-    existingMeta.presentationType = selected;
-    existingMeta[`profile:${selected}`] =
-      selected === "REEL"
-        ? "REEL_VERTICAL"
-        : selected === "WATCH"
-          ? "WATCH_STANDARD"
-          : selected === "CINEMA"
-            ? "CINEMA_FULL"
-            : "POST_STANDARD";
+    presentationTypes.push(...selected);
+    existingMeta.presentationType = selected[0];
+    for (const type of selected) {
+      existingMeta[`profile:${type}`] = profileIdFor(type);
+    }
   } else if (
     input.category === "content" &&
     !presentationTypes.includes("POST") &&
@@ -477,11 +562,15 @@ export async function executePublish(
     presentationTypes.push("POST");
   }
 
+  const audience = (input.audience ??
+    (typeof existingMeta.audience === "string" ? existingMeta.audience : "FREE")) as PublishAudience;
+  const publishVisibility = input.visibility;
+
   const updated = await updateAsset(ownerId, asset.id, {
     title,
     description: writeup,
     status: "PUBLISHED",
-    visibility: input.visibility,
+    visibility: publishVisibility,
     metadata: {
       ...existingMeta,
       publishWriteup: writeup,
@@ -492,6 +581,9 @@ export async function executePublish(
       scheduleMode: "now",
       publishPending: false,
       scheduledPublishAt: null,
+      draftWorkspace: false,
+      audience,
+      accessPolicy: audienceAccessPolicy(audience),
       publishedAt:
         typeof existingMeta.publishedAt === "string" && existingMeta.publishedAt
           ? existingMeta.publishedAt
@@ -530,7 +622,7 @@ export async function executePublish(
   // Idempotent — one LIFEOS_POST intent per asset.
   const lifeosPresentation = (presentationTypes.find((t) => isPresentationType(t)) ??
     null) as PresentationType | null;
-  if (input.visibility === "public" && lifeosPresentation) {
+  if (publishVisibility === "public" && lifeosPresentation) {
     await projectInternalLifeOsPost(ownerId, updated.id, {
       title,
       body: writeup,
@@ -541,16 +633,21 @@ export async function executePublish(
     });
   }
 
+  await prisma.distributionIntent.updateMany({
+    where: { ownerId, assetId: asset.id, mode: "schedule", status: "SCHEDULED" },
+    data: { status: "COMPLETED" },
+  });
+
   await recordActivity({
     ownerId,
     kind: "published",
     title: `Published ${title}`,
-    detail: `Visibility ${input.visibility}. Content was not logged.`,
+    detail: `Visibility ${publishVisibility}. Audience ${audience}. Content was not logged.`,
     assetId: asset.id,
   });
 
   const space = await prisma.personalSpace.findUnique({ where: { ownerId } });
-  const publicPath = input.visibility === "public" && space?.publicEnabled && space.slug
+  const publicPath = publishVisibility === "public" && space?.publicEnabled && space.slug
     ? digitalLifePath({ surface: "public_app", slug: space.slug, path: `a/${asset.id}` }) : null;
 
   return {
@@ -559,9 +656,165 @@ export async function executePublish(
     visibility: updated.visibility,
     publicPath,
     detail:
-      input.visibility === "public"
+      publishVisibility === "public"
         ? "Published once to mybrandOS. LifeOS can consume the same public Asset through Digiconomy."
-        : `Published as ${input.visibility}. It will not appear on the public Digital Life until visibility is public.`,
+        : `Published as ${publishVisibility}. It will not appear on the public Digital Life until visibility is public.`,
+  };
+}
+
+/**
+ * Fire one due scheduled publish. Re-enters executePublish with scheduleMode "now"
+ * using persisted intent (visibility, presentations, audience).
+ */
+export async function fireScheduledPublish(
+  ownerId: string,
+  assetId: string,
+  primitives: PrimitiveBindings,
+): Promise<PublishExecuteResult | null> {
+  const asset = await getAsset(ownerId, assetId);
+  if (!asset) return null;
+  const meta = { ...(asset.metadata ?? {}) };
+  if (!meta.publishPending || meta.scheduleMode !== "schedule") return null;
+  const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
+  if (!whenRaw) return null;
+  const when = new Date(whenRaw);
+  if (Number.isNaN(when.getTime()) || when.getTime() > Date.now() + 2000) return null;
+
+  const visibility = (
+    meta.intendedVisibility === "public" ||
+    meta.intendedVisibility === "unlisted" ||
+    meta.intendedVisibility === "private"
+      ? meta.intendedVisibility
+      : "public"
+  ) as PublishVisibility;
+  const audience = (
+    meta.audience === "PREMIUM" || meta.audience === "VIP" || meta.audience === "FREE"
+      ? meta.audience
+      : "FREE"
+  ) as PublishAudience;
+  const presentationTypes = parsePresentationTypes(meta.presentationTypes);
+  const rights = (meta.publishingRights as PublishRights | undefined) ?? DEFAULT_PUBLISH_RIGHTS;
+  const category = (PUBLISH_CATEGORY_IDS.includes(meta.publishCategory as never)
+    ? meta.publishCategory
+    : "content") as PublishCategoryId;
+  const contentFormat = (meta.contentFormat as PublishContentFormat | null) ?? null;
+
+  try {
+    return await executePublish(
+      ownerId,
+      {
+        assetId,
+        title: typeof meta.publishWriteup === "string" ? asset.title : asset.title,
+        writeup: typeof meta.publishWriteup === "string" ? meta.publishWriteup : asset.description,
+        tags: Array.isArray(meta.publishTags) ? (meta.publishTags as string[]) : [],
+        visibility,
+        rights,
+        scheduleMode: "now",
+        scheduledAt: null,
+        contentFormat,
+        category,
+        presentationTypes,
+        presentationType: presentationTypes[0] ?? null,
+        audience,
+      },
+      primitives,
+    );
+  } catch (err) {
+    const message = err instanceof HttpError ? err.message : err instanceof Error ? err.message : "Scheduled publish failed.";
+    await updateAsset(ownerId, assetId, {
+      metadata: {
+        ...meta,
+        publishScheduleFailed: true,
+        publishScheduleError: message,
+        publishPending: true,
+      },
+    });
+    await prisma.distributionIntent.updateMany({
+      where: { ownerId, assetId, mode: "schedule", status: "SCHEDULED" },
+      data: { status: "FAILED", payload: writeJson({ error: message, scheduledAt: whenRaw }) },
+    });
+    await recordActivity({
+      ownerId,
+      kind: "publish_failed",
+      title: `Scheduled publish failed`,
+      detail: message,
+      assetId,
+    });
+    throw err;
+  }
+}
+
+/** Scan all due scheduled publishes and fire them. Safe to call repeatedly. */
+export async function fireDueScheduledPublishes(primitives: PrimitiveBindings): Promise<{ fired: number; failed: number }> {
+  const rows = await prisma.asset.findMany({
+    where: { status: "DRAFT" },
+    select: { id: true, ownerId: true, metadata: true },
+    take: 200,
+  });
+  let fired = 0;
+  let failed = 0;
+  const now = Date.now();
+  for (const row of rows) {
+    const meta = readJson<Record<string, unknown>>(row.metadata, {});
+    if (!meta.publishPending || meta.scheduleMode !== "schedule") continue;
+    const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
+    if (!whenRaw) continue;
+    const when = new Date(whenRaw);
+    if (Number.isNaN(when.getTime()) || when.getTime() > now) continue;
+    try {
+      const result = await fireScheduledPublish(row.ownerId, row.id, primitives);
+      if (result?.status === "PUBLISHED") fired += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  return { fired, failed };
+}
+
+let scheduleScanner: ReturnType<typeof setInterval> | null = null;
+
+/** Durable due-scanner — not a local job queue; reads persisted scheduledPublishAt. */
+export function startScheduledPublishScanner(primitives: PrimitiveBindings, intervalMs = 20_000) {
+  if (scheduleScanner) return;
+  const tick = () => {
+    void fireDueScheduledPublishes(primitives).catch(() => {
+      /* scanner must not crash the process */
+    });
+  };
+  tick();
+  scheduleScanner = setInterval(tick, intervalMs);
+  if (typeof scheduleScanner.unref === "function") scheduleScanner.unref();
+}
+
+export async function recoverAssetToDraft(ownerId: string, assetId: string) {
+  const asset = await getAsset(ownerId, assetId);
+  if (!asset) throw notFound("Asset not found.");
+  if (!asset.dataZoneId && asset.assetType !== "WRITING") {
+    throw badRequest("no_media", "This Asset has no Sovereign Drive media to recover.");
+  }
+  const meta = { ...(asset.metadata ?? {}) };
+  const updated = await updateAsset(ownerId, assetId, {
+    status: asset.status === "ARCHIVED" ? "DRAFT" : asset.status,
+    metadata: {
+      ...meta,
+      draftWorkspace: true,
+      recoveredAt: new Date().toISOString(),
+      recoveredFromGalaxy: true,
+    },
+  });
+  if (!updated) throw notFound("Asset not found.");
+  await recordActivity({
+    ownerId,
+    kind: "recovered",
+    title: `Recovered ${asset.title}`,
+    detail: "Galaxy Asset referenced in Draft without duplicating media.",
+    assetId,
+  });
+  return {
+    assetId,
+    dataZoneId: updated.dataZoneId,
+    duplicated: false,
+    detail: "Asset referenced in Draft. Canonical media was not duplicated.",
   };
 }
 

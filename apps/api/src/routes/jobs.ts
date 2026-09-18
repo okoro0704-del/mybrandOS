@@ -64,8 +64,30 @@ export function registerJobRoutes(app: FastifyInstance, primitives: PrimitiveBin
         jobId: z.string().min(1),
         status: z.string().min(1),
         importJobId: z.string().optional(),
+        type: z.string().optional(),
+        payload: z.record(z.unknown()).optional(),
       })
       .parse(req.body ?? {});
+
+    const jobType = body.type ?? (typeof body.payload?.type === "string" ? body.payload.type : "");
+    if (jobType === "publish.schedule" || body.payload?.assetId) {
+      const ownerId = typeof body.payload?.ownerId === "string" ? body.payload.ownerId : null;
+      const assetId = typeof body.payload?.assetId === "string" ? body.payload.assetId : null;
+      if (ownerId && assetId && /completed|success|succeeded/i.test(body.status)) {
+        const { fireScheduledPublish } = await import("../publish/service.js");
+        try {
+          const result = await fireScheduledPublish(ownerId, assetId, primitives);
+          return { ok: true, kind: "publish.schedule", result };
+        } catch (err) {
+          return {
+            ok: false,
+            kind: "publish.schedule",
+            error: err instanceof Error ? err.message : "scheduled_publish_failed",
+          };
+        }
+      }
+    }
+
     return applyPlatformJobCallback(body, primitives);
   });
 }

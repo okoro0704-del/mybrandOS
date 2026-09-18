@@ -517,9 +517,9 @@ export async function getOwnerAssetCover(
   primitives: PrimitiveBindings,
 ) {
   const asset = await prisma.asset.findFirst({
-    where: { id: assetId, ownerId: identity.trustId, status: "PUBLISHED" },
+    where: { id: assetId, ownerId: identity.trustId, status: { not: "ARCHIVED" } },
   });
-  if (!asset?.dataZoneId) throw notFound("No public cover is available for this Asset.");
+  if (!asset?.dataZoneId) throw notFound("No cover media is available for this Asset.");
   return readAssetCover(asset.dataZoneId, primitives);
 }
 
@@ -791,6 +791,24 @@ export async function getPublicAssetMedia(
     if (!access.active) {
       const { forbidden } = await import("../lib/errors.js");
       throw forbidden("This publication requires an active Creator VIP membership.");
+    }
+  }
+  if (accessPolicy === "PREMIUM") {
+    const { forbidden } = await import("../lib/errors.js");
+    // Premium content tier is modeled; dedicated Premium products are not fully productized.
+    const entitlement = viewerBuyerId
+      ? await prisma.commerceEntitlement.findFirst({
+          where: {
+            buyerId: viewerBuyerId,
+            ownerId: space.ownerId,
+            status: "ACTIVE",
+          },
+        })
+      : null;
+    if (!entitlement) {
+      throw forbidden(
+        "This publication requires Premium access. Premium entitlement products are not fully configured for this creator.",
+      );
     }
   }
 

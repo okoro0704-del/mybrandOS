@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ASSET_TYPE_LABELS,
   DEFAULT_PUBLISH_RIGHTS,
-  PRESENTATION_TYPES,
   PRESENTATION_TYPE_LABELS,
+  PUBLISH_AUDIENCES,
+  PUBLISH_AUDIENCE_DETAILS,
+  PUBLISH_AUDIENCE_LABELS,
   PUBLISH_CONTENT_FORMATS,
   PUBLISH_CONTENT_FORMAT_DETAILS,
   PUBLISH_CONTENT_FORMAT_LABELS,
@@ -15,7 +17,9 @@ import {
   PUBLISH_VISIBILITY_LABELS,
   TITLE_MAX_CHARS,
   WRITEUP_MAX_CHARS,
+  listPresentationEligibility,
   type PresentationType,
+  type PublishAudience,
   type PublishCandidate,
   type PublishCategoryId,
   type PublishCategoryInfo,
@@ -81,7 +85,8 @@ export function PublishCenterPage() {
   const [siteUrl, setSiteUrl] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [distributeDetail, setDistributeDetail] = useState("");
-  const [presentationType, setPresentationType] = useState<PresentationType>("WATCH");
+  const [presentationTypes, setPresentationTypes] = useState<PresentationType[]>([]);
+  const [audience, setAudience] = useState<PublishAudience>("FREE");
 
   useEffect(() => {
     void api<{ categories: PublishCategoryInfo[]; sources: PublishSourceAvailability[] }>("/publish/center")
@@ -101,6 +106,23 @@ export function PublishCenterPage() {
         .slice(0, 12),
     [tagsRaw],
   );
+
+  const selectedDurationMs = useMemo(() => {
+    if (!selected) return null;
+    const raw = (selected as PublishCandidate & { durationMs?: unknown }).durationMs;
+    return typeof raw === "number" ? raw : null;
+  }, [selected]);
+
+  const isVideoPublish = format === "video" || selected?.assetType === "VIDEO";
+
+  const presentationEligibility = useMemo(
+    () => listPresentationEligibility(selectedDurationMs, { isVideo: true }),
+    [selectedDurationMs],
+  );
+
+  function togglePresentation(id: PresentationType) {
+    setPresentationTypes((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }
 
   function goBack() {
     const order: Step[] = ["landing", "format", "source", "select", "details", "schedule", "privacy", "review", "done", "distribute"];
@@ -180,6 +202,7 @@ export function PublishCenterPage() {
     setSelected(item);
     setTitle(item.title.slice(0, TITLE_MAX_CHARS));
     setWriteup("");
+    setPresentationTypes(item.assetType === "VIDEO" || format === "video" ? ["POST"] : []);
     setStep("details");
   }
 
@@ -279,7 +302,6 @@ export function PublishCenterPage() {
       if (asset.assetType !== "VIDEO") {
         throw new Error("That file was not imported as a VIDEO Asset.");
       }
-      setPresentationType("WATCH");
       chooseCandidate({
         id: asset.id,
         title: asset.title,
@@ -325,8 +347,12 @@ export function PublishCenterPage() {
           contentFormat: format,
           category,
           ...(format === "video" || selected.assetType === "VIDEO"
-            ? { presentationType }
+            ? {
+                presentationTypes,
+                presentationType: presentationTypes[0] ?? null,
+              }
             : {}),
+          audience,
         }),
       });
       setResult(data);
@@ -636,41 +662,56 @@ export function PublishCenterPage() {
               ))}
             </div>
           ) : null}
-          {format === "video" || selected.assetType === "VIDEO" ? (
+          {isVideoPublish ? (
             <fieldset className="publish-presentation">
               <legend>Presentation</legend>
-              <p className="small muted">Same Video Asset. Choose how this publish appears. One selection per publish.</p>
-              {PRESENTATION_TYPES.map((id) => (
-                <label key={id} className={`publish-radio${presentationType === id ? " on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="presentation"
-                    checked={presentationType === id}
-                    onChange={() => setPresentationType(id)}
-                  />
-                  <span>
-                    <strong>{PRESENTATION_TYPE_LABELS[id]}</strong>
-                    <span className="small muted">
-                      {id === "POST"
-                        ? "Feed-first social post"
-                        : id === "REEL"
-                          ? "Short-form vertical (≤ 3 minutes)"
-                          : id === "WATCH"
-                            ? "Standard long-form watch"
-                            : "Cinematic / full-length watching"}
+              <p className="small muted">Same Video Asset. Choose one or more presentations for this publish.</p>
+              {presentationEligibility.map((row) => {
+                const id = row.type;
+                const checked = presentationTypes.includes(id);
+                return (
+                  <label
+                    key={id}
+                    className={`publish-radio${!row.eligible ? " disabled" : ""}${checked ? " on" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="presentation"
+                      disabled={!row.eligible}
+                      checked={checked}
+                      onChange={() => {
+                        if (!row.eligible) return;
+                        setError("");
+                        togglePresentation(id);
+                      }}
+                    />
+                    <span>
+                      <strong>{PRESENTATION_TYPE_LABELS[id]}</strong>
+                      <span className="small muted">
+                        {!row.eligible && row.reason
+                          ? row.reason
+                          : id === "POST"
+                            ? "Feed-first social post"
+                            : id === "REEL"
+                              ? "Short-form vertical (≤ 3 minutes)"
+                              : id === "WATCH"
+                                ? "Standard long-form watch"
+                                : "Cinematic / full-length watching"}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </fieldset>
           ) : null}
           <button
             className="btn"
             onClick={() => {
-              if ((format === "video" || selected.assetType === "VIDEO") && !presentationType) {
-                setError("Choose a presentation for this Video.");
+              if (isVideoPublish && presentationTypes.length === 0) {
+                setError("Choose at least one presentation for this Video.");
                 return;
               }
+              setError("");
               setStep("schedule");
             }}
           >
@@ -730,7 +771,19 @@ export function PublishCenterPage() {
 
       {step === "privacy" ? (
         <div className="publish-privacy">
-          <div className="eyebrow">Visibility</div>
+          <div className="eyebrow">Audience</div>
+          {PUBLISH_AUDIENCES.map((id) => (
+            <label key={id} className={`publish-radio${audience === id ? " on" : ""}`}>
+              <input type="radio" name="audience" checked={audience === id} onChange={() => setAudience(id)} />
+              <span>
+                <strong>{PUBLISH_AUDIENCE_LABELS[id]}</strong>
+                <span className="small muted">{PUBLISH_AUDIENCE_DETAILS[id]}</span>
+              </span>
+            </label>
+          ))}
+          <div className="eyebrow" style={{ marginTop: 16 }}>
+            Visibility
+          </div>
           {PUBLISH_VISIBILITIES.map((id) => (
             <label key={id} className={`publish-radio${visibility === id ? " on" : ""}`}>
               <input type="radio" name="vis" checked={visibility === id} onChange={() => setVisibility(id)} />
@@ -789,6 +842,21 @@ export function PublishCenterPage() {
                 <dt>Source</dt>
                 <dd>{source ? PUBLISH_SOURCE_LABELS[source] : "—"}</dd>
               </div>
+              {isVideoPublish ? (
+                <div>
+                  <dt>Presentation</dt>
+                  <dd style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span>
+                      {presentationTypes.length
+                        ? presentationTypes.map((id) => PRESENTATION_TYPE_LABELS[id]).join(" + ")
+                        : "—"}
+                    </span>
+                    <button type="button" className="btn ghost" style={{ padding: "2px 8px" }} onClick={() => setStep("details")}>
+                      Edit
+                    </button>
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Schedule</dt>
                 <dd>
@@ -796,6 +864,10 @@ export function PublishCenterPage() {
                     ? "Publish Now"
                     : `${scheduledDate} ${scheduledTime} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`}
                 </dd>
+              </div>
+              <div>
+                <dt>Audience</dt>
+                <dd>{PUBLISH_AUDIENCE_LABELS[audience]}</dd>
               </div>
               <div>
                 <dt>Visibility</dt>
