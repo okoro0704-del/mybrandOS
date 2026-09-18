@@ -465,7 +465,7 @@ export function PersonalOsHome({
             }
           />
         ) : (
-          <div className={`os-feed${category === "posts" && !searchOpen ? " os-feed--posts" : ""}`}>
+          <div className="os-feed">
             {stream.map((asset) =>
               category === "posts" && !searchOpen ? (
                 <PostCard
