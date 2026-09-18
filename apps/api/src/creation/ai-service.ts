@@ -37,6 +37,7 @@ export async function invokeAi(
     selectedText?: string;
     blockId?: string;
     apply?: "replace_block" | "new_block" | "none";
+    actorToken?: string;
   },
   primitives: PrimitiveBindings,
 ) {
@@ -112,6 +113,7 @@ export async function invokeAi(
     }
   }
 
+  const space = await prisma.personalSpace.findUnique({ where: { ownerId: userId }, select: { slug: true } });
   const result = await primitives.ai.invoke({
     actionType: input.actionType,
     instruction: input.instruction,
@@ -121,6 +123,8 @@ export async function invokeAi(
     projectDescription: project.description,
     blockType: block?.type,
     blockContent,
+    actorToken: input.actorToken || undefined,
+    entitySlug: space?.slug || undefined,
   });
 
   if (!result.available) {

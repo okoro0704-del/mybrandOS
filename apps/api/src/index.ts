@@ -54,6 +54,9 @@ const primitives = createPrimitiveContainer({
   aiProvider: config.aiProvider,
   aiApiKey: config.aiApiKey,
   aiModel: config.aiModel,
+  digiAiUrl: config.digiAiUrl,
+  digiAiCallerId: config.digiAiCallerId,
+  digiAiCallerKey: config.digiAiCallerKey,
   liveBroadcastUrl: config.liveBroadcastUrl,
   liveBroadcastToken: config.liveBroadcastToken,
 });

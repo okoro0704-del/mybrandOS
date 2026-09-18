@@ -110,6 +110,12 @@ export type IntegrationConfig = {
 
   aiModel?: string;
 
+  digiAiUrl?: string;
+
+  digiAiCallerId?: string;
+
+  digiAiCallerKey?: string;
+
   liveBroadcastUrl?: string;
 
   liveBroadcastToken?: string;
@@ -265,6 +271,12 @@ export function createPrimitiveContainer(config: IntegrationConfig): PrimitiveBi
       apiKey: config.aiApiKey,
 
       model: config.aiModel,
+
+      digiAiUrl: config.digiAiUrl,
+
+      digiAiCallerId: config.digiAiCallerId,
+
+      digiAiCallerKey: config.digiAiCallerKey,
 
     }),
 

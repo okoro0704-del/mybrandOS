@@ -7,6 +7,8 @@ export type AiInvokeInput = {
   projectDescription?: string;
   blockType?: string;
   blockContent?: string;
+  actorToken?: string;
+  entitySlug?: string;
 };
 
 export type AiInvokeResult = {
@@ -38,7 +40,7 @@ export class UnboundAiProvider implements IAiProvider {
   readonly kind = "ai-provider" as const;
 
   constructor(
-    private readonly detail = "No AI provider configured. Set AI_PROVIDER and the matching API key.",
+    private readonly detail = "No AI provider configured. Set DIGI_AI_URL and DIGI_AI_CALLER_KEY.",
   ) {}
 
   health(): AiHealth {
@@ -51,76 +53,80 @@ export class UnboundAiProvider implements IAiProvider {
   }
 }
 
-export class OpenAiProvider implements IAiProvider {
+/** Canonical studio path: mybrandOS → Digi AI → provider router. */
+export class RemoteDigiAiProvider implements IAiProvider {
   readonly kind = "ai-provider" as const;
 
   constructor(
-    private readonly apiKey: string,
-    private readonly model = "gpt-4o-mini",
+    private readonly url: string,
+    private readonly callerId: string,
+    private readonly callerKey: string,
   ) {}
 
   health(): AiHealth {
     return {
       available: true,
-      provider: "openai",
-      detail: `OpenAI bound (${this.model})`,
+      provider: "digi-ai",
+      detail: "Digi AI bound",
     };
   }
 
   async invoke(input: AiInvokeInput): Promise<AiInvokeResult | AiUnavailable> {
-    const system = [
-      "You are a creation assistant inside mybrandOS.",
-      "Operate on the current project and selected content.",
-      "Return only the resulting text the user can edit. Do not wrap in markdown fences.",
-      `Project: ${input.projectTitle} (${input.projectType})`,
-      input.projectDescription ? `Description: ${input.projectDescription}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const user = [
-      `Action: ${input.actionType}`,
-      input.instruction ? `Instruction: ${input.instruction}` : "",
-      input.blockType ? `Block type: ${input.blockType}` : "",
-      input.selectedText ? `Selected content:\n${input.selectedText}` : "",
-      !input.selectedText && input.blockContent ? `Current block:\n${input.blockContent}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        "x-digi-ai-caller": this.callerId,
+        "x-digi-ai-caller-key": this.callerKey,
+      };
+      if (input.actorToken) headers.authorization = `Bearer ${input.actorToken}`;
+      const res = await fetch(`${this.url.replace(/\/$/, "")}/v1/ask`, {
         method: "POST",
-        headers: {
-          authorization: `Bearer ${this.apiKey}`,
-          "content-type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
-          model: this.model,
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
+          message: [
+            input.instruction || `Perform studio action: ${input.actionType}`,
+            input.selectedText ? `Selected text:\n${input.selectedText}` : "",
+            !input.selectedText && input.blockContent ? `Current block:\n${input.blockContent}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+          mode: "draft",
+          sources: ["supplied"],
+          entity: input.entitySlug ? { slug: input.entitySlug, appId: "mybrandos" } : { appId: "mybrandos" },
+          suppliedContext: {
+            text: input.selectedText || input.blockContent || input.projectTitle,
+            label: "mybrandos-studio",
+          },
+          draft: {
+            actionType: input.actionType,
+            projectTitle: input.projectTitle,
+            projectType: input.projectType,
+            projectDescription: input.projectDescription,
+            blockType: input.blockType,
+          },
         }),
       });
-      if (!res.ok) {
+      const raw = (await res.json()) as {
+        ok?: boolean;
+        answer?: string;
+        message?: string;
+        execution?: { model?: string };
+      };
+      if (!res.ok || !raw.ok || !raw.answer) {
         return {
           available: false,
-          provider: "openai",
-          detail: `OpenAI request failed (${res.status}).`,
+          provider: "digi-ai",
+          detail: raw.message || "Digi AI did not return generated text.",
         };
       }
-      const raw = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+      return {
+        available: true,
+        provider: "digi-ai",
+        text: raw.answer,
+        model: raw.execution?.model,
       };
-      const text = raw.choices?.[0]?.message?.content?.trim();
-      if (!text) {
-        return { available: false, provider: "openai", detail: "OpenAI returned an empty response." };
-      }
-      return { available: true, provider: "openai", text, model: this.model };
     } catch {
-      return { available: false, provider: "openai", detail: "OpenAI is unreachable." };
+      return { available: false, provider: "digi-ai", detail: "Digi AI is unreachable." };
     }
   }
 }
@@ -147,16 +153,21 @@ export function createAiProvider(config: {
   provider: string;
   apiKey?: string;
   model?: string;
+  digiAiUrl?: string;
+  digiAiCallerId?: string;
+  digiAiCallerKey?: string;
 }): IAiProvider {
+  if (config.digiAiUrl && config.digiAiCallerKey) {
+    return new RemoteDigiAiProvider(
+      config.digiAiUrl,
+      config.digiAiCallerId || "mybrandos",
+      config.digiAiCallerKey,
+    );
+  }
   const name = config.provider.toLowerCase();
-  if (name === "openai" && config.apiKey) {
-    return new OpenAiProvider(config.apiKey, config.model);
-  }
-  if (name === "openai" && !config.apiKey) {
-    return new UnboundAiProvider("AI_PROVIDER=openai but OPENAI_API_KEY is missing.");
-  }
-  if (name === "test") {
-    return new TestAiProvider();
+  if (name === "test") return new TestAiProvider();
+  if (name === "openai") {
+    return new UnboundAiProvider("Canonical AI is Digi AI. Configure DIGI_AI_URL and DIGI_AI_CALLER_KEY.");
   }
   return new UnboundAiProvider();
 }

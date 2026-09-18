@@ -17,7 +17,7 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function readSessionToken(req: FastifyRequest): string | null {
+export function readSessionToken(req: FastifyRequest): string | null {
   const header = req.headers[config.sessionHeaderName];
   if (typeof header === "string" && header.trim()) return header.trim();
   const auth = req.headers.authorization;

@@ -269,3 +269,17 @@ test("FundzMan unbound does not fabricate balances and rejects Supabase product 
     (err: unknown) => err instanceof PrimitiveError && err.code === "NOT_CONFIGURED",
   );
 });
+
+test("studio AI uses Digi AI rather than a direct OpenAI provider", async () => {
+  const { createAiProvider, RemoteDigiAiProvider, UnboundAiProvider } = await import("@mybrandos/integrations");
+  const bound = createAiProvider({
+    provider: "openai",
+    apiKey: "sk-should-not-be-used",
+    digiAiUrl: "http://digi-ai.test",
+    digiAiCallerKey: "studio-secret",
+  });
+  assert.equal(bound instanceof RemoteDigiAiProvider, true);
+  assert.equal(bound.health().provider, "digi-ai");
+  const direct = createAiProvider({ provider: "openai", apiKey: "sk-should-not-be-used" });
+  assert.equal(direct instanceof UnboundAiProvider, true);
+});
