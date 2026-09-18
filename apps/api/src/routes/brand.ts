@@ -59,6 +59,7 @@ const brandPatch = z.object({
         .optional(),
       sectionOrder: z.array(z.string()).nullable().optional(),
       homeShowFeatured: z.boolean().optional(),
+      digitalSpaceGreeting: z.string().max(2000).nullable().optional(),
     })
     .optional(),
 });

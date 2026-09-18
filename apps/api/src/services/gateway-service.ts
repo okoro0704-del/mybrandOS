@@ -7,7 +7,11 @@ import type {
   PersonalSpacePayload,
   PrimitiveHealth,
 } from "@mybrandos/shared";
-import { applicationCapabilities } from "@mybrandos/shared";
+import {
+  applicationCapabilities,
+  normalizePresentation,
+  type PublicExperiencePresentation,
+} from "@mybrandos/shared";
 import type { TrustIdIdentity } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { collectPrimitiveHealth, unboundWalletSummary } from "@mybrandos/integrations";
@@ -321,6 +325,15 @@ export async function buildPersonalSpace(
     };
   }
 
+  const presentation = space
+    ? normalizePresentation(
+        readJson<Partial<PublicExperiencePresentation>>(
+          (space as { presentationConfig?: string }).presentationConfig,
+          {},
+        ),
+      )
+    : normalizePresentation({});
+
   return {
     status: {
       bound: Boolean(space),
@@ -333,6 +346,7 @@ export async function buildPersonalSpace(
       displayName: space?.displayName || identity.displayName,
       headline: space?.headline || "Personal Space is the public surface of your digital life.",
       bio: space?.bio || "",
+      digitalSpaceGreeting: presentation.digitalSpaceGreeting ?? "",
     },
     links,
     featuredAssetIds,
@@ -355,6 +369,7 @@ export async function upsertPersonalSpace(
     bio?: string;
     links?: Array<{ id: string; label: string; url: string }>;
     featuredAssetIds?: string[];
+    digitalSpaceGreeting?: string | null;
   },
 ) {
   const existing = await prisma.personalSpace.findUnique({ where: { ownerId } });
@@ -363,6 +378,16 @@ export async function upsertPersonalSpace(
   const featuredAssetIds =
     resolvedFeatured !== undefined ? writeJson(resolvedFeatured) : existing?.featuredAssetIds;
   const links = patch.links ? writeJson(patch.links) : existing?.links;
+  const presentation =
+    patch.digitalSpaceGreeting === undefined
+      ? undefined
+      : normalizePresentation({
+          ...readJson<Partial<PublicExperiencePresentation>>(
+            (existing as { presentationConfig?: string } | null)?.presentationConfig,
+            {},
+          ),
+          digitalSpaceGreeting: patch.digitalSpaceGreeting,
+        });
   return prisma.personalSpace.upsert({
     where: { ownerId },
     create: {
@@ -372,6 +397,7 @@ export async function upsertPersonalSpace(
       bio: patch.bio ?? "",
       links: links ?? writeJson([]),
       featuredAssetIds: featuredAssetIds ?? writeJson([]),
+      ...(presentation ? { presentationConfig: writeJson(presentation) } : {}),
     },
     update: {
       displayName: patch.displayName,
@@ -379,6 +405,7 @@ export async function upsertPersonalSpace(
       bio: patch.bio,
       ...(patch.links ? { links: writeJson(patch.links) } : {}),
       ...(resolvedFeatured !== undefined ? { featuredAssetIds: writeJson(resolvedFeatured) } : {}),
+      ...(presentation ? { presentationConfig: writeJson(presentation) } : {}),
     },
   });
 }

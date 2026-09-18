@@ -481,6 +481,21 @@ const HOME_SECTION_CATALOG = [
 ] as const;
 
 /** Owner-controlled public experience presentation (persisted on PersonalSpace). */
+export const DIGITAL_SPACE_GREETING_MAX = 2000;
+
+/** Plain-text public doorway greeting. HTML is stripped; empty becomes null. */
+export function sanitizeDigitalSpaceGreeting(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const cleaned = raw
+    .replace(/<[^>]*>/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, DIGITAL_SPACE_GREETING_MAX);
+}
+
 export type PublicExperiencePresentation = {
   /** Preferred landing section chip id when that section has published content. */
   primaryChip?: string | null;
@@ -496,6 +511,8 @@ export type PublicExperiencePresentation = {
   creatorVip?: CreatorVipConfig | null;
   /** Up to two VIDEO asset ids the creator pins into Spotlight. */
   spotlightPinnedIds?: string[] | null;
+  /** First-person Digital Space welcome. Plain text. */
+  digitalSpaceGreeting?: string | null;
 };
 
 export type DigiPediaSection = {
@@ -613,6 +630,7 @@ export function normalizePresentation(
           .filter(Boolean)
           .slice(0, 2)
       : null,
+    digitalSpaceGreeting: sanitizeDigitalSpaceGreeting(input?.digitalSpaceGreeting),
   };
 }
 

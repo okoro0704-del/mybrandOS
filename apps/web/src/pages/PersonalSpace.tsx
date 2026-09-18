@@ -9,6 +9,7 @@ export function PersonalSpacePage() {
   const [space, setSpace] = useState<PersonalSpacePayload | null>(null);
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
+  const [digitalSpaceGreeting, setDigitalSpaceGreeting] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
 
@@ -17,6 +18,7 @@ export function PersonalSpacePage() {
     setSpace(data);
     setHeadline(data.profile.headline);
     setBio(data.profile.bio);
+    setDigitalSpaceGreeting(data.profile.digitalSpaceGreeting ?? "");
   }
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function PersonalSpacePage() {
   async function saveProfile() {
     const data = await api<PersonalSpacePayload>("/personal-space", {
       method: "PATCH",
-      body: JSON.stringify({ headline, bio }),
+      body: JSON.stringify({ headline, bio, digitalSpaceGreeting }),
     });
     setSpace(data);
   }
@@ -78,6 +80,19 @@ export function PersonalSpacePage() {
             Bio
             <textarea rows={4} value={bio} onChange={(e) => setBio(e.target.value)} />
           </label>
+          <label className="field" style={{ marginTop: 10 }}>
+            Digital Space greeting
+            <textarea
+              rows={7}
+              maxLength={2000}
+              value={digitalSpaceGreeting}
+              onChange={(e) => setDigitalSpaceGreeting(e.target.value)}
+              placeholder="Hi, welcome to my Digital Space. Speak in the first person."
+            />
+          </label>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            Visitors hear this when they enter your Digital Space. Plain text only.
+          </p>
           <button className="btn" style={{ marginTop: 12 }} onClick={() => void saveProfile()}>
             Save profile
           </button>

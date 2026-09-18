@@ -89,6 +89,7 @@ export function registerGatewayRoutes(app: FastifyInstance, primitives: Primitiv
         bio: z.string().optional(),
         links: z.array(z.object({ id: z.string(), label: z.string(), url: z.string() })).optional(),
         featuredAssetIds: z.array(z.string()).optional(),
+        digitalSpaceGreeting: z.string().max(2000).nullable().optional(),
       })
       .parse(req.body);
     await upsertPersonalSpace(session.ownerId, body);

@@ -99,6 +99,7 @@ export interface PersonalSpacePayload {
     displayName: string;
     headline: string;
     bio: string;
+    digitalSpaceGreeting?: string;
   };
   links: Array<{ id: string; label: string; url: string }>;
   featuredAssetIds: string[];

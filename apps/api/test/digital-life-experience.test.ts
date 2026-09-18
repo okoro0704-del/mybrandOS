@@ -410,6 +410,16 @@ test("creator-aware sticky landing respects preference and keeps the public sect
   assert.ok(!lanes.some((l) => l.id === "videos"));
 });
 
+test("Digital Space greeting is plain text on presentation", async () => {
+  const { normalizePresentation, sanitizeDigitalSpaceGreeting } = await import("@mybrandos/shared");
+  assert.equal(sanitizeDigitalSpaceGreeting("Hi <script>x</script>"), "Hi x");
+  assert.equal(sanitizeDigitalSpaceGreeting(""), null);
+  const presentation = normalizePresentation({
+    digitalSpaceGreeting: "Hey, welcome to my Digital Space.\n\nI'm Ada.",
+  });
+  assert.equal(presentation.digitalSpaceGreeting, "Hey, welcome to my Digital Space.\n\nI'm Ada.");
+});
+
 test("cleanup digital life fixtures", async () => {
   await prisma.asset.deleteMany({ where: { ownerId } });
   await prisma.personalSpace.deleteMany({ where: { ownerId } });
