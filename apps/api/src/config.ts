@@ -65,4 +65,7 @@ export const config = {
     env("BYPASS_TRUST_ID").toLowerCase() === "true",
   /** Shared secret for Portal → mybrandOS white-label provision. */
   whiteLabelSecret: env("WHITE_LABEL_SECRET") || env("INTERNAL_PROVISION_TOKEN"),
+  /** DigiPedia is the knowledge authority. Studio is a client. */
+  digipediaUrl: env("DIGIPEDIA_URL", "https://digiconomy-digipedia-production.up.railway.app").replace(/\/$/, ""),
+  digipediaManageKey: env("DIGIPEDIA_MANAGE_KEY"),
 };

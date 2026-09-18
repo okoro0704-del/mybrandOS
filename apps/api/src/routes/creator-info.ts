@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { requireIdentity } from "../lib/auth.js";
 import { resolveRequestIdentity } from "../lib/auth.js";
@@ -7,16 +7,26 @@ import {
   upsertCreatorVipAdmin,
   getPublicCreatorVip,
   viewerHasCreatorVip,
-  getDigiPediaAdmin,
-  publishDigiPediaAdmin,
   getPublicDigiPedia,
   getSpotlightPinsAdmin,
   setSpotlightPinsAdmin,
 } from "../services/creator-info.js";
+import {
+  authorizedDigipediaSlug,
+  callDigiPediaManage,
+  sendManageResult,
+} from "../services/digipedia-manage.js";
 import { prisma } from "../lib/prisma.js";
 import { normalizeSlug } from "@mybrandos/shared";
 import { startCheckout } from "../commerce/checkout.js";
 import { badRequest } from "../lib/errors.js";
+
+async function manage(req: Parameters<typeof requireIdentity>[0], reply: FastifyReply, primitives: PrimitiveBindings) {
+  const identity = await requireIdentity(req, reply, primitives);
+  if (!identity) return null;
+  const slug = await authorizedDigipediaSlug(req, identity.identity);
+  return { identity, slug };
+}
 
 export function registerCreatorInfoRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
   app.get("/info/vip", async (req, reply) => {
@@ -45,19 +55,109 @@ export function registerCreatorInfoRoutes(app: FastifyInstance, primitives: Prim
   });
 
   app.get("/info/digipedia", async (req, reply) => {
-    const identity = await requireIdentity(req, reply, primitives);
-    if (!identity) return;
-    return getDigiPediaAdmin(identity.identity);
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "GET",
+    });
+    return sendManageResult(result).payload;
+  });
+
+  app.post("/info/digipedia/initialize", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "POST",
+      suffix: "/initialize",
+    });
+    return sendManageResult(result).payload;
+  });
+
+  app.put("/info/digipedia/draft", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "PUT",
+      suffix: "/draft",
+      body: req.body,
+    });
+    return sendManageResult(result).payload;
+  });
+
+  app.get("/info/digipedia/preview", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "GET",
+      suffix: "/preview",
+      accept: "text/html",
+    });
+    if (result.status >= 400) {
+      return sendManageResult({ status: result.status, json: { error: "preview_failed", message: "Preview is not available." } });
+    }
+    reply.header("cache-control", "private, no-store");
+    reply.type("text/html; charset=utf-8");
+    return reply.send(result.html);
+  });
+
+  app.post("/info/digipedia/publish", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "POST",
+      suffix: "/publish",
+      body: req.body,
+    });
+    return sendManageResult(result).payload;
+  });
+
+  app.get("/info/digipedia/revisions", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "GET",
+      suffix: "/revisions",
+    });
+    return sendManageResult(result).payload;
+  });
+
+  app.post("/info/digipedia/restore", async (req, reply) => {
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "POST",
+      suffix: "/restore",
+      body: req.body,
+    });
+    return sendManageResult(result).payload;
   });
 
   app.put("/info/digipedia", async (req, reply) => {
-    const identity = await requireIdentity(req, reply, primitives);
-    if (!identity) return;
-    return publishDigiPediaAdmin(identity.identity, (req.body ?? {}) as {
-      title?: string;
-      summary?: string;
-      sections?: Array<{ id?: string; heading: string; body: string }>;
+    const ctx = await manage(req, reply, primitives);
+    if (!ctx) return;
+    const body = (req.body ?? {}) as { expectedVersion?: number; draft?: unknown; changeSummary?: string };
+    const result = await callDigiPediaManage({
+      slug: ctx.slug,
+      actorId: ctx.identity.ownerId,
+      method: "POST",
+      suffix: "/publish",
+      body,
     });
+    return sendManageResult(result).payload;
   });
 
   app.get("/public/:slug/vip", async (req) => {

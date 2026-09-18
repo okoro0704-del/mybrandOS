@@ -1,5 +1,4 @@
-import { randomBytes } from "node:crypto";
-import type { TrustIdIdentity, CreatorVipConfig, DigiPediaRecord, DigiPediaSection } from "@mybrandos/shared";
+import type { TrustIdIdentity, CreatorVipConfig } from "@mybrandos/shared";
 import { normalizePresentation } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson, writeJson } from "../lib/json.js";
@@ -193,64 +192,6 @@ export async function viewerHasCreatorVip(ownerId: string, buyerId: string | nul
     });
   }
   return { active: false, expiresAt: null };
-}
-
-export async function getDigiPediaAdmin(identity: TrustIdIdentity) {
-  const space = await spaceOf(identity.trustId, identity.displayName);
-  return { digipedia: presentationOf(space).digipedia ?? emptyDigipedia(space.displayName) };
-}
-
-function emptyDigipedia(name: string): DigiPediaRecord {
-  const now = new Date().toISOString();
-  return {
-    title: `${name || "Creator"} DigiPedia`,
-    summary: "",
-    sections: [],
-    revisions: [],
-    publishedAt: null,
-    updatedAt: now,
-  };
-}
-
-export async function publishDigiPediaAdmin(
-  identity: TrustIdIdentity,
-  input: { title?: string; summary?: string; sections?: Array<{ id?: string; heading: string; body: string }> },
-) {
-  const space = await spaceOf(identity.trustId, identity.displayName);
-  const presentation = presentationOf(space);
-  const current = presentation.digipedia ?? emptyDigipedia(space.displayName);
-  const now = new Date().toISOString();
-  const sections: DigiPediaSection[] = (input.sections ?? current.sections).map((s, i) => ({
-    id: s.id || `sec_${randomBytes(4).toString("hex")}`,
-    heading: String(s.heading || `Section ${i + 1}`).slice(0, 200),
-    body: String(s.body || "").slice(0, 20000),
-    updatedAt: now,
-  }));
-  if (!sections.length && !String(input.summary ?? current.summary).trim()) {
-    throw badRequest("empty_digipedia", "Add at least one section or a summary before publishing.");
-  }
-  const next: DigiPediaRecord = {
-    title: String(input.title ?? current.title).slice(0, 200) || current.title,
-    summary: String(input.summary ?? current.summary).slice(0, 4000),
-    sections,
-    revisions: [
-      {
-        id: `rev_${randomBytes(4).toString("hex")}`,
-        savedAt: now,
-        title: String(input.title ?? current.title).slice(0, 200),
-        sectionCount: sections.length,
-      },
-      ...current.revisions,
-    ].slice(0, 40),
-    publishedAt: current.publishedAt || now,
-    updatedAt: now,
-  };
-  const updated = normalizePresentation({ ...presentation, digipedia: next });
-  await prisma.personalSpace.update({
-    where: { id: space.id },
-    data: { presentationConfig: writeJson(updated) },
-  });
-  return { digipedia: next };
 }
 
 export async function getPublicDigiPedia(slug: string) {

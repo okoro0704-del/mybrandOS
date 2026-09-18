@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import {
   WEBSITE_PAGE_TYPE_LABELS,
   WEBSITE_PAGE_TYPES,
-  type DigiPediaRecord,
   type WebsitePage,
   type WebsitePageType,
 } from "@mybrandos/shared";
@@ -175,117 +174,438 @@ function WebsiteAdminPanel({ filter }: { filter: "website" | "news" | "blog" }) 
   );
 }
 
+type DigiPediaSource = {
+  sourceId: string;
+  sourceType: string;
+  title?: string;
+  canonicalUrl?: string;
+  publicationId?: string;
+  publishedAt?: string;
+  available: boolean;
+};
+
+type DigiPediaDraft = {
+  title: string;
+  summary: string;
+  sections: Array<{
+    sectionId: string;
+    heading: string;
+    body: string;
+    sourceReferences: DigiPediaSource[];
+  }>;
+  sourceReferences: DigiPediaSource[];
+  relatedEntityReferences: Array<{ slug: string; displayName: string; kind: string }>;
+};
+
+type DigiPediaManage = {
+  entity: { entityId: string; slug: string; kind: string; displayName: string };
+  intro: string;
+  status: string;
+  published: boolean;
+  hasDraftChanges?: boolean;
+  draftVersion: number;
+  entry: { draft: DigiPediaDraft; draftVersion: number; publishedRevisionId: string | null } | null;
+  revisions?: Array<{
+    id: string;
+    revisionNumber: number;
+    publishedAt: string;
+    changeSummary: string | null;
+    actorOrigin?: string;
+  }>;
+};
+
+function statusLabel(row: DigiPediaManage) {
+  if (row.status === "none" || !row.entry) return "No entry yet";
+  if (row.status === "published_draft" || row.hasDraftChanges) return "Published · Draft changes";
+  if (row.published) return "Published";
+  return "Draft";
+}
+
 function DigiPediaAdminPanel() {
-  const [record, setRecord] = useState<DigiPediaRecord | null>(null);
+  const [data, setData] = useState<DigiPediaManage | null>(null);
+  const [draft, setDraft] = useState<DigiPediaDraft | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState("");
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [relatedSlug, setRelatedSlug] = useState("");
+
+  async function load() {
+    const next = await api<DigiPediaManage>("/info/digipedia");
+    setData(next);
+    setDraft(next.entry ? structuredClone(next.entry.draft) : null);
+  }
 
   useEffect(() => {
-    void api<{ digipedia: DigiPediaRecord }>("/info/digipedia")
-      .then((d) => setRecord(d.digipedia))
-      .catch(() => setError("Could not load DigiPedia."));
+    void load().catch((err) => setError(err instanceof ApiError ? err.message : "Could not load DigiPedia."));
   }, []);
 
-  async function publish() {
-    if (!record) return;
-    setBusy(true);
+  async function run(action: string, work: () => Promise<void>) {
+    setBusy(action);
     setError("");
+    setNotice("");
     try {
-      const next = await api<{ digipedia: DigiPediaRecord }>("/info/digipedia", {
-        method: "PUT",
-        body: JSON.stringify({
-          title: record.title,
-          summary: record.summary,
-          sections: record.sections,
-        }),
-      });
-      setRecord(next.digipedia);
+      await work();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not publish DigiPedia.");
+      setError(err instanceof ApiError ? err.message : "Could not update DigiPedia.");
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
 
-  if (!record) return <p className="muted">{error || "Loading DigiPedia…"}</p>;
+  if (!data) return <p className="muted">{error || "Loading DigiPedia…"}</p>;
+
+  const kind = data.entity.kind;
+  const suggested = kind === "BUSINESS"
+    ? ["About", "Background", "Services", "Operations", "Projects"]
+    : ["About", "Background", "Work", "Projects"];
 
   return (
     <div className="stack">
-      {error ? <p className="error">{error}</p> : null}
-      <div className="panel">
-        <label>
-          Title
-          <input value={record.title} onChange={(e) => setRecord({ ...record, title: e.target.value })} />
-        </label>
-        <label>
-          Summary
-          <textarea
-            rows={3}
-            value={record.summary}
-            onChange={(e) => setRecord({ ...record, summary: e.target.value })}
-          />
-        </label>
-        {record.sections.map((sec, index) => (
-          <div key={sec.id} className="panel" style={{ marginTop: 12 }}>
-            <label>
-              Section heading
-              <input
-                value={sec.heading}
-                onChange={(e) => {
-                  const sections = [...record.sections];
-                  sections[index] = { ...sec, heading: e.target.value };
-                  setRecord({ ...record, sections });
-                }}
-              />
-            </label>
-            <label>
-              Body
-              <textarea
-                rows={5}
-                value={sec.body}
-                onChange={(e) => {
-                  const sections = [...record.sections];
-                  sections[index] = { ...sec, body: e.target.value };
-                  setRecord({ ...record, sections });
-                }}
-              />
-            </label>
-          </div>
-        ))}
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() =>
-            setRecord({
-              ...record,
-              sections: [
-                ...record.sections,
-                {
-                  id: `sec_${Date.now()}`,
-                  heading: "New section",
-                  body: "",
-                  updatedAt: new Date().toISOString(),
-                },
-              ],
-            })
-          }
-        >
-          Add section
-        </button>
-        <button type="button" className="btn primary" disabled={busy} onClick={() => void publish()}>
-          Publish DigiPedia revision
-        </button>
-        {record.revisions.length ? (
-          <div style={{ marginTop: 16 }}>
-            <h3>Revision history</h3>
-            {record.revisions.slice(0, 8).map((rev) => (
-              <div className="small muted" key={rev.id}>
-                {new Date(rev.savedAt).toLocaleString()} · {rev.title} · {rev.sectionCount} sections
-              </div>
-            ))}
-          </div>
+      {error ? <p className="error" role="alert">{error}</p> : null}
+      {notice ? <p className="muted" role="status">{notice}</p> : null}
+      <div className="panel stack">
+        <h2>Your DigiPedia</h2>
+        <p>{data.intro}</p>
+        <p className="small muted">
+          {data.entity.displayName} · Status: {statusLabel(data)}
+        </p>
+        {!data.entry ? (
+          <button
+            type="button"
+            className="btn primary"
+            disabled={Boolean(busy)}
+            onClick={() =>
+              void run("initialize", async () => {
+                const next = await api<DigiPediaManage>("/info/digipedia/initialize", { method: "POST" });
+                setData(next);
+                setDraft(next.entry ? structuredClone(next.entry.draft) : null);
+                setNotice("A draft was created from existing public information.");
+              })
+            }
+          >
+            Start DigiPedia
+          </button>
         ) : null}
       </div>
+      {draft && data.entry ? (
+        <>
+          <div className="panel stack">
+            <label>
+              Title
+              <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+            </label>
+            <label>
+              Summary
+              <textarea rows={3} value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} />
+            </label>
+          </div>
+          {draft.sections.map((section, index) => (
+            <div className="panel stack" key={section.sectionId}>
+              <label>
+                {section.heading || `Section ${index + 1}`}
+                <input
+                  value={section.heading}
+                  onChange={(e) => {
+                    const sections = [...draft.sections];
+                    sections[index] = { ...section, heading: e.target.value };
+                    setDraft({ ...draft, sections });
+                  }}
+                />
+              </label>
+              <label>
+                Body
+                <textarea
+                  rows={6}
+                  value={section.body}
+                  onChange={(e) => {
+                    const sections = [...draft.sections];
+                    sections[index] = { ...section, body: e.target.value };
+                    setDraft({ ...draft, sections });
+                  }}
+                />
+              </label>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={index === 0}
+                  aria-label={`Move ${section.heading || "section"} up`}
+                  onClick={() => {
+                    if (index === 0) return;
+                    const sections = [...draft.sections];
+                    [sections[index - 1], sections[index]] = [sections[index], sections[index - 1]];
+                    setDraft({ ...draft, sections });
+                  }}
+                >
+                  Move up
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={index === draft.sections.length - 1}
+                  aria-label={`Move ${section.heading || "section"} down`}
+                  onClick={() => {
+                    if (index === draft.sections.length - 1) return;
+                    const sections = [...draft.sections];
+                    [sections[index], sections[index + 1]] = [sections[index + 1], sections[index]];
+                    setDraft({ ...draft, sections });
+                  }}
+                >
+                  Move down
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  aria-label={`Remove ${section.heading || "section"}`}
+                  onClick={() => setDraft({ ...draft, sections: draft.sections.filter((_, i) => i !== index) })}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="panel stack">
+            <h3>Add section</h3>
+            <div className="row" style={{ flexWrap: "wrap" }}>
+              {suggested.map((heading) => (
+                <button
+                  key={heading}
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => {
+                    const sectionId = heading.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                    if (draft.sections.some((row) => row.sectionId === sectionId)) return;
+                    setDraft({
+                      ...draft,
+                      sections: [...draft.sections, { sectionId, heading, body: "", sourceReferences: [] }],
+                    });
+                  }}
+                >
+                  {heading}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="panel stack">
+            <h3>Sources</h3>
+            <p className="muted small">Citations show where this knowledge came from. They are not a truth certificate.</p>
+            {!draft.sourceReferences.length ? <p className="muted">No sources yet.</p> : null}
+            <ul>
+              {draft.sourceReferences.map((source) => (
+                <li key={source.sourceId}>
+                  {source.title || "Source"}
+                  {source.publishedAt ? ` · ${source.publishedAt.slice(0, 10)}` : ""}
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        sourceReferences: draft.sourceReferences.filter((row) => row.sourceId !== source.sourceId),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <label>
+              Source title
+              <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)} />
+            </label>
+            <label>
+              Source URL
+              <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} inputMode="url" />
+            </label>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const title = sourceTitle.trim();
+                const url = sourceUrl.trim();
+                if (!title || !url) return;
+                setDraft({
+                  ...draft,
+                  sourceReferences: [
+                    ...draft.sourceReferences,
+                    {
+                      sourceId: `external:${url}`,
+                      sourceType: "external",
+                      title,
+                      canonicalUrl: url,
+                      available: true,
+                    },
+                  ],
+                });
+                setSourceTitle("");
+                setSourceUrl("");
+              }}
+            >
+              Add source
+            </button>
+          </div>
+          <div className="panel stack">
+            <h3>Related DigiPedia</h3>
+            <p className="muted small">Add another Digital Life by its public address, not a display name alone.</p>
+            <ul>
+              {draft.relatedEntityReferences.map((related) => (
+                <li key={related.slug}>
+                  {related.displayName}
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        relatedEntityReferences: draft.relatedEntityReferences.filter((row) => row.slug !== related.slug),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <label>
+              Public address
+              <input
+                value={relatedSlug}
+                onChange={(e) => setRelatedSlug(e.target.value)}
+                placeholder="build-africa"
+                autoComplete="off"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const slug = relatedSlug.trim().toLowerCase();
+                if (!slug || draft.relatedEntityReferences.some((row) => row.slug === slug)) return;
+                setDraft({
+                  ...draft,
+                  relatedEntityReferences: [
+                    ...draft.relatedEntityReferences,
+                    { slug, displayName: slug, kind: "ORGANIZATION" },
+                  ],
+                });
+                setRelatedSlug("");
+              }}
+            >
+              Add relationship
+            </button>
+          </div>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                void run("save", async () => {
+                  const next = await api<DigiPediaManage>("/info/digipedia/draft", {
+                    method: "PUT",
+                    body: JSON.stringify({ expectedVersion: data.draftVersion, draft }),
+                  });
+                  setData(next);
+                  setDraft(next.entry ? structuredClone(next.entry.draft) : draft);
+                  setNotice("Draft saved. The public page is unchanged.");
+                })
+              }
+            >
+              Save draft
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                void run("preview", async () => {
+                  const headers = new Headers();
+                  headers.set("x-mybrandos-host", window.location.hostname);
+                  const token = localStorage.getItem("mybrandos_session_token");
+                  if (token) headers.set("Authorization", `Bearer ${token}`);
+                  const res = await fetch("/api/info/digipedia/preview", { headers, credentials: "include" });
+                  if (!res.ok) throw new ApiError(res.status, "preview_failed", "Could not preview this draft.");
+                  setPreviewHtml(await res.text());
+                })
+              }
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={Boolean(busy)}
+              onClick={() =>
+                void run("publish", async () => {
+                  const next = await api<DigiPediaManage>("/info/digipedia/publish", {
+                    method: "POST",
+                    body: JSON.stringify({ expectedVersion: data.draftVersion, draft }),
+                  });
+                  setData(next);
+                  setDraft(next.entry ? structuredClone(next.entry.draft) : draft);
+                  setNotice("Published. The public DigiPedia now shows this revision.");
+                })
+              }
+            >
+              Publish
+            </button>
+          </div>
+          {data.revisions?.length ? (
+            <div className="panel stack">
+              <h3>Revision history</h3>
+              {data.revisions.map((rev) => (
+                <div className="list-row" key={rev.id}>
+                  <div>
+                    <strong>Revision {rev.revisionNumber}</strong>
+                    <div className="small muted">
+                      {new Date(rev.publishedAt).toLocaleString()} · Published
+                      {rev.changeSummary ? ` · ${rev.changeSummary}` : ""}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    disabled={Boolean(busy)}
+                    onClick={() =>
+                      void run("restore", async () => {
+                        const next = await api<DigiPediaManage>("/info/digipedia/restore", {
+                          method: "POST",
+                          body: JSON.stringify({ expectedVersion: data.draftVersion, revisionId: rev.id }),
+                        });
+                        setData(next);
+                        setDraft(next.entry ? structuredClone(next.entry.draft) : draft);
+                        setNotice(`Revision ${rev.revisionNumber} restored as a draft. History was not rewritten.`);
+                      })
+                    }
+                  >
+                    Restore as draft
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      {previewHtml ? (
+        <div
+          className="panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="digipedia-preview-title"
+        >
+          <div className="row">
+            <h3 id="digipedia-preview-title">Preview</h3>
+            <button type="button" className="btn ghost" onClick={() => setPreviewHtml(null)}>
+              Close
+            </button>
+          </div>
+          <iframe title="DigiPedia draft preview" srcDoc={previewHtml} style={{ width: "100%", minHeight: "70vh", border: 0 }} />
+        </div>
+      ) : null}
     </div>
   );
 }
