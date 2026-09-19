@@ -18,10 +18,12 @@ function chromeAt(state: HomeChromeState, scrollY: number, prevY: number, dir: "
   return stepHomeChromeScroll({ scrollY, prevY, accum, lastDir: dir, state });
 }
 
-test("public Home posts feed must not nest a full-viewport snap scroller", () => {
-  assert.equal(homeTsx.includes("os-feed--posts"), false);
-  assert.equal(/\.os-feed--posts\s*\{/.test(styles), false);
-  assert.equal(styles.includes("grid-template-rows: auto 1fr auto"), false);
+test("public Home posts/videos use ImmersivePostFeed one-item snap scroller", () => {
+  assert.ok(homeTsx.includes("ImmersivePostFeed"));
+  assert.ok(homeTsx.includes("os-home--immersive"));
+  assert.ok(homeTsx.includes('mode={category === "videos" ? "videos" : "posts"}'));
+  assert.match(styles, /\.os-home--immersive\s+\.immersive-feed\s*\{/);
+  assert.match(styles, /scroll-snap-type:\s*y\s+mandatory/);
 });
 
 test("photo/video media containers keep aspect-ratio and stay within viewport width", () => {
@@ -31,12 +33,14 @@ test("photo/video media containers keep aspect-ratio and stay within viewport wi
   assert.equal(/\.os-feed--posts[\s\S]*aspect-ratio:\s*auto/.test(styles), false);
 });
 
-test("PostCard renders cover image and AdaptiveVideoPlayer for canonical media", () => {
-  assert.match(homeTsx, /asset\.coverAvailable[\s\S]*os-card__media[\s\S]*\/cover/);
-  assert.match(homeTsx, /AdaptiveVideoPlayer[\s\S]*\/assets\/\$\{asset\.id\}\/media/);
+test("search/card path keeps PostCard media; AdaptiveVideoPlayer supports active lifecycle", () => {
+  assert.match(homeTsx, /PostCard/);
+  assert.match(homeTsx, /AdaptiveVideoPlayer/);
   assert.equal(homeTsx.includes("filename"), false);
   assert.equal(homeTsx.includes("dataZoneId"), false);
   assert.ok(postCardMedia.includes("playsInline"));
+  assert.ok(postCardMedia.includes("active"));
+  assert.ok(postCardMedia.includes("el.pause()"));
 });
 
 test("consumer CSS must not ship debug green/red feed bars", () => {

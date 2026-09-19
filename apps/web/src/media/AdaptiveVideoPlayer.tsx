@@ -24,6 +24,7 @@ export function AdaptiveVideoPlayer({
   caption,
   creatorLabel,
   autoPlayMuted = false,
+  active = true,
   className = "",
   meta,
 }: {
@@ -35,6 +36,8 @@ export function AdaptiveVideoPlayer({
   creatorLabel?: string;
   /** Feed/Reel may start muted; Watch/Cinema should not autoplay with sound. */
   autoPlayMuted?: boolean;
+  /** Immersive feed: only the active item should play. */
+  active?: boolean;
   className?: string;
   meta?: ReactNode;
 }) {
@@ -66,12 +69,17 @@ export function AdaptiveVideoPlayer({
 
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !autoPlayMuted) return;
+    if (!el) return;
+    if (!active) {
+      el.pause();
+      return;
+    }
+    if (!autoPlayMuted) return;
     el.muted = true;
     void el.play().catch(() => {
       /* browser autoplay policy — leave controls */
     });
-  }, [autoPlayMuted, src]);
+  }, [autoPlayMuted, src, active]);
 
   const immersive =
     (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";

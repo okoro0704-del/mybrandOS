@@ -1,0 +1,91 @@
+/**
+ * Digiconomy immersive feed controller — presentation/navigation only.
+ * Does not own publications or media; callers pass canonical item ids.
+ *
+ * One content item = one viewing canvas. Vertical snap = next/previous.
+ */
+
+export const IMMERSIVE_WINDOW_RADIUS = 2;
+
+/** Near end of loaded window → request next page. */
+export const IMMERSIVE_PAGINATION_THRESHOLD = 3;
+
+export function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+export function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+/** Mount prev/active/next (+ buffer). Outside window: placeholder only. */
+export function shouldMountSlide(
+  index: number,
+  activeIndex: number,
+  total: number,
+  radius = IMMERSIVE_WINDOW_RADIUS,
+): boolean {
+  if (total <= 0) return false;
+  if (index < 0 || index >= total) return false;
+  return Math.abs(index - activeIndex) <= radius;
+}
+
+export function clampIndex(index: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.max(0, Math.min(total - 1, index));
+}
+
+export function resolveInitialIndex(ids: string[], initialId?: string | null): number {
+  if (!initialId) return 0;
+  const i = ids.indexOf(initialId);
+  return i >= 0 ? i : 0;
+}
+
+/**
+ * Derive active slide from scroll position.
+ * Uses nearest-slide with a small hysteresis band so jitter does not flip active.
+ */
+export function activeIndexFromScroll(
+  scrollTop: number,
+  slideHeight: number,
+  total: number,
+  previousActive = 0,
+): number {
+  if (slideHeight <= 0 || total <= 0) return 0;
+  const raw = scrollTop / slideHeight;
+  const nearest = Math.round(raw);
+  const clamped = clampIndex(nearest, total);
+  const drift = Math.abs(raw - previousActive);
+  if (drift < 0.35 && clamped !== previousActive) {
+    return previousActive;
+  }
+  return clamped;
+}
+
+export function shouldRequestNextPage(
+  activeIndex: number,
+  loadedCount: number,
+  hasMore: boolean,
+  threshold = IMMERSIVE_PAGINATION_THRESHOLD,
+): boolean {
+  if (!hasMore || loadedCount <= 0) return false;
+  return activeIndex >= loadedCount - threshold;
+}
+
+export function nextFeedIndex(activeIndex: number, total: number): number {
+  return clampIndex(activeIndex + 1, total);
+}
+
+export function previousFeedIndex(activeIndex: number, total: number): number {
+  return clampIndex(activeIndex - 1, total);
+}
+
+/** Scroll behavior for programmatic moves. */
+export function immersiveScrollBehavior(): ScrollBehavior {
+  return prefersReducedMotion() ? "auto" : "smooth";
+}

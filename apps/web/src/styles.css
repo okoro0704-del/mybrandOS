@@ -1626,6 +1626,113 @@ button.linkish {
   -webkit-overflow-scrolling: touch;
   background: #000;
 }
+.os-home--immersive .immersive-feed {
+  height: calc(100dvh - var(--os-top, 3.55rem) - var(--os-bottom, 5.6rem) - var(--safe-bottom, 0px));
+  max-height: none;
+  margin: 0 -1rem;
+}
+.immersive-feed__slide--placeholder {
+  background: #0a0a0a;
+}
+.immersive-feed__writing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2.5rem 1.35rem 6rem;
+  z-index: 1;
+}
+.immersive-feed__writing p {
+  margin: 0;
+  max-width: 32rem;
+  font-size: clamp(1.1rem, 3.5vw, 1.45rem);
+  line-height: 1.45;
+  color: #f8fafc;
+}
+.immersive-feed__detail--expand {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.immersive-feed__actions {
+  pointer-events: auto;
+  margin-top: 0.35rem;
+}
+.immersive-feed__adaptive-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.immersive-feed__adaptive-video .adaptive-video__stage,
+.immersive-feed__adaptive-video .adaptive-video__el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.immersive-feed__read-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.immersive-feed__read-panel {
+  width: min(100%, 32rem);
+  max-height: min(78dvh, 36rem);
+  background: #111;
+  color: #f8fafc;
+  border-radius: 1rem 1rem 0 0;
+  overflow: hidden;
+}
+.immersive-feed__read-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.immersive-feed__read-head button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+.immersive-feed__read-body {
+  padding: 0.85rem 1rem 1.4rem;
+  overflow-y: auto;
+  max-height: min(62dvh, 28rem);
+}
+.immersive-feed__read-body p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .immersive-feed { scroll-behavior: auto; }
+}
+@media (min-width: 768px) {
+  .os-home--immersive .immersive-feed__media {
+    max-width: 28rem;
+    margin-inline: auto;
+  }
+}
+@media (min-width: 1200px) {
+  .os-home--immersive .immersive-feed__media {
+    max-width: 32rem;
+  }
+}
 .immersive-feed--empty {
   display: grid;
   place-items: center;

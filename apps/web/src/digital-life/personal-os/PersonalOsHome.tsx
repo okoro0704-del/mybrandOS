@@ -10,6 +10,7 @@ import {
 import { assetDetailPath, assetsForSpecialtyChip, communitiesPath } from "../routes";
 import { Icons } from "../../nav/icons";
 import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
+import { ImmersivePostFeed } from "../../experience/ImmersivePostFeed";
 import { ContentActionBar } from "./ContentActionBar";
 import {
   OS_MORE_TABS,
@@ -329,9 +330,11 @@ export function PersonalOsHome({
   const creator = experience.identity.displayName || experience.slug;
   const homeChrome = useHomeChromeState();
   const segmentsHidden = homeChrome === "IMMERSIVE_FEED";
+  const immersiveConsume =
+    !searchOpen && (category === "posts" || category === "videos") && stream.length > 0;
 
   return (
-    <section className="os-home">
+    <section className={`os-home${immersiveConsume ? " os-home--immersive" : ""}`}>
       <div
         className="os-segments-wrap"
         aria-hidden={segmentsHidden || undefined}
@@ -463,6 +466,15 @@ export function PersonalOsHome({
                 ? "Type to find posts, videos, products, courses, books, software, and audio."
                 : `${creator} has not published in this section.`
             }
+          />
+        ) : immersiveConsume ? (
+          <ImmersivePostFeed
+            assets={stream}
+            author={creator}
+            mediaBase={mediaBase}
+            slug={experience.slug}
+            mode={category === "videos" ? "videos" : "posts"}
+            empty={category === "videos" ? "No videos yet." : "No posts yet."}
           />
         ) : (
           <div className="os-feed">
