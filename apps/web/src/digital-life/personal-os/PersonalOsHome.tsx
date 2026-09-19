@@ -473,7 +473,7 @@ export function PersonalOsHome({
             author={creator}
             mediaBase={mediaBase}
             slug={experience.slug}
-            mode={category === "videos" ? "videos" : "posts"}
+            category={category === "videos" ? "videos" : "posts"}
             empty={category === "videos" ? "No videos yet." : "No posts yet."}
           />
         ) : (

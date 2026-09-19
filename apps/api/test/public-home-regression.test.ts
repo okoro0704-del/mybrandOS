@@ -21,7 +21,7 @@ function chromeAt(state: HomeChromeState, scrollY: number, prevY: number, dir: "
 test("public Home posts/videos use ImmersivePostFeed one-item snap scroller", () => {
   assert.ok(homeTsx.includes("ImmersivePostFeed"));
   assert.ok(homeTsx.includes("os-home--immersive"));
-  assert.ok(homeTsx.includes('mode={category === "videos" ? "videos" : "posts"}'));
+  assert.ok(homeTsx.includes('category={category === "videos" ? "videos" : "posts"}'));
   assert.match(styles, /\.os-home--immersive\s+\.immersive-feed\s*\{/);
   assert.match(styles, /scroll-snap-type:\s*y\s+mandatory/);
 });
