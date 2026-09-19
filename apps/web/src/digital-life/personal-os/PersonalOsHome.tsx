@@ -13,6 +13,7 @@ import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
 import { ImmersivePostFeed } from "../../experience/ImmersivePostFeed";
 import { ContentActionBar } from "./ContentActionBar";
 import { OS_MORE_TABS, OS_PRIMARY_TABS, formatRelativeTime, initialsFrom, type OsHomeCategory } from "./osIdentity";
+import { useRevealChrome } from "./RevealChromeContext";
 
 function offerFor(experience: PublicBrandExperience, assetId: string) {
   return (experience.offers ?? []).find((item) => item.assetId === assetId);
@@ -321,12 +322,18 @@ export function PersonalOsHome({
   }, [category, searchOpen, debounced, experience.slug]);
 
   const creator = experience.identity.displayName || experience.slug;
+  const reveal = useRevealChrome();
+  const segmentsHidden = Boolean(reveal && !reveal.navVisible);
   const immersiveConsume =
     !searchOpen && (category === "posts" || category === "videos") && stream.length > 0;
 
   return (
     <section className={`os-home${immersiveConsume ? " os-home--immersive" : ""}`}>
-      <div className="os-segments-wrap">
+      <div
+        className="os-segments-wrap"
+        aria-hidden={segmentsHidden || undefined}
+        inert={segmentsHidden ? true : undefined}
+      >
         {searchOpen ? (
           <div className="os-search" role="search">
             <Icons.search size={18} aria-hidden />
@@ -360,6 +367,7 @@ export function PersonalOsHome({
                 onClick={() => {
                   setCategory(tab.id);
                   setMoreOpen(false);
+                  reveal?.selectDestination();
                 }}
               >
                 {tab.label}
@@ -394,7 +402,10 @@ export function PersonalOsHome({
                 key={tab.id}
                 type="button"
                 className={category === tab.id ? "active" : ""}
-                onClick={() => setCategory(tab.id)}
+                onClick={() => {
+                  setCategory(tab.id);
+                  reveal?.selectDestination();
+                }}
               >
                 {tab.label}
               </button>
@@ -424,7 +435,7 @@ export function PersonalOsHome({
                   ? "Messaging is available for this Digital Life."
                   : experience.messaging.detail || "Communities open when this Digital Life enables them."}
               </p>
-              <Link className="os-btn" to={communitiesPath(basePath)}>
+              <Link className="os-btn" to={communitiesPath(basePath)} onClick={() => reveal?.selectDestination()}>
                 Enter community
               </Link>
             </div>

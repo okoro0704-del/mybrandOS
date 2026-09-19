@@ -66,13 +66,10 @@ test("comment action uses shared section; no second comment system", () => {
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
 });
 
-test("layout: media starts under top bars; LIVE bar is in-flow at bottom", () => {
+test("layout: immersive feed fills the reveal shell; media fill rules remain", () => {
   assert.match(styles, /:has\(\.os-home--immersive\)\s+\.os-main/);
-  assert.match(styles, /:has\(\.os-home--immersive\)\s+\.os-dock/);
-  assert.match(styles, /:has\(\.os-home--immersive\)\s+\.os-bottom-nav/);
+  assert.match(styles, /data-reveal-shell/);
   assert.match(styles, /\.os-home--immersive\s+\.os-segments-wrap/);
-  assert.match(styles, /padding:\s*0\.4rem 0\.75rem calc\(0\.4rem \+ var\(--safe-bottom/);
-  assert.equal(/IMMERSIVE_FEED"\]\s*\.os-topbar\s*\{[^}]*opacity:\s*0/s.test(styles), false);
   assert.match(styles, /\.adaptive-video--fill\s+\.adaptive-video__el/);
   assert.match(styles, /object-fit:\s*cover/);
 });

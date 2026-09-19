@@ -3,7 +3,8 @@ import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
 import { communitiesPath, infoPath, managementPath, spotlightPath } from "../routes";
-import { personalOsName } from "../personal-os/osIdentity";
+import { OsWordmark } from "../personal-os/OsWordmark";
+import { useRevealChrome } from "../personal-os/RevealChromeContext";
 
 type Primary = "home" | "spotlight" | "management" | "communities" | "info" | "website" | "profile" | "vip" | string;
 
@@ -11,6 +12,7 @@ export function DigitalLifeTopBar({
   experience,
   basePath,
   chromeHidden = false,
+  reveal = false,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
@@ -20,19 +22,28 @@ export function DigitalLifeTopBar({
   menuOpen?: boolean;
   onToggleMenu?: () => void;
   chromeHidden?: boolean;
+  /** Immersive reveal: identity lives in OsWordmark overlay, not this bar. */
+  reveal?: boolean;
 }) {
   const name = experience.identity.displayName || "Digital Life";
-  const os = personalOsName(experience.slug, name);
   const home = publicHomePath(basePath);
+  const hidden = chromeHidden;
 
   return (
-    <header className="os-topbar" aria-hidden={chromeHidden || undefined} data-chrome-hidden={chromeHidden ? "true" : undefined}>
-      <div className="os-topbar__inner os-topbar__inner--wordmark-only">
-        <Link className="os-wordmark" to={home} aria-label={os.full} tabIndex={chromeHidden ? -1 : undefined}>
-          <span className="os-wordmark__stem">{os.stem}</span>
-          <span className="os-wordmark__os">{os.suffix}</span>
-        </Link>
-      </div>
+    <header
+      className={`os-topbar${reveal ? " os-topbar--reveal" : ""}`}
+      aria-hidden={hidden || undefined}
+      data-chrome-hidden={hidden ? "true" : undefined}
+      inert={hidden ? true : undefined}
+      aria-label={reveal ? "Creator top navigation" : undefined}
+    >
+      {reveal ? (
+        <div className="os-topbar__reveal-slot" />
+      ) : (
+        <div className="os-topbar__inner os-topbar__inner--wordmark-only">
+          <OsWordmark slug={experience.slug} displayName={name} to={home} hidden={hidden} />
+        </div>
+      )}
     </header>
   );
 }
@@ -47,6 +58,7 @@ export function DigitalLifeBottomNav({
   primary: Primary;
   chromeHidden?: boolean;
 }) {
+  const reveal = useRevealChrome();
   const items = [
     { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
     { id: "spotlight", label: "Spotlight", short: "Spotlight", to: spotlightPath(basePath), icon: Icons.favorites },
@@ -60,6 +72,7 @@ export function DigitalLifeBottomNav({
       aria-label="Digital Life"
       aria-hidden={chromeHidden || undefined}
       data-chrome-hidden={chromeHidden ? "true" : undefined}
+      inert={chromeHidden ? true : undefined}
     >
       {items.map((item) => {
         const Icon = item.icon;
@@ -78,6 +91,7 @@ export function DigitalLifeBottomNav({
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
             tabIndex={chromeHidden ? -1 : undefined}
+            onClick={() => reveal?.selectDestination()}
           >
             <Icon size={20} />
             <span className="os-bottom-nav__label" data-short={item.short}>

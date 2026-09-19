@@ -1,15 +1,30 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { studioPath, type PublicBrandExperience } from "@mybrandos/shared";
+import { publicHomePath, studioPath, type PublicBrandExperience } from "@mybrandos/shared";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
 import { BottomSheet } from "../personal-os/BottomSheet";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
+import { OsWordmark } from "../personal-os/OsWordmark";
+import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { UtilityDock } from "../personal-os/UtilityDock";
-import { useHomeChromeScroll } from "../personal-os/useHomeChromeScroll";
+import {
+  REVEAL_CHROME_MS,
+  isRevealKeyboardBlocked,
+  reduceRevealChrome,
+  revealNavVisible,
+  revealWordmarkVisible,
+  type RevealChromeState,
+} from "../personal-os/revealChrome";
+import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
 import { communitiesPath } from "../routes";
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export function DigitalLifeShell({
   experience,
@@ -33,10 +48,50 @@ export function DigitalLifeShell({
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const theme = experience.theme;
-  /** Immersive chrome is Home-tab only — never Info / VIP / Manage / etc. */
-  const homeChromeEnabled = primary === "home";
-  const homeChrome = useHomeChromeScroll(homeChromeEnabled);
-  const dockImmersive = homeChromeEnabled && homeChrome === "IMMERSIVE_FEED";
+  const revealEnabled = !preview;
+  const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
+  const revealStateRef = useRef(revealState);
+  revealStateRef.current = revealState;
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const focusNavOnOpen = useRef(false);
+  const reduced = prefersReducedMotion();
+
+  function dispatch(action: Parameters<typeof reduceRevealChrome>[1], opts?: { focus?: boolean }) {
+    if (opts?.focus) focusNavOnOpen.current = true;
+    setRevealState((prev) => reduceRevealChrome(prev, action, prefersReducedMotion()));
+  }
+
+  const revealApi = useMemo<RevealChromeApi>(
+    () => ({
+      state: revealState,
+      navVisible: revealNavVisible(revealState),
+      wordmarkVisible: revealWordmarkVisible(revealState),
+      toggle: () => dispatch("TOGGLE"),
+      open: () => dispatch("OPEN"),
+      close: () => dispatch("CLOSE"),
+      selectDestination: () => dispatch("SELECT"),
+    }),
+    [revealState],
+  );
+
+  useRevealDoubleTap(revealEnabled, () => dispatch("TOGGLE"));
+
+  useEffect(() => {
+    if (!revealEnabled) return;
+    if (revealState !== "OPENING" && revealState !== "CLOSING") return;
+    const t = window.setTimeout(() => dispatch("ANIMATION_END"), REVEAL_CHROME_MS);
+    return () => window.clearTimeout(t);
+  }, [revealState, revealEnabled]);
+
+  useEffect(() => {
+    if (!revealEnabled || !focusNavOnOpen.current) return;
+    if (!revealNavVisible(revealState)) return;
+    focusNavOnOpen.current = false;
+    const first = document.querySelector<HTMLElement>(
+      ".os-segments button, .os-bottom-nav a, .os-dock a, .os-dock button",
+    );
+    first?.focus();
+  }, [revealState, revealEnabled]);
 
   useEffect(() => {
     applyBrandDocument(experience, { assetTitle });
@@ -47,19 +102,49 @@ export function DigitalLifeShell({
   useEffect(() => {
     setNotifyOpen(false);
     setMessagesOpen(false);
+    if (revealEnabled) dispatch("CLOSE");
   }, [primary]);
 
+  useEffect(() => {
+    if (!revealEnabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isRevealKeyboardBlocked(e.target)) return;
+      if (e.key === "Escape") {
+        if (revealNavVisible(revealStateRef.current)) {
+          e.preventDefault();
+          dispatch("CLOSE");
+          toggleRef.current?.focus();
+        }
+        return;
+      }
+      if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        const opening = !revealNavVisible(revealStateRef.current);
+        dispatch("TOGGLE", { focus: opening });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [revealEnabled]);
+
+  const navHidden = revealEnabled && !revealApi.navVisible;
+  const wordmarkHidden = revealEnabled && !revealApi.wordmarkVisible;
+  const name = experience.identity.displayName || "Digital Life";
+  const home = publicHomePath(basePath);
+
   return (
-    <HomeChromeContext.Provider value={homeChromeEnabled ? homeChrome : null}>
+    <HomeChromeContext.Provider value={null}>
+    <RevealChromeContext.Provider value={revealEnabled ? revealApi : null}>
     <div
       className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "info" || primary === "website" ? "website" : "app"}`}
       data-bg={theme.background}
       data-surface={preview ? "studio-preview" : primary === "info" || primary === "website" ? "website" : "public_app"}
       data-accent={theme.accent}
       data-type={theme.typography}
-      data-buttons={theme.buttons}
       data-density={theme.density}
-      data-home-chrome={homeChromeEnabled ? homeChrome : undefined}
+      data-reveal-shell={revealEnabled ? "true" : undefined}
+      data-reveal={revealEnabled ? revealState : undefined}
+      data-reduced-motion={reduced ? "true" : undefined}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -72,32 +157,61 @@ export function DigitalLifeShell({
       ) : null}
 
       <div className="os-phone-frame">
+        {revealEnabled ? (
+          <button
+            ref={toggleRef}
+            type="button"
+            className="os-reveal-toggle sr-only"
+            aria-expanded={revealApi.navVisible}
+            aria-controls="os-reveal-nav"
+            onClick={() => dispatch("TOGGLE", { focus: !revealApi.navVisible })}
+          >
+            {revealApi.navVisible ? "Hide navigation" : "Show navigation"}
+          </button>
+        ) : null}
+
+        {revealEnabled ? (
+          <OsWordmark
+            slug={experience.slug}
+            displayName={name}
+            to={home}
+            className="os-wordmark--signature"
+            hidden={wordmarkHidden}
+            identity
+          />
+        ) : null}
+
         <DigitalLifeTopBar
           experience={experience}
           basePath={basePath}
           mediaBase={mediaBase}
           websiteBase={websiteBase}
           primary={primary}
+          chromeHidden={navHidden}
+          reveal={revealEnabled}
         />
 
         <main className="dl-main be-main os-main">{children}</main>
 
         {!preview ? <InstallPrompt experience={experience} /> : null}
 
-        <UtilityDock
-          experience={experience}
-          basePath={basePath}
-          onNotifications={() => setNotifyOpen(true)}
-          onMessages={() => setMessagesOpen(true)}
-          immersiveDock={dockImmersive}
-        />
+        <div id="os-reveal-nav">
+          <UtilityDock
+            experience={experience}
+            basePath={basePath}
+            onNotifications={() => setNotifyOpen(true)}
+            onMessages={() => setMessagesOpen(true)}
+            immersiveDock={revealEnabled}
+            chromeHidden={navHidden}
+          />
 
-        <DigitalLifeBottomNav
-          basePath={basePath}
-          websiteBase={websiteBase}
-          primary={primary}
-          chromeHidden={dockImmersive}
-        />
+          <DigitalLifeBottomNav
+            basePath={basePath}
+            websiteBase={websiteBase}
+            primary={primary}
+            chromeHidden={navHidden}
+          />
+        </div>
       </div>
 
       <BottomSheet open={notifyOpen} title="Notifications" onClose={() => setNotifyOpen(false)}>
@@ -122,6 +236,7 @@ export function DigitalLifeShell({
         )}
       </BottomSheet>
     </div>
+    </RevealChromeContext.Provider>
     </HomeChromeContext.Provider>
   );
 }
