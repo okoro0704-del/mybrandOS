@@ -12,14 +12,7 @@ import { Icons } from "../../nav/icons";
 import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
 import { ImmersivePostFeed } from "../../experience/ImmersivePostFeed";
 import { ContentActionBar } from "./ContentActionBar";
-import {
-  OS_MORE_TABS,
-  OS_PRIMARY_TABS,
-  formatRelativeTime,
-  initialsFrom,
-  type OsHomeCategory,
-} from "./osIdentity";
-import { useHomeChromeState } from "./HomeChromeContext";
+import { OS_MORE_TABS, OS_PRIMARY_TABS, formatRelativeTime, initialsFrom, type OsHomeCategory } from "./osIdentity";
 
 function offerFor(experience: PublicBrandExperience, assetId: string) {
   return (experience.offers ?? []).find((item) => item.assetId === assetId);
@@ -328,19 +321,12 @@ export function PersonalOsHome({
   }, [category, searchOpen, debounced, experience.slug]);
 
   const creator = experience.identity.displayName || experience.slug;
-  const homeChrome = useHomeChromeState();
-  const segmentsHidden = homeChrome === "IMMERSIVE_FEED";
   const immersiveConsume =
     !searchOpen && (category === "posts" || category === "videos") && stream.length > 0;
 
   return (
     <section className={`os-home${immersiveConsume ? " os-home--immersive" : ""}`}>
-      <div
-        className="os-segments-wrap"
-        aria-hidden={segmentsHidden || undefined}
-        data-chrome-hidden={segmentsHidden ? "true" : undefined}
-        inert={segmentsHidden ? true : undefined}
-      >
+      <div className="os-segments-wrap">
         {searchOpen ? (
           <div className="os-search" role="search">
             <Icons.search size={18} aria-hidden />
@@ -470,9 +456,10 @@ export function PersonalOsHome({
         ) : immersiveConsume ? (
           <ImmersivePostFeed
             assets={stream}
-            author={creator}
+            experience={experience}
             mediaBase={mediaBase}
             slug={experience.slug}
+            basePath={basePath}
             category={category === "videos" ? "videos" : "posts"}
             empty={category === "videos" ? "No videos yet." : "No posts yet."}
           />

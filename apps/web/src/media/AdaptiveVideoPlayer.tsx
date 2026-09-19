@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PresentationType } from "@mybrandos/shared";
+import {
+  getImmersiveSessionMuted,
+  setImmersiveSessionMuted,
+} from "../lib/immersiveFeedController";
 
 export type AdaptiveLayoutMode = "portrait" | "landscape";
 
@@ -10,6 +14,20 @@ function readLayoutMode(): AdaptiveLayoutMode {
   const h = vv?.height ?? window.innerHeight;
   // Geometry-first: usable viewport, not a raw orientation flag alone.
   return w > h * 1.05 ? "landscape" : "portrait";
+}
+
+function playActiveVideo(el: HTMLVideoElement, preferMuted: boolean) {
+  el.playsInline = true;
+  el.muted = preferMuted;
+  const attempt = el.play();
+  if (!attempt) return;
+  void attempt.catch(() => {
+    el.muted = true;
+    setImmersiveSessionMuted(true);
+    void el.play().catch(() => {
+      /* browser autoplay policy — leave controls */
+    });
+  });
 }
 
 /**
@@ -27,6 +45,9 @@ export function AdaptiveVideoPlayer({
   active = true,
   className = "",
   meta,
+  fillViewport = false,
+  loop = false,
+  preload = "metadata",
 }: {
   src: string;
   presentation: PresentationType;
@@ -40,10 +61,17 @@ export function AdaptiveVideoPlayer({
   active?: boolean;
   className?: string;
   meta?: ReactNode;
+  /** Fill the parent media viewport (immersive feed). */
+  fillViewport?: boolean;
+  loop?: boolean;
+  preload?: "auto" | "metadata" | "none";
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const renderedRef = useRef(false);
   const [layout, setLayout] = useState<AdaptiveLayoutMode>(() => readLayoutMode());
   const [ready, setReady] = useState(false);
+  const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
+  const [paused, setPaused] = useState(!active);
   const reducedMotion =
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -70,44 +98,122 @@ export function AdaptiveVideoPlayer({
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+    el.setAttribute("playsinline", "true");
+    el.setAttribute("webkit-playsinline", "true");
     if (!active) {
       el.pause();
+      setPaused(true);
       return;
     }
     if (!autoPlayMuted) return;
-    el.muted = true;
-    void el.play().catch(() => {
-      /* browser autoplay policy — leave controls */
-    });
-  }, [autoPlayMuted, src, active]);
+    const preferMuted = fillViewport ? getImmersiveSessionMuted() : true;
+    el.muted = preferMuted;
+    setMuted(preferMuted);
+    playActiveVideo(el, preferMuted);
+    setPaused(el.paused);
+  }, [autoPlayMuted, src, active, fillViewport]);
 
-  const immersive =
+  useEffect(() => {
+    const onOnline = () => {
+      const el = videoRef.current;
+      if (!el) return;
+      if (renderedRef.current) {
+        if (active && autoPlayMuted && el.paused) {
+          playActiveVideo(el, fillViewport ? getImmersiveSessionMuted() : el.muted);
+        }
+        return;
+      }
+      if (active && autoPlayMuted) {
+        playActiveVideo(el, true);
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [active, autoPlayMuted, fillViewport]);
+
+  const landscapeImmersive =
     (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";
   const reelLandscape = presentation === "REEL" && layout === "landscape";
-  const showMeta = Boolean(meta) && !immersive;
+  const showMeta = Boolean(meta) && !landscapeImmersive && !fillViewport;
+  const objectFit = fillViewport ? (layout === "landscape" ? "contain" : "cover") : undefined;
+
+  function toggleMute() {
+    const el = videoRef.current;
+    if (!el) return;
+    const next = !el.muted;
+    el.muted = next;
+    setMuted(next);
+    setImmersiveSessionMuted(next);
+  }
+
+  function togglePlay() {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.paused) {
+      playActiveVideo(el, el.muted);
+      setPaused(false);
+    } else {
+      el.pause();
+      setPaused(true);
+    }
+  }
 
   return (
     <div
       className={`adaptive-video adaptive-video--${presentation.toLowerCase()} adaptive-video--${layout}${
-        immersive ? " adaptive-video--immersive" : ""
-      }${reelLandscape ? " adaptive-video--reel-landscape" : ""}${className ? ` ${className}` : ""}`}
+        landscapeImmersive ? " adaptive-video--immersive" : ""
+      }${reelLandscape ? " adaptive-video--reel-landscape" : ""}${
+        fillViewport ? " adaptive-video--fill" : ""
+      }${className ? ` ${className}` : ""}`}
       data-presentation={presentation}
       data-layout={layout}
+      data-fill={fillViewport ? "true" : undefined}
     >
       <div className="adaptive-video__stage">
-        {!ready ? <div className="adaptive-video__loading" aria-hidden /> : null}
+        {!ready && !poster ? <div className="adaptive-video__loading" aria-hidden /> : null}
         <video
           ref={videoRef}
           className="adaptive-video__el"
           src={src}
           poster={poster || undefined}
-          controls
+          controls={!fillViewport}
           playsInline
-          preload="metadata"
-          onLoadedData={() => setReady(true)}
-          style={reducedMotion ? undefined : undefined}
+          muted={Boolean(autoPlayMuted || fillViewport) ? muted : undefined}
+          autoPlay={Boolean(autoPlayMuted && active)}
+          loop={loop || fillViewport}
+          preload={preload}
+          onLoadedData={() => {
+            renderedRef.current = true;
+            setReady(true);
+          }}
+          onPlay={() => setPaused(false)}
+          onPause={() => setPaused(true)}
+          onError={() => {
+            if (!renderedRef.current) setReady(false);
+          }}
+          style={objectFit ? { objectFit } : reducedMotion ? undefined : undefined}
         />
-        {reelLandscape ? <div className="adaptive-video__pillar" aria-hidden /> : null}
+        {reelLandscape && !fillViewport ? <div className="adaptive-video__pillar" aria-hidden /> : null}
+        {fillViewport ? (
+          <div className="adaptive-video__controls">
+            <button
+              type="button"
+              className="adaptive-video__ctrl"
+              aria-label={paused ? "Play" : "Pause"}
+              onClick={togglePlay}
+            >
+              {paused ? "Play" : "Pause"}
+            </button>
+            <button
+              type="button"
+              className="adaptive-video__ctrl"
+              aria-label={muted ? "Unmute" : "Mute"}
+              onClick={toggleMute}
+            >
+              {muted ? "Muted" : "Sound"}
+            </button>
+          </div>
+        ) : null}
       </div>
       {showMeta ? (
         <div className="adaptive-video__meta">

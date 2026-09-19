@@ -36,8 +36,6 @@ export function DigitalLifeShell({
   /** Immersive chrome is Home-tab only — never Info / VIP / Manage / etc. */
   const homeChromeEnabled = primary === "home";
   const homeChrome = useHomeChromeScroll(homeChromeEnabled);
-  const topBarHidden = homeChromeEnabled && homeChrome !== "FULL_HOME";
-  const bottomNavHidden = homeChromeEnabled && homeChrome === "IMMERSIVE_FEED";
   const dockImmersive = homeChromeEnabled && homeChrome === "IMMERSIVE_FEED";
 
   useEffect(() => {
@@ -80,7 +78,6 @@ export function DigitalLifeShell({
           mediaBase={mediaBase}
           websiteBase={websiteBase}
           primary={primary}
-          chromeHidden={topBarHidden}
         />
 
         <main className="dl-main be-main os-main">{children}</main>
@@ -99,7 +96,7 @@ export function DigitalLifeShell({
           basePath={basePath}
           websiteBase={websiteBase}
           primary={primary}
-          chromeHidden={bottomNavHidden}
+          chromeHidden={dockImmersive}
         />
       </div>
 

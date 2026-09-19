@@ -3,12 +3,15 @@ import { test } from "node:test";
 import {
   activeIndexFromScroll,
   clampIndex,
+  commentsSectionId,
   IMMERSIVE_WINDOW_RADIUS,
   nextFeedIndex,
   previousFeedIndex,
   resolveInitialIndex,
+  shouldLockFeedSwipe,
   shouldMountSlide,
   shouldRequestNextPage,
+  videoPreloadForSlide,
 } from "../../web/src/lib/immersiveFeedController.ts";
 
 test("one active index from scroll", () => {
@@ -49,4 +52,19 @@ test("pagination near end", () => {
 
 test("hysteresis avoids tiny-scroll flips", () => {
   assert.equal(activeIndexFromScroll(200, 800, 5, 0), 0);
+});
+
+test("comment mode locks feed swipe; feed mode does not", () => {
+  assert.equal(shouldLockFeedSwipe("comments"), true);
+  assert.equal(shouldLockFeedSwipe("feed"), false);
+});
+
+test("comments bind to canonical publication id", () => {
+  assert.equal(commentsSectionId("asset_abc"), "post-comments-asset_abc");
+});
+
+test("preload is bounded: active auto, adjacent metadata, far none", () => {
+  assert.equal(videoPreloadForSlide(true, false), "auto");
+  assert.equal(videoPreloadForSlide(false, true), "metadata");
+  assert.equal(videoPreloadForSlide(false, false), "none");
 });

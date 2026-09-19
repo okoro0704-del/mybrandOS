@@ -1626,10 +1626,35 @@ button.linkish {
   -webkit-overflow-scrolling: touch;
   background: #000;
 }
+.os-home--immersive {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  background: #000;
+}
+.os-home--immersive .os-segments-wrap {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  background: #fff;
+  z-index: 5;
+}
 .os-home--immersive .immersive-feed {
-  height: calc(100dvh - var(--os-top, 3.55rem) - var(--os-bottom, 5.6rem) - var(--safe-bottom, 0px));
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
   max-height: none;
-  margin: 0 -1rem;
+  margin: 0;
+  width: 100%;
+}
+.os-home--immersive .immersive-feed.is-comment-mode {
+  overflow: hidden;
+  scroll-snap-type: none;
 }
 .immersive-feed__slide--placeholder {
   background: #0a0a0a;
@@ -1639,7 +1664,7 @@ button.linkish {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 2.5rem 1.35rem 6rem;
+  padding: 2.5rem 1.35rem;
   z-index: 1;
 }
 .immersive-feed__writing p {
@@ -1665,19 +1690,14 @@ button.linkish {
 }
 .immersive-feed__actions {
   pointer-events: auto;
-  margin-top: 0.35rem;
+  margin: 0;
 }
-.immersive-feed__adaptive-video {
+.immersive-feed__adaptive-video,
+.immersive-feed__video.adaptive-video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-}
-.immersive-feed__adaptive-video .adaptive-video__stage,
-.immersive-feed__adaptive-video .adaptive-video__el {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 .immersive-feed__read-sheet {
   position: fixed;
@@ -1722,17 +1742,6 @@ button.linkish {
 @media (prefers-reduced-motion: reduce) {
   .immersive-feed { scroll-behavior: auto; }
 }
-@media (min-width: 768px) {
-  .os-home--immersive .immersive-feed__media {
-    max-width: 28rem;
-    margin-inline: auto;
-  }
-}
-@media (min-width: 1200px) {
-  .os-home--immersive .immersive-feed__media {
-    max-width: 32rem;
-  }
-}
 .immersive-feed--empty {
   display: grid;
   place-items: center;
@@ -1742,18 +1751,67 @@ button.linkish {
 .immersive-feed__empty { padding: 1rem 1.15rem; color: var(--bos-muted); }
 .immersive-feed__slide {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 100%;
   scroll-snap-align: start;
   scroll-snap-stop: always;
+  overflow: hidden;
+  background: #000;
 }
-.immersive-feed__slide--overlay { display: block; }
-.immersive-feed__slide--overlay .immersive-feed__media {
+.immersive-feed__slide[data-mode="comments"] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-align: none;
+  background: var(--os-bg);
+}
+.immersive-feed__stage {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  min-height: 100%;
+  width: 100%;
+  background: #000;
+}
+.immersive-feed__media {
   position: absolute;
   inset: 0;
   height: 100%;
   width: 100%;
   background: #0a0a0a;
+}
+.immersive-feed__article {
+  background: var(--os-surface-solid, #fff);
+  color: var(--os-text);
+  padding: 1rem 1rem calc(1.25rem + var(--safe-bottom, 0px));
+  display: grid;
+  gap: 1rem;
+}
+.immersive-feed__details {
+  display: grid;
+  gap: 0.35rem;
+}
+.immersive-feed__post-title {
+  margin: 0;
+  font-family: var(--bos-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+.immersive-feed__caption {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.immersive-feed__meta-line {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  color: var(--os-muted);
+  font-size: 0.8rem;
 }
 .immersive-feed__asset {
   width: 100%;
@@ -1763,20 +1821,9 @@ button.linkish {
 }
 .immersive-feed__asset--empty {
   background: linear-gradient(160deg, #1d212c, #0b0c10);
-}
-.immersive-feed__slide--overlay .immersive-feed__scrim {
-  display: block;
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.08) 28%,
-    transparent 48%,
-    rgba(0, 0, 0, 0.55) 72%,
-    rgba(0, 0, 0, 0.88) 100%
-  );
-  pointer-events: none;
-  z-index: 2;
+  color: #94a3b8;
+  display: grid;
+  place-items: center;
 }
 .immersive-feed__rail {
   position: absolute;
@@ -1872,6 +1919,10 @@ button.linkish {
   .dl-section-panel--immersive { margin: 0 -0.85rem; }
   .immersive-feed {
     height: calc(100dvh - 6.5rem - var(--safe-top) - var(--safe-bottom));
+    max-height: none;
+  }
+  .os-home--immersive .immersive-feed {
+    height: auto;
     max-height: none;
   }
 }
@@ -2018,6 +2069,49 @@ button.linkish {
   padding: 0.75rem 0.85rem calc(var(--os-bottom) + var(--os-dock));
   display: grid;
   gap: 0.85rem;
+}
+
+.personal-os:has(.os-home--immersive) .os-phone-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+}
+.personal-os:has(.os-home--immersive) .os-topbar {
+  position: relative;
+  flex: 0 0 auto;
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+.personal-os:has(.os-home--immersive) .os-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  display: flex;
+  flex-direction: column;
+}
+.personal-os:has(.os-home--immersive) .os-bottom-nav {
+  display: none;
+}
+.personal-os:has(.os-home--immersive) .os-dock,
+.personal-os:has(.os-home--immersive) .os-dock--immersive {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: none;
+  justify-content: center;
+  padding: 0.4rem 0.75rem calc(0.4rem + var(--safe-bottom, 0px));
+  z-index: 45;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--os-border);
 }
 
 .os-segments-wrap {
@@ -2580,40 +2674,8 @@ button.linkish {
 .os-bottom-nav__label { max-width: 4.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ===== Home direction-aware chrome (FULL_HOME / IMMERSIVE_FEED / NAVIGATION_RETURN) ===== */
-/* Layout heights stay stable ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ chrome exits via transform so the feed does not jump. */
-.personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-topbar,
-.personal-os[data-home-chrome="NAVIGATION_RETURN"] .os-topbar {
-  transform: translateY(calc(-100% - 0.5rem));
-  opacity: 0;
-  pointer-events: none;
-  background: transparent;
-  border-color: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-segments-wrap {
-  transform: translateY(calc(-100% - var(--os-top)));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.personal-os[data-home-chrome="NAVIGATION_RETURN"] .os-segments-wrap {
-  top: 0;
-  padding-top: calc(0.4rem + var(--safe-top, 0px));
-  padding-bottom: 0.35rem;
-  margin-left: -0.85rem;
-  margin-right: -0.85rem;
-  padding-left: 0.85rem;
-  padding-right: 0.85rem;
-  background: color-mix(in srgb, var(--os-bg) 78%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  transform: none;
-  opacity: 1;
-  pointer-events: auto;
-}
-
+/* Immersive consume keeps top bars in flow so media starts immediately below them.
+   LIVE dock becomes the bottom tab bar; the 4-item nav hides. */
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-bottom-nav {
   transform: translate(-50%, calc(100% + 1.75rem + var(--safe-bottom, 0px)));
   opacity: 0;
@@ -2622,8 +2684,22 @@ button.linkish {
 
 .personal-os[data-home-chrome="IMMERSIVE_FEED"] .os-dock,
 .personal-os .os-dock--immersive {
-  /* Bottom-nav safe slot ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ same bottom inset, lift removed via transform. */
   transform: translate(-50%, 0);
+}
+.personal-os:has(.os-home--immersive) .os-dock,
+.personal-os:has(.os-home--immersive) .os-dock--immersive {
+  transform: none;
+}
+
+@media (min-width: 760px) {
+  .personal-os:has(.os-home--immersive) .os-phone-frame {
+    min-height: calc(100dvh - 1.5rem);
+    height: calc(100dvh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+  .personal-os:has(.os-home--immersive) .os-dock {
+    position: relative;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2758,6 +2834,54 @@ button.linkish {
   min-height: min(70dvh, 560px);
   border-radius: 12px;
 }
+.adaptive-video--fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  gap: 0;
+}
+.adaptive-video--fill .adaptive-video__stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  min-height: 0;
+  margin: 0;
+  border-radius: 0;
+}
+.adaptive-video--fill .adaptive-video__el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+.adaptive-video--fill.adaptive-video--landscape .adaptive-video__el {
+  object-fit: contain;
+}
+.adaptive-video__controls {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 4;
+  display: flex;
+  gap: 0.4rem;
+}
+.adaptive-video__ctrl {
+  border: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 18, 24, 0.62);
+  color: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+}
 .adaptive-video__el {
   display: block;
   width: 100%;
@@ -2793,6 +2917,130 @@ button.linkish {
 }
 @media (prefers-reduced-motion: reduce) {
   .adaptive-video__loading { animation: none; }
+}
+
+.post-comments {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--os-border);
+}
+.post-comments__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.post-comments__count {
+  margin: 0.15rem 0 0;
+  color: var(--os-muted);
+  font-size: 0.82rem;
+}
+.post-comments__composer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: end;
+}
+.post-comments__avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--os-accent) 14%, white);
+  color: var(--os-accent);
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+.post-comments__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.post-comments__input {
+  width: 100%;
+  min-height: 44px;
+  max-height: 7rem;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid var(--os-border);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  background: color-mix(in srgb, var(--os-bg) 80%, white);
+}
+.post-comments__send { min-width: 4.5rem; }
+.post-comments__hint,
+.post-comments__status { margin: 0; font-size: 0.82rem; color: var(--os-muted); }
+.post-comments__error { margin: 0; color: #b42318; font-size: 0.85rem; }
+.post-comments__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+.post-comments__item { display: grid; gap: 0.2rem; }
+.post-comments__author { font-size: 0.85rem; }
+.post-comments__body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.post-comments__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--os-muted);
+  font-size: 0.75rem;
+}
+.post-comments__reply {
+  border: 0;
+  background: transparent;
+  color: var(--os-accent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 0;
+  min-height: 32px;
+  cursor: pointer;
+}
+.post-comments__empty { list-style: none; }
+
+.pub-entity {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.15rem 0 0.25rem;
+}
+.pub-entity__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-decoration: none;
+  color: inherit;
+  min-height: 44px;
+}
+.pub-entity__avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--os-accent) 14%, white);
+  color: var(--os-accent);
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex: 0 0 auto;
+}
+.pub-entity__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pub-entity__who { display: grid; gap: 0.1rem; min-width: 0; }
+.pub-entity__who span { color: var(--os-muted); font-size: 0.8rem; }
+.pub-entity__title { margin: 0; font-weight: 650; }
+.pub-entity__context {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  color: var(--os-muted);
+  font-size: 0.8rem;
 }
 
 /* ===== Assets Galaxy ===== */

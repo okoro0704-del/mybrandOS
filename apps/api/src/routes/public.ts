@@ -174,6 +174,7 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
     const file = await getPublicAssetCover(slug, id, primitives);
     return reply
       .header("content-type", file.mimeType)
+      .header("cache-control", "public, max-age=86400")
       .header("content-disposition", `inline; filename="${file.filename}"`)
       .send(file.bytes);
   });
@@ -187,6 +188,7 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
     const range = String(req.headers.range || "");
     reply.header("accept-ranges", "bytes");
     reply.header("content-type", file.mimeType);
+    reply.header("cache-control", "public, max-age=86400");
     reply.header("content-disposition", `inline; filename="${file.filename}"`);
     if (range.startsWith("bytes=") && total > 0) {
       const match = /^bytes=(\d*)-(\d*)$/.exec(range);

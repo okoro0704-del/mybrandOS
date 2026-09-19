@@ -89,3 +89,31 @@ export function previousFeedIndex(activeIndex: number, total: number): number {
 export function immersiveScrollBehavior(): ScrollBehavior {
   return prefersReducedMotion() ? "auto" : "smooth";
 }
+
+/** Feed swipe vs in-post discussion. Comments never own a second feed engine. */
+export type ImmersiveInteractionMode = "feed" | "comments";
+
+export function shouldLockFeedSwipe(mode: ImmersiveInteractionMode): boolean {
+  return mode === "comments";
+}
+
+export function commentsSectionId(publicationId: string): string {
+  return `post-comments-${publicationId}`;
+}
+
+/** Session mute for immersive autoplay — survives slide swaps, not remounts of the player. */
+let immersiveSessionMuted = true;
+
+export function getImmersiveSessionMuted(): boolean {
+  return immersiveSessionMuted;
+}
+
+export function setImmersiveSessionMuted(muted: boolean): void {
+  immersiveSessionMuted = muted;
+}
+
+export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto" | "metadata" | "none" {
+  if (active) return "auto";
+  if (adjacent) return "metadata";
+  return "none";
+}

@@ -10,16 +10,9 @@ import {
   savePublicationOffline,
 } from "../offline/offlineKernel";
 import { studioPath } from "@mybrandos/shared";
+import { PostComments, type PublicComment } from "./PostComments";
 
 const LONG_PRESS_MS = 520;
-
-type PublicComment = {
-  id: string;
-  body: string;
-  displayName: string;
-  createdAt: string;
-  mine: boolean;
-};
 
 type SocialState = {
   loves: number;
@@ -30,30 +23,23 @@ type SocialState = {
   comments: PublicComment[];
 };
 
-function formatCommentAge(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const delta = Math.max(0, Date.now() - then);
-  const mins = Math.floor(delta / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(iso).toLocaleDateString();
-}
-
 export function ContentActionBar({
   asset,
   slug,
   mediaBase,
   creatorLabel,
+  onComment,
+  commentCount,
+  hideComposer = false,
 }: {
   asset: PublicAssetCard;
   slug: string;
   mediaBase: string;
   creatorLabel?: string;
+  /** When set, Comment focuses the shared PostComments section instead of a second UI. */
+  onComment?: () => void;
+  commentCount?: number;
+  hideComposer?: boolean;
 }) {
   const [social, setSocial] = useState<SocialState>({
     loves: asset.engagement?.loves ?? 0,
@@ -67,8 +53,6 @@ export function ContentActionBar({
   const [toast, setToast] = useState("");
   const [busyLove, setBusyLove] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [busyComment, setBusyComment] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
   const mediaUrl = asset.mediaAvailable ? `${mediaBase}/assets/${asset.id}/media` : null;
@@ -235,30 +219,6 @@ export function ContentActionBar({
     }
   }
 
-  async function submitComment() {
-    if (busyComment) return;
-    const body = draft.trim();
-    if (!body) {
-      flash("Write a comment first.");
-      return;
-    }
-    setBusyComment(true);
-    try {
-      const created = await api<PublicComment>(`/public/${slug}/assets/${asset.id}/comments`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
-      setSocial((s) => ({ ...s, comments: [...s.comments, created] }));
-      setDraft("");
-      setCommentsOpen(true);
-      flash("Comment posted");
-    } catch (err) {
-      flash(err instanceof ApiError ? err.message : "Could not post comment.");
-    } finally {
-      setBusyComment(false);
-    }
-  }
-
   async function onReuse() {
     if (!getToken()) {
       flash("Only creators can Reuse.");
@@ -293,8 +253,14 @@ export function ContentActionBar({
         />
         <ActionBtn
           label="Comment"
-          count={social.comments.length || undefined}
-          onClick={() => setCommentsOpen((v) => !v)}
+          count={commentCount ?? (social.comments.length || undefined)}
+          onClick={() => {
+            if (onComment) {
+              onComment();
+              return;
+            }
+            setCommentsOpen((v) => !v);
+          }}
           icon={<Icons.messages size={20} />}
         />
         <ActionBtn
@@ -312,44 +278,8 @@ export function ContentActionBar({
         <ActionBtn label="Reuse" onClick={onReuse} icon={<Icons.reuse size={20} />} />
       </div>
 
-      {commentsOpen ? (
-        <div className="content-actions__comments" id={`comments-${asset.id}`}>
-          <ul className="content-actions__comment-list">
-            {social.comments.length ? (
-              social.comments.map((c) => (
-                <li key={c.id}>
-                  <strong>{c.displayName}</strong>
-                  <span className="content-actions__comment-age">{formatCommentAge(c.createdAt)}</span>
-                  <p>{c.body}</p>
-                </li>
-              ))
-            ) : (
-              <li className="muted">Be the first to comment.</li>
-            )}
-          </ul>
-          <form
-            className="content-actions__comment-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitComment();
-            }}
-          >
-            <label className="sr-only" htmlFor={`comment-input-${asset.id}`}>
-              Comment
-            </label>
-            <input
-              id={`comment-input-${asset.id}`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Write a comment…"
-              maxLength={2000}
-              disabled={busyComment}
-            />
-            <button type="submit" className="os-btn os-btn--soft" disabled={busyComment}>
-              Post
-            </button>
-          </form>
-        </div>
+      {commentsOpen && !onComment && !hideComposer ? (
+        <PostComments publicationId={asset.id} slug={slug} />
       ) : null}
 
       {toast ? (
