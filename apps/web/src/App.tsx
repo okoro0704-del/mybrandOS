@@ -14,6 +14,7 @@ import { CreatePage } from "./pages/Create";
 import { CreateProjectPage } from "./pages/CreateProject";
 import { EnterPage } from "./pages/Enter";
 import { HomePage } from "./pages/Home";
+import { DigiTwinPage } from "./pages/DigiTwin";
 import { ImportPage } from "./pages/Import";
 import { SearchPage } from "./pages/Search";
 import { PersonalSpacePage } from "./pages/PersonalSpace";
@@ -49,6 +50,7 @@ function WorkstationRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
           <Route path={s("/")} element={<HomePage />} />
+          <Route path={s("/twin")} element={<DigiTwinPage />} />
           <Route path={s("/create")} element={<CreatePage />} />
           <Route path={s("/create/:id")} element={<CreateProjectPage />} />
           <Route path={s("/import")} element={<ImportPage />} />

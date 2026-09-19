@@ -56,6 +56,9 @@ export function HomePage() {
         <h1>{home.greeting}</h1>
         <p>Operate your Digital Life. Publish when ready.</p>
         <div className="actions" style={{ marginTop: "0.85rem" }}>
+          <AppLink className="btn" to="/twin">
+            Digi Twin
+          </AppLink>
           {brand?.slug ? (
             <AppLink className="btn" to={publicExperiencePath(brand.slug)}>
               View public app

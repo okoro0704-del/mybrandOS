@@ -2834,4 +2834,45 @@ button.linkish {
   opacity: 0.55;
 }
 
+.twin-page { max-width: 42rem; }
+.twin-hero h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); }
+.twin-section h2,
+.twin-take .eyebrow,
+.twin-empty { margin-bottom: 0.4rem; }
+.twin-sources {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--bos-border);
+}
+.twin-ask label { display: block; color: var(--bos-muted); margin-bottom: 0.4rem; }
+.twin-ask textarea {
+  width: 100%;
+  min-height: 6.5rem;
+  border: 1px solid var(--bos-border);
+  background: var(--bos-elevated);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  resize: vertical;
+}
+.twin-ask .btn { margin-top: 0.85rem; }
+.twin-ask-reply { margin-top: 1rem; white-space: pre-wrap; line-height: 1.55; }
+
+@media (max-width: 430px) {
+  .twin-page .page-head p { font-size: 1rem; }
+  .twin-section .home-section-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .twin-page { max-width: 48rem; }
+}
+
+@media (min-width: 1400px) {
+  .twin-page { max-width: 46rem; }
+}
+
 

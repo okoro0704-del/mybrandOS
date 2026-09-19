@@ -11,6 +11,7 @@ export const PRIMARY_NAV = [
 ] as const;
 
 export const SECONDARY_NAV = [
+  { id: "twin", label: "Digi Twin", path: "/twin", icon: "ai" },
   { id: "audience", label: "Audience", path: "/audience", icon: "audience" },
   { id: "commerce", label: "Commerce", path: "/commerce", icon: "commerce" },
   { id: "brand", label: "Brand", path: "/brand", icon: "brand" },

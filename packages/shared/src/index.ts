@@ -28,5 +28,6 @@ export * from "./recording.js";
 export * from "./camera-hardware.js";
 export * from "./digital-life.js";
 export * from "./publish-center.js";
+export * from "./twin.js";
 
 export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, studioReturnPath, type DigitalLifeUrlOptions } from "./digital-life-urls.js";

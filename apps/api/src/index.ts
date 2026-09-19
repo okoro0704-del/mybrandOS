@@ -32,6 +32,7 @@ import { registerProductionRoutes } from "./routes/production.js";
 import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
 import { registerPublishRoutes } from "./routes/publish.js";
+import { registerTwinRoutes } from "./routes/twin.js";
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
 
@@ -169,6 +170,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
   registerPublishRoutes(instance, primitives);
+  registerTwinRoutes(instance, primitives);
 }
 
 // Root browser routes cannot also be JSON API routes in the deployed SPA.

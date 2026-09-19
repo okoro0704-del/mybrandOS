@@ -169,10 +169,11 @@ export function AiPage() {
     <SystemFrame
       eyebrow="AI"
       title="OS intelligence"
-      body="AI is a capability inside the Creation Engine and the OS insight layer. It is never a separate app, and it is never required."
+      body="AI is a capability inside the Creation Engine and Digi Twin. It is never a separate backend, and it is never required."
     >
       <article className="panel">
-        <p className="muted">Open any Creation Workspace and use the AI panel, or stay fully manual.</p>
+        <p className="muted">Open Digi Twin for What's popping, or use the AI panel inside a Creation Workspace.</p>
+        <p><Link to={appPath("/twin")}>Open Digi Twin</Link></p>
       </article>
     </SystemFrame>
   );
