@@ -1782,7 +1782,9 @@ button.linkish {
   inset: 0;
   height: 100%;
   width: 100%;
-  background: #0a0a0a;
+  display: grid;
+  place-items: center;
+  background: #12141a;
 }
 .immersive-feed__article {
   background: var(--os-surface-solid, #fff);
@@ -1818,7 +1820,10 @@ button.linkish {
 .immersive-feed__asset {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center center;
   display: block;
 }
 .immersive-feed__asset--empty {
@@ -3009,12 +3014,19 @@ button.linkish {
   min-height: 0;
   margin: 0;
   border-radius: 0;
+  display: grid;
+  place-items: center;
+  background: #12141a;
+  overflow: hidden;
 }
 .adaptive-video--fill .adaptive-video__el {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  background: #000;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  background: transparent;
 }
 .adaptive-video--fill.adaptive-video--landscape .adaptive-video__el {
   object-fit: contain;

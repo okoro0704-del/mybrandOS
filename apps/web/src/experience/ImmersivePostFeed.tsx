@@ -83,9 +83,11 @@ function videoPresentation(asset: PublicAssetCard) {
 function PersistentCover({
   src,
   active,
+  aspectRatio,
 }: {
   src: string;
   active: boolean;
+  aspectRatio?: string | null;
 }) {
   const renderedRef = useRef(false);
   const [failed, setFailed] = useState(false);
@@ -101,9 +103,15 @@ function PersistentCover({
       alt=""
       loading={active ? "eager" : "lazy"}
       decoding="async"
-      onLoad={() => {
+      data-gallery-fit="contain"
+      style={aspectRatio ? { aspectRatio: aspectRatio.replace(":", " / ") } : undefined}
+      onLoad={(e) => {
         renderedRef.current = true;
         setFailed(false);
+        const img = e.currentTarget;
+        if (img.naturalWidth && img.naturalHeight) {
+          img.dataset.intrinsic = `${img.naturalWidth}x${img.naturalHeight}`;
+        }
       }}
       onError={() => {
         if (!renderedRef.current) setFailed(true);
@@ -187,7 +195,7 @@ function PostSlide({
       }}
     >
       <div className="immersive-feed__stage">
-        <div className="immersive-feed__media">
+        <div className="immersive-feed__media" data-gallery-fit="contain">
           {writing ? (
             <div className="immersive-feed__writing" aria-hidden={!active}>
               <p>{body || asset.title}</p>
@@ -205,7 +213,7 @@ function PostSlide({
               preload={videoPreloadForSlide(active, adjacent)}
             />
           ) : coverUrl ? (
-            <PersistentCover src={coverUrl} active={active} />
+            <PersistentCover src={coverUrl} active={active} aspectRatio={asset.aspectRatio} />
           ) : (
             <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
           )}

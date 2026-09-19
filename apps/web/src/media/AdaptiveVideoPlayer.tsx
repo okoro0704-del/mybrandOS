@@ -61,7 +61,7 @@ export function AdaptiveVideoPlayer({
   active?: boolean;
   className?: string;
   meta?: ReactNode;
-  /** Fill the parent media viewport (immersive feed). */
+  /** Occupy the parent media viewport; paint with contain, never cover-crop. */
   fillViewport?: boolean;
   loop?: boolean;
   preload?: "auto" | "metadata" | "none";
@@ -72,8 +72,6 @@ export function AdaptiveVideoPlayer({
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
   const [paused, setPaused] = useState(!active);
-  const reducedMotion =
-    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
     let timer = 0;
@@ -135,7 +133,6 @@ export function AdaptiveVideoPlayer({
     (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";
   const reelLandscape = presentation === "REEL" && layout === "landscape";
   const showMeta = Boolean(meta) && !landscapeImmersive && !fillViewport;
-  const objectFit = fillViewport ? (layout === "landscape" ? "contain" : "cover") : undefined;
 
   function toggleMute() {
     const el = videoRef.current;
@@ -168,6 +165,7 @@ export function AdaptiveVideoPlayer({
       data-presentation={presentation}
       data-layout={layout}
       data-fill={fillViewport ? "true" : undefined}
+      data-gallery-fit={fillViewport ? "contain" : undefined}
     >
       <div className="adaptive-video__stage">
         {!ready && !poster ? <div className="adaptive-video__loading" aria-hidden /> : null}
@@ -182,6 +180,12 @@ export function AdaptiveVideoPlayer({
           autoPlay={Boolean(autoPlayMuted && active)}
           loop={loop || fillViewport}
           preload={preload}
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget;
+            if (v.videoWidth && v.videoHeight) {
+              v.dataset.intrinsic = `${v.videoWidth}x${v.videoHeight}`;
+            }
+          }}
           onLoadedData={() => {
             renderedRef.current = true;
             setReady(true);
@@ -191,7 +195,6 @@ export function AdaptiveVideoPlayer({
           onError={() => {
             if (!renderedRef.current) setReady(false);
           }}
-          style={objectFit ? { objectFit } : reducedMotion ? undefined : undefined}
         />
         {reelLandscape && !fillViewport ? <div className="adaptive-video__pillar" aria-hidden /> : null}
         {fillViewport ? (

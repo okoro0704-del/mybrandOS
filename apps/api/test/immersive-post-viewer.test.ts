@@ -66,12 +66,15 @@ test("comment action uses shared section; no second comment system", () => {
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
 });
 
-test("layout: immersive feed fills the reveal shell; media fill rules remain", () => {
+test("layout: immersive feed fills the reveal shell; gallery media uses contain", () => {
   assert.match(styles, /:has\(\.os-home--immersive\)\s+\.os-main/);
   assert.match(styles, /data-reveal-shell/);
   assert.match(styles, /\.os-home--immersive\s+\.os-segments-wrap/);
-  assert.match(styles, /\.adaptive-video--fill\s+\.adaptive-video__el/);
-  assert.match(styles, /object-fit:\s*cover/);
+  assert.match(styles, /\.adaptive-video--fill\s+\.adaptive-video__el\s*\{[^}]*object-fit:\s*contain/s);
+  assert.equal(
+    /\.adaptive-video--fill\s+\.adaptive-video__el\s*\{[^}]*object-fit:\s*cover/s.test(styles),
+    false,
+  );
 });
 
 test("Home still uses ImmersivePostFeed for posts and videos", () => {
