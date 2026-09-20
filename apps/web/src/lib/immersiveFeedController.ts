@@ -117,3 +117,37 @@ export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto"
   if (adjacent) return "metadata";
   return "none";
 }
+
+export const GALLERY_PHOTO_DWELL_MS = 5000;
+export type GalleryAdvanceReason = "photo-timeout" | "video-ended";
+
+export type GalleryAutoAdvanceGate = {
+  commentsOpen: boolean;
+  dragging: boolean;
+  documentHidden: boolean;
+  actionSurfaceOpen?: boolean;
+};
+
+/** One owner: auto-navigation is suspended while the human is in comments, dragging, or backgrounded. Playback may continue. */
+export function shouldSuspendGalleryAutoAdvance(gate: GalleryAutoAdvanceGate): boolean {
+  return gate.commentsOpen || gate.dragging || gate.documentHidden || Boolean(gate.actionSurfaceOpen);
+}
+
+export function galleryMediaKind(asset: {
+  assetType: string;
+  mediaAvailable?: boolean;
+  coverAvailable?: boolean;
+}): "video" | "photo" | "other" {
+  if (asset.assetType === "VIDEO" && asset.mediaAvailable) return "video";
+  if (asset.coverAvailable) return "photo";
+  return "other";
+}
+
+/** Existing feed semantics: last item stays. No invented infinite loop. */
+export function galleryStopsAtEnd(activeIndex: number, total: number): boolean {
+  return nextFeedIndex(activeIndex, total) === activeIndex;
+}
+
+export function shouldAdvanceAfterCommentsClose(pendingEnded: boolean, commentsOpen: boolean): boolean {
+  return pendingEnded && !commentsOpen;
+}

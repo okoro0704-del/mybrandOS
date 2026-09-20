@@ -23,12 +23,16 @@ import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
   activeIndexFromScroll,
   commentsSectionId,
+  GALLERY_PHOTO_DWELL_MS,
+  galleryMediaKind,
   immersiveScrollBehavior,
   isEditableKeyboardTarget,
   nextFeedIndex,
   previousFeedIndex,
   resolveInitialIndex,
+  shouldAdvanceAfterCommentsClose,
   shouldMountSlide,
+  shouldSuspendGalleryAutoAdvance,
   videoPreloadForSlide,
 } from "../lib/immersiveFeedController";
 
@@ -133,6 +137,7 @@ function PostSlide({
   conversationOpen,
   onOpenConversation,
   onCloseConversation,
+  onVideoEnded,
 }: {
   asset: PublicAssetCard;
   experience: PublicBrandExperience;
@@ -143,7 +148,8 @@ function PostSlide({
   conversationOpen: boolean;
   onOpenConversation: () => void;
   onCloseConversation: () => void;
-  onPublicationHandoff: (dir: "previous" | "next") => void;
+  onPublicationHandoff?: (dir: "previous" | "next") => void;
+  onVideoEnded: () => void;
 }) {
   const author = experience.identity.displayName || experience.slug;
   const body =
@@ -324,9 +330,11 @@ function PostSlide({
             autoPlayMuted
             active={active}
             fillViewport
-            loop
             preload={videoPreloadForSlide(active, adjacent)}
             onIntrinsic={onIntrinsic}
+            onEnded={() => {
+              if (active) onVideoEnded();
+            }}
           />
         ) : coverUrl ? (
           <PersistentCover src={coverUrl} active={active} aspectRatio={asset.aspectRatio} onIntrinsic={onIntrinsic} />
@@ -343,7 +351,7 @@ function PostSlide({
           creatorLabel={author}
           commentCount={commentCount}
           hideComposer
-          variant="compact"
+          variant="gallery"
           onComment={openConversation}
         />
       </div>
@@ -468,6 +476,13 @@ export function ImmersivePostFeed({
   activeIndexRef.current = activeIndex;
   const didInitScroll = useRef(false);
   const [conversationOpen, setConversationOpen] = useState(false);
+  const conversationOpenRef = useRef(false);
+  conversationOpenRef.current = conversationOpen;
+  const pendingEndedRef = useRef(false);
+  const draggingRef = useRef(false);
+  const advanceGenRef = useRef(0);
+  const [documentHidden, setDocumentHidden] = useState(false);
+  const [interactionNonce, setInteractionNonce] = useState(0);
 
   const activeAssetId = items[activeIndex]?.id ?? null;
 
@@ -480,6 +495,29 @@ export function ImmersivePostFeed({
     root.scrollTo({ top: target.offsetTop, behavior: immersiveScrollBehavior() });
   }, []);
 
+  const advanceToNextPublication = useCallback(
+    (reason: "photo-timeout" | "video-ended") => {
+      if (
+        shouldSuspendGalleryAutoAdvance({
+          commentsOpen: conversationOpenRef.current,
+          dragging: draggingRef.current,
+          documentHidden: typeof document !== "undefined" && document.hidden,
+        })
+      ) {
+        if (reason === "video-ended") pendingEndedRef.current = true;
+        return;
+      }
+      const next = nextFeedIndex(activeIndexRef.current, items.length);
+      if (next === activeIndexRef.current) return;
+      pendingEndedRef.current = false;
+      advanceGenRef.current += 1;
+      setConversationOpen(false);
+      setActiveIndex(next);
+      snapToIndex(next);
+    },
+    [items.length, snapToIndex],
+  );
+
   const enterComments = useCallback(() => {
     setConversationOpen(true);
   }, []);
@@ -488,8 +526,14 @@ export function ImmersivePostFeed({
     setConversationOpen(false);
   }, []);
 
+  const onVideoEnded = useCallback(() => {
+    advanceToNextPublication("video-ended");
+  }, [advanceToNextPublication]);
+
   const handoffPublication = useCallback(
     (dir: "previous" | "next") => {
+      advanceGenRef.current += 1;
+      pendingEndedRef.current = false;
       const next =
         dir === "next"
           ? nextFeedIndex(activeIndexRef.current, items.length)
@@ -518,6 +562,42 @@ export function ImmersivePostFeed({
   }, [initialAssetId, initialIndex]);
 
   useEffect(() => {
+    const onVis = () => setDocumentHidden(document.hidden);
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  useEffect(() => {
+    if (conversationOpen) return;
+    if (!shouldAdvanceAfterCommentsClose(pendingEndedRef.current, false)) return;
+    pendingEndedRef.current = false;
+    advanceToNextPublication("video-ended");
+  }, [conversationOpen, advanceToNextPublication]);
+
+  useEffect(() => {
+    advanceGenRef.current += 1;
+    const gen = advanceGenRef.current;
+    const asset = items[activeIndex];
+    if (!asset) return;
+    if (galleryMediaKind(asset) !== "photo") return;
+    if (
+      shouldSuspendGalleryAutoAdvance({
+        commentsOpen: conversationOpen,
+        dragging: draggingRef.current,
+        documentHidden,
+      })
+    ) {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      if (gen !== advanceGenRef.current) return;
+      advanceToNextPublication("photo-timeout");
+    }, GALLERY_PHOTO_DWELL_MS);
+    return () => window.clearTimeout(t);
+  }, [activeIndex, conversationOpen, documentHidden, interactionNonce, items, advanceToNextPublication]);
+
+  useEffect(() => {
     const root = listRef.current;
     if (!root) return;
     let raf = 0;
@@ -533,6 +613,8 @@ export function ImmersivePostFeed({
           activeIndexRef.current,
         );
         if (next !== activeIndexRef.current) {
+          advanceGenRef.current += 1;
+          pendingEndedRef.current = false;
           setActiveIndex(next);
           setConversationOpen(false);
         }
@@ -563,11 +645,15 @@ export function ImmersivePostFeed({
       if (conversationOpen) return;
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
+        advanceGenRef.current += 1;
+        pendingEndedRef.current = false;
         const next = nextFeedIndex(activeIndexRef.current, items.length);
         setActiveIndex(next);
         snapToIndex(next);
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
+        advanceGenRef.current += 1;
+        pendingEndedRef.current = false;
         const prev = previousFeedIndex(activeIndexRef.current, items.length);
         setActiveIndex(prev);
         snapToIndex(prev);
@@ -593,6 +679,19 @@ export function ImmersivePostFeed({
       tabIndex={0}
       data-active-asset-id={activeAssetId ?? undefined}
       data-active-index={String(activeIndex)}
+      data-auto-advance-owner="gallery"
+      onPointerDown={() => {
+        draggingRef.current = true;
+        advanceGenRef.current += 1;
+      }}
+      onPointerUp={() => {
+        draggingRef.current = false;
+        setInteractionNonce((n) => n + 1);
+      }}
+      onPointerCancel={() => {
+        draggingRef.current = false;
+        setInteractionNonce((n) => n + 1);
+      }}
     >
       {items.map((asset, index) => {
         const active = index === activeIndex;
@@ -622,6 +721,7 @@ export function ImmersivePostFeed({
             onOpenConversation={enterComments}
             onCloseConversation={closeComments}
             onPublicationHandoff={handoffPublication}
+            onVideoEnded={onVideoEnded}
           />
         );
       })}

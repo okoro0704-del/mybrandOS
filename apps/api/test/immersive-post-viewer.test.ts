@@ -30,15 +30,19 @@ test("photo and video posts share canonical comments bound to publication id", (
   assert.equal(actions.includes("content-actions__comment-form"), false);
 });
 
-test("active video autoplays muted inline and loops; inactive pauses", () => {
+test("active video autoplays inline; gallery does not loop; inactive pauses", () => {
   assert.match(player, /playsInline/);
   assert.match(player, /el\.pause\(\)/);
   assert.match(player, /playActiveVideo/);
-  assert.match(player, /loop=\{loop \|\| fillViewport\}/);
+  assert.match(player, /loop=\{loop\}/);
+  assert.equal(player.includes("loop={loop || fillViewport}"), false);
   assert.match(player, /autoPlay=\{Boolean\(autoPlayMuted && active\)\}/);
+  assert.match(player, /setImmersiveSessionMuted/);
+  assert.equal(player.includes("setImmersiveSessionMuted(true)"), false);
   assert.match(feed, /autoPlayMuted/);
   assert.match(feed, /fillViewport/);
   assert.match(feed, /active=\{active\}/);
+  assert.match(feed, /onVideoEnded/);
 });
 
 test("online/offline does not remount rendered media", () => {

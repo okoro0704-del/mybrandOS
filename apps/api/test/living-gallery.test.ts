@@ -27,6 +27,8 @@ const live = readFileSync(join(root, "apps/web/src/digital-life/personal-os/Live
 const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
 const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/revealChrome.ts"), "utf8");
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
+const branding = readFileSync(join(root, "apps/web/src/digital-life/branding.ts"), "utf8");
+const actions = readFileSync(join(root, "apps/web/src/digital-life/personal-os/ContentActionBar.tsx"), "utf8");
 
 test("landscape photo at 390×844 is compact with leftover conversation space", () => {
   const layout = livingGalleryLayout({ viewportW: 390, viewportH: 844, srcW: 1600, srcH: 900 });
@@ -107,10 +109,10 @@ test("canonical comments only — fixtures stay out of production UI", () => {
   assert.equal(LIVING_GALLERY_DEV_FIXTURES.many.length, 20);
 });
 
-test("living gallery removes the black board and keeps contain", () => {
-  assert.match(styles, /\.immersive-feed\s*\{[^}]*background:\s*var\(--os-bg/s);
-  assert.match(styles, /\.os-home--immersive\s*\{[^}]*background:\s*var\(--os-bg/s);
-  assert.match(styles, /\.living-gallery\s*\{[^}]*background:\s*var\(--os-bg/s);
+test("living gallery keeps contain and transparent immersive canvas", () => {
+  assert.match(styles, /\.immersive-feed\s*\{[^}]*background:\s*transparent/s);
+  assert.match(styles, /\.os-home--immersive\s*\{[^}]*background:\s*transparent/s);
+  assert.match(styles, /\.living-gallery\s*\{[^}]*background:\s*transparent/s);
   assert.equal(/\.immersive-feed\s*\{[^}]*background:\s*#000/s.test(styles), false);
   assert.match(styles, /\.adaptive-video--fill\s+\.adaptive-video__el\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(styles, /\.living-gallery__conversation\s*\{[^}]*overflow-y:\s*auto/s);
@@ -142,16 +144,38 @@ test("UUID and asset-id titles are not human post details", () => {
   assert.equal(humanPublicationTitle("asset_abc", "asset_abc"), null);
 });
 
-test("living conversation is an overlay; compact like/comment/more rail; no black peel", () => {
+test("living conversation overlays media; five-icon gallery rail; no white peel", () => {
   assert.match(feed, /living-conversation-layer/);
-  assert.match(feed, /variant="compact"/);
+  assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
+  assert.match(feed, /advanceToNextPublication/);
+  assert.match(feed, /GALLERY_PHOTO_DWELL_MS/);
+  assert.match(feed, /onEnded/);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.equal(feed.includes("post-comments__send"), false);
-  assert.match(styles, /html:has\(\.personal-os\)/);
-  assert.match(styles, /body:has\(\.personal-os\)/);
+  assert.equal(/<AdaptiveVideoPlayer[\s\S]*?\sloop\b/.test(feed), false);
+  assert.match(styles, /html:has\(\.os-home--immersive\)/);
+  assert.match(styles, /body:has\(\.os-home--immersive\)/);
+  assert.match(styles, /\.living-gallery__context\s*\{[^}]*background:\s*linear-gradient/s);
+  assert.match(styles, /\.living-conversation-layer\s*\{[^}]*background:\s*linear-gradient/s);
+  assert.equal(/\.living-gallery__context\s*\{[^}]*background:\s*var\(--os-surface-solid/s.test(styles), false);
+  assert.equal(/\.living-conversation-layer\s*\{[^}]*--os-surface-solid,\s*#fff/s.test(styles), false);
   assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
-  assert.match(styles, /\.content-actions__row--compact/);
+  assert.match(styles, /\.content-actions__row--gallery/);
   assert.match(styles, /\.living-conversation-layer/);
   assert.match(live, /Pause conversation/);
+});
+
+test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {
+  const gallery = actions.slice(actions.indexOf('galleryActions'));
+  const love = gallery.indexOf('label="Love"');
+  const comment = gallery.indexOf('label="Comment"');
+  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
+  const reuse = gallery.indexOf('label="Reuse"');
+  const share = gallery.indexOf('label="Share"');
+  assert.ok(love >= 0 && comment > love && save > comment && reuse > save && share > reuse);
+  assert.match(branding, /theme-color", "transparent"/);
+  assert.match(branding, /black-translucent/);
+  assert.match(player, /wantSound/);
+  assert.match(player, /policyBlocked/);
 });

@@ -12,6 +12,11 @@ import {
   shouldMountSlide,
   shouldRequestNextPage,
   videoPreloadForSlide,
+  galleryMediaKind,
+  GALLERY_PHOTO_DWELL_MS,
+  galleryStopsAtEnd,
+  shouldAdvanceAfterCommentsClose,
+  shouldSuspendGalleryAutoAdvance,
 } from "../../web/src/lib/immersiveFeedController.ts";
 
 test("one active index from scroll", () => {
@@ -67,4 +72,19 @@ test("preload is bounded: active auto, adjacent metadata, far none", () => {
   assert.equal(videoPreloadForSlide(true, false), "auto");
   assert.equal(videoPreloadForSlide(false, true), "metadata");
   assert.equal(videoPreloadForSlide(false, false), "none");
+});
+
+test("gallery auto-advance owner: photos dwell 5s, comments suspend navigation, gallery stops at end", () => {
+  assert.equal(GALLERY_PHOTO_DWELL_MS, 5000);
+  assert.equal(galleryMediaKind({ assetType: "VIDEO", mediaAvailable: true }), "video");
+  assert.equal(galleryMediaKind({ assetType: "PHOTO", coverAvailable: true }), "photo");
+  assert.equal(galleryMediaKind({ assetType: "WRITING" }), "other");
+  assert.equal(galleryStopsAtEnd(3, 4), true);
+  assert.equal(galleryStopsAtEnd(2, 4), false);
+  assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: true, dragging: false, documentHidden: false }), true);
+  assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: true, documentHidden: false }), true);
+  assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: false, documentHidden: true }), true);
+  assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: false, documentHidden: false }), false);
+  assert.equal(shouldAdvanceAfterCommentsClose(true, false), true);
+  assert.equal(shouldAdvanceAfterCommentsClose(true, true), false);
 });

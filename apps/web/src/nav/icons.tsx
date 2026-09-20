@@ -101,6 +101,13 @@ export const Icons = {
       <path d="M15 4l3 3-3 3M9 20l-3-3 3-3" />
     </Svg>
   ),
+  share: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4 11 13" />
+      <path d="M19 13.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4.5" />
+    </Svg>
+  ),
   management: (p: IconProps) => (
     <Svg {...p}>
       <rect x="4" y="4" width="7" height="7" rx="1.5" />

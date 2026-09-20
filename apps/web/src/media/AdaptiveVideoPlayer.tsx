@@ -16,18 +16,30 @@ function readLayoutMode(): AdaptiveLayoutMode {
   return w > h * 1.05 ? "landscape" : "portrait";
 }
 
-function playActiveVideo(el: HTMLVideoElement, preferMuted: boolean) {
+export type PlayAttemptResult = {
+  playing: boolean;
+  muted: boolean;
+  policyBlocked: boolean;
+};
+
+async function playActiveVideo(el: HTMLVideoElement, wantSound: boolean): Promise<PlayAttemptResult> {
   el.playsInline = true;
-  el.muted = preferMuted;
-  const attempt = el.play();
-  if (!attempt) return;
-  void attempt.catch(() => {
-    el.muted = true;
-    setImmersiveSessionMuted(true);
-    void el.play().catch(() => {
-      /* browser autoplay policy — leave controls */
-    });
-  });
+  el.muted = !wantSound;
+  try {
+    await el.play();
+    return { playing: true, muted: el.muted, policyBlocked: false };
+  } catch {
+    if (wantSound) {
+      el.muted = true;
+      try {
+        await el.play();
+        return { playing: true, muted: true, policyBlocked: true };
+      } catch {
+        return { playing: false, muted: true, policyBlocked: true };
+      }
+    }
+    return { playing: false, muted: el.muted, policyBlocked: true };
+  }
 }
 
 /**
@@ -49,6 +61,7 @@ export function AdaptiveVideoPlayer({
   loop = false,
   preload = "metadata",
   onIntrinsic,
+  onEnded,
 }: {
   src: string;
   presentation: PresentationType;
@@ -67,6 +80,7 @@ export function AdaptiveVideoPlayer({
   loop?: boolean;
   preload?: "auto" | "metadata" | "none";
   onIntrinsic?: (width: number, height: number) => void;
+  onEnded?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const renderedRef = useRef(false);
@@ -74,6 +88,7 @@ export function AdaptiveVideoPlayer({
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
   const [paused, setPaused] = useState(!active);
+  const [playBlocked, setPlayBlocked] = useState(false);
 
   useEffect(() => {
     let timer = 0;
@@ -106,11 +121,14 @@ export function AdaptiveVideoPlayer({
       return;
     }
     if (!autoPlayMuted) return;
-    const preferMuted = fillViewport ? getImmersiveSessionMuted() : true;
-    el.muted = preferMuted;
-    setMuted(preferMuted);
-    playActiveVideo(el, preferMuted);
-    setPaused(el.paused);
+    const wantSound = fillViewport ? !getImmersiveSessionMuted() : false;
+    el.muted = !wantSound;
+    setMuted(!wantSound);
+    void playActiveVideo(el, wantSound).then((result) => {
+      setMuted(result.muted);
+      setPaused(!result.playing);
+      setPlayBlocked(!result.playing);
+    });
   }, [autoPlayMuted, src, active, fillViewport]);
 
   useEffect(() => {
@@ -119,12 +137,12 @@ export function AdaptiveVideoPlayer({
       if (!el) return;
       if (renderedRef.current) {
         if (active && autoPlayMuted && el.paused) {
-          playActiveVideo(el, fillViewport ? getImmersiveSessionMuted() : el.muted);
+          void playActiveVideo(el, fillViewport ? !getImmersiveSessionMuted() : !el.muted);
         }
         return;
       }
       if (active && autoPlayMuted) {
-        playActiveVideo(el, true);
+        void playActiveVideo(el, false);
       }
     };
     window.addEventListener("online", onOnline);
@@ -143,14 +161,24 @@ export function AdaptiveVideoPlayer({
     el.muted = next;
     setMuted(next);
     setImmersiveSessionMuted(next);
+    if (!next && el.paused) {
+      void playActiveVideo(el, true).then((result) => {
+        setMuted(result.muted);
+        setPaused(!result.playing);
+        setPlayBlocked(!result.playing);
+      });
+    }
   }
 
   function togglePlay() {
     const el = videoRef.current;
     if (!el) return;
     if (el.paused) {
-      playActiveVideo(el, el.muted);
-      setPaused(false);
+      void playActiveVideo(el, !el.muted).then((result) => {
+        setMuted(result.muted);
+        setPaused(!result.playing);
+        setPlayBlocked(!result.playing);
+      });
     } else {
       el.pause();
       setPaused(true);
@@ -168,6 +196,7 @@ export function AdaptiveVideoPlayer({
       data-layout={layout}
       data-fill={fillViewport ? "true" : undefined}
       data-gallery-fit={fillViewport ? "contain" : undefined}
+      data-play-blocked={playBlocked ? "true" : undefined}
     >
       <div className="adaptive-video__stage">
         {!ready && !poster ? <div className="adaptive-video__loading" aria-hidden /> : null}
@@ -180,7 +209,7 @@ export function AdaptiveVideoPlayer({
           playsInline
           muted={Boolean(autoPlayMuted || fillViewport) ? muted : undefined}
           autoPlay={Boolean(autoPlayMuted && active)}
-          loop={loop || fillViewport}
+          loop={loop}
           preload={preload}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
@@ -193,10 +222,18 @@ export function AdaptiveVideoPlayer({
             renderedRef.current = true;
             setReady(true);
           }}
-          onPlay={() => setPaused(false)}
+          onPlay={() => {
+            setPaused(false);
+            setPlayBlocked(false);
+          }}
           onPause={() => setPaused(true)}
+          onEnded={() => {
+            if (!active || loop) return;
+            onEnded?.();
+          }}
           onError={() => {
             if (!renderedRef.current) setReady(false);
+            setPlayBlocked(true);
           }}
         />
         {reelLandscape && !fillViewport ? <div className="adaptive-video__pillar" aria-hidden /> : null}
