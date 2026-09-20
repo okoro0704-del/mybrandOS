@@ -15,6 +15,7 @@ import { Icons, type IconName } from "../nav/icons";
 import { registerDigitalLifeServiceWorker } from "../digital-life/pwa/registerDigitalLifeSw";
 import { applyStudioDocument, clearStudioDocument } from "../studio/pwa/applyStudioDocument";
 import { StudioInstallPrompt } from "../studio/pwa/StudioInstallPrompt";
+import { DigiTwinPresence } from "../studio/DigiTwinPresence";
 
 function Item({
   to,
@@ -58,7 +59,7 @@ export function OsShell() {
   }, [studio?.slug, user?.displayName]);
 
   return (
-    <div className="os" data-surface="workstation">
+    <div className="os os--twin-presence" data-surface="workstation">
       <aside className="rail">
         <Link className="brand" to={studioHome}>
           <span className="brand-mark">m</span>
@@ -122,6 +123,8 @@ export function OsShell() {
       <main className="stage">
         <Outlet />
       </main>
+
+      <DigiTwinPresence />
 
       <StudioInstallPrompt slug={studio?.slug} displayName={user?.displayName} />
 

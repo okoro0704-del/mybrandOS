@@ -4,12 +4,24 @@ import { api } from "../lib/api";
 
 type AskResult = { available: boolean; provider: string; text?: string; detail?: string };
 
-export function DigiTwinPage() {
+export function DigiTwinPage({
+  variant = "page",
+  seedPrompt,
+  onDismiss,
+}: {
+  variant?: "page" | "presence";
+  seedPrompt?: string;
+  onDismiss?: () => void;
+}) {
   const [brief, setBrief] = useState<TwinBrief | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [openSources, setOpenSources] = useState<string | null>(null);
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState(seedPrompt ?? "");
+
+  useEffect(() => {
+    if (seedPrompt) setQuestion(seedPrompt);
+  }, [seedPrompt]);
   const [ask, setAsk] = useState<AskResult | null>(null);
   const [asking, setAsking] = useState(false);
 
@@ -57,6 +69,11 @@ export function DigiTwinPage() {
         <h1>{brief?.greeting || "Digi Twin"}</h1>
         <p>{brief?.headline || "What's popping across your Digital Life."}</p>
         <div className="actions" style={{ marginTop: "0.85rem" }}>
+          {variant === "presence" && onDismiss ? (
+            <button className="btn ghost" type="button" onClick={onDismiss}>
+              Back to Studio
+            </button>
+          ) : null}
           <button className="btn" type="button" onClick={() => void load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </button>
