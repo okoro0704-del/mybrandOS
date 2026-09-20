@@ -31,8 +31,10 @@ import { registerCommerceRoutes } from "./routes/commerce.js";
 import { registerProductionRoutes } from "./routes/production.js";
 import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
+import { registerInternalDigitalLifeRoutes } from "./routes/internal-digital-life.js";
 import { registerPublishRoutes } from "./routes/publish.js";
 import { registerTwinRoutes } from "./routes/twin.js";
+import { internalServiceAuthConfigured } from "./lib/s2s.js";
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
 
@@ -127,6 +129,9 @@ async function healthPayload() {
       fundzMan: primitives.fundzMan.bound,
       ai: primitives.ai.health(),
     },
+    internalServiceAuth: {
+      configured: internalServiceAuthConfigured(),
+    },
   };
 }
 
@@ -169,6 +174,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerPublicRoutes(instance, primitives);
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
+  registerInternalDigitalLifeRoutes(instance, primitives);
   registerPublishRoutes(instance, primitives);
   registerTwinRoutes(instance, primitives);
 }
