@@ -51,8 +51,11 @@ export async function recordActivity(input: {
   });
 }
 
-export async function createAsset(input: CreateAssetInput): Promise<Asset> {
-  const row = await prisma.asset.create({
+export async function createAsset(
+  input: CreateAssetInput,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<Asset> {
+  const row = await db.asset.create({
     data: {
       ownerId: input.ownerId,
       title: input.title,
@@ -72,15 +75,17 @@ export async function createAsset(input: CreateAssetInput): Promise<Asset> {
       sourceProjectId: input.sourceProjectId ?? null,
     },
   });
-  const originKind =
-    input.origin === "CREATED_INTERNAL" || input.origin === "LIVE_REPLAY" ? "created" : "imported";
-  await recordActivity({
-    ownerId: input.ownerId,
-    kind: originKind,
-    title: input.origin === "LIVE_REPLAY" ? `Replay ${input.title}` : originKind === "created" ? `Created ${input.title}` : `Imported ${input.title}`,
-    detail: `Origin ${input.origin} · ${input.assetType}`,
-    assetId: row.id,
-  });
+  if (db === prisma) {
+    const originKind =
+      input.origin === "CREATED_INTERNAL" || input.origin === "LIVE_REPLAY" ? "created" : "imported";
+    await recordActivity({
+      ownerId: input.ownerId,
+      kind: originKind,
+      title: input.origin === "LIVE_REPLAY" ? `Replay ${input.title}` : originKind === "created" ? `Created ${input.title}` : `Imported ${input.title}`,
+      detail: `Origin ${input.origin} · ${input.assetType}`,
+      assetId: row.id,
+    });
+  }
   return toAsset(row);
 }
 

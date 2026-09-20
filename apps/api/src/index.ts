@@ -32,9 +32,14 @@ import { registerProductionRoutes } from "./routes/production.js";
 import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
 import { registerInternalDigitalLifeRoutes } from "./routes/internal-digital-life.js";
+import { registerInternalDraftRoutes } from "./routes/internal-drafts.js";
 import { registerPublishRoutes } from "./routes/publish.js";
 import { registerTwinRoutes } from "./routes/twin.js";
-import { internalServiceAuthConfigured } from "./lib/s2s.js";
+import {
+  configuredServiceCapabilities,
+  internalServiceAuthConfigured,
+  MYBRANDOS_S2S_DRAFT_CREATE,
+} from "./lib/s2s.js";
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
 
@@ -131,6 +136,10 @@ async function healthPayload() {
     },
     internalServiceAuth: {
       configured: internalServiceAuthConfigured(),
+      readsEnabled: configuredServiceCapabilities().includes("mybrandos:read:published"),
+      createDraftEnabled: configuredServiceCapabilities().includes(MYBRANDOS_S2S_DRAFT_CREATE),
+      publishEnabled: false,
+      deleteEnabled: false,
     },
   };
 }
@@ -175,6 +184,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
   registerInternalDigitalLifeRoutes(instance, primitives);
+  registerInternalDraftRoutes(instance);
   registerPublishRoutes(instance, primitives);
   registerTwinRoutes(instance, primitives);
 }

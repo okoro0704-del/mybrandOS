@@ -896,3 +896,15 @@ model PreviewSession {
   @@index([tokenHash])
 }
 
+model DigiAiDraftIdempotency {
+  id             String   @id @default(cuid())
+  ownerId        String
+  idempotencyKey String
+  payloadDigest  String
+  assetId        String
+  createdAt      DateTime @default(now())
+
+  @@unique([ownerId, idempotencyKey])
+  @@index([assetId])
+}
+
