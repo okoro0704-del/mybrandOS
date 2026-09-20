@@ -17,6 +17,8 @@ export const LIVING_GALLERY_BOUNDARY_HANDOFF_PX = 56;
 export const LIVING_GALLERY_IDLE_RESUME_MS = 8000;
 export const LIVING_GALLERY_COMMENT_WINDOW = 48;
 export const LIVING_GALLERY_CAPTION_PREVIEW = 140;
+/** Collapsed post-details line clamp — measured, not character-counted. */
+export const LIVING_GALLERY_DETAILS_LINES = 4;
 
 export type LivingGalleryLayoutInput = {
   viewportW: number;
@@ -150,11 +152,33 @@ export function isLivingGalleryInteractiveTarget(target: EventTarget | null): bo
         ".living-gallery__conversation",
         ".living-gallery__composer",
         ".living-comment-lane",
+        ".living-conversation-layer",
+        ".living-gallery__rail",
         ".post-comments",
         ".adaptive-video__ctrl",
       ].join(","),
     ),
   );
+}
+
+function compactId(value: string): string {
+  return value.replace(/[\s-]/g, "").toLowerCase();
+}
+
+/** True when a publication title is an internal id/UUID, not creator-authored copy. */
+export function isTechnicalPublicationTitle(title: string, assetId?: string | null): boolean {
+  const text = title.trim();
+  if (!text) return true;
+  const compact = compactId(text);
+  if (assetId && compact === compactId(assetId)) return true;
+  return /^[0-9a-f]{32}$/i.test(compact);
+}
+
+/** Human-facing title, or null when the stored title is an identifier. */
+export function humanPublicationTitle(title: string | null | undefined, assetId?: string | null): string | null {
+  const text = (title ?? "").trim();
+  if (!text || isTechnicalPublicationTitle(text, assetId)) return null;
+  return text;
 }
 
 export function captionPreview(body: string, limit = LIVING_GALLERY_CAPTION_PREVIEW): { preview: string; truncated: boolean } {

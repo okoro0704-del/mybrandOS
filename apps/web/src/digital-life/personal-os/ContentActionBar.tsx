@@ -31,15 +31,17 @@ export function ContentActionBar({
   onComment,
   commentCount,
   hideComposer = false,
+  variant = "default",
 }: {
   asset: PublicAssetCard;
   slug: string;
   mediaBase: string;
   creatorLabel?: string;
-  /** When set, Comment focuses the shared PostComments section instead of a second UI. */
+  /** When set, Comment opens the shared conversation layer instead of a second UI. */
   onComment?: () => void;
   commentCount?: number;
   hideComposer?: boolean;
+  variant?: "default" | "compact";
 }) {
   const [social, setSocial] = useState<SocialState>({
     loves: asset.engagement?.loves ?? 0,
@@ -53,6 +55,8 @@ export function ContentActionBar({
   const [toast, setToast] = useState("");
   const [busyLove, setBusyLove] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
   const mediaUrl = asset.mediaAvailable ? `${mediaBase}/assets/${asset.id}/media` : null;
@@ -81,6 +85,23 @@ export function ContentActionBar({
     const t = window.setTimeout(() => setToast(""), 2200);
     return () => window.clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointer = (e: Event) => {
+      const node = moreRef.current;
+      if (node && e.target instanceof Node && !node.contains(e.target)) setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   function flash(message: string) {
     setToast(message);
@@ -241,8 +262,68 @@ export function ContentActionBar({
     window.location.href = studioPath("/create", window.location.hostname);
   }
 
+  const commentsTotal = commentCount ?? social.comments.length;
+
   return (
-    <div className="content-actions">
+    <div className={`content-actions${variant === "compact" ? " content-actions--compact" : ""}`}>
+      {variant === "compact" ? (
+        <div className="content-actions__row content-actions__row--compact" role="toolbar" aria-label="Publication actions">
+          <ActionBtn
+            label="Like"
+            active={social.lovedByMe}
+            count={social.loves}
+            numeric
+            onClick={() => void toggleLove()}
+            icon={<Icons.love size={22} filled={social.lovedByMe} />}
+          />
+          <ActionBtn
+            label="Comment"
+            count={commentsTotal}
+            numeric
+            onClick={() => {
+              if (onComment) {
+                onComment();
+                return;
+              }
+              setCommentsOpen((v) => !v);
+            }}
+            icon={<Icons.messages size={22} />}
+          />
+          <div className="content-actions__more-wrap" ref={moreRef}>
+            <ActionBtn
+              label="More"
+              onClick={() => setMoreOpen((v) => !v)}
+              icon={<Icons.more size={22} />}
+            />
+            {moreOpen ? (
+              <div className="content-actions__popover" role="menu" aria-label="More actions">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="content-actions__popover-item"
+                  onPointerDown={onSavePointerDown}
+                  onPointerUp={onSavePointerUp}
+                  onPointerLeave={onSavePointerLeave}
+                  onPointerCancel={onSavePointerLeave}
+                  onContextMenu={onSaveContextMenu}
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <Icons.save size={18} filled={saved} />
+                  {saved ? "Saved" : "Save"}
+                </button>
+                <button type="button" role="menuitem" className="content-actions__popover-item" onClick={() => { setMoreOpen(false); void onShare(); }}>
+                  <Icons.distribute size={18} />
+                  Share
+                </button>
+                <button type="button" role="menuitem" className="content-actions__popover-item" onClick={() => { setMoreOpen(false); void onReuse(); }}>
+                  <Icons.reuse size={18} />
+                  Reuse
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : (
       <div className="content-actions__row" role="toolbar" aria-label="Publication actions">
         <ActionBtn
           label="Love"
@@ -277,6 +358,7 @@ export function ContentActionBar({
         <ActionBtn label="Share" onClick={() => void onShare()} icon={<Icons.distribute size={20} />} />
         <ActionBtn label="Reuse" onClick={onReuse} icon={<Icons.reuse size={20} />} />
       </div>
+      )}
 
       {commentsOpen && !onComment && !hideComposer ? (
         <PostComments publicationId={asset.id} slug={slug} />
@@ -297,6 +379,7 @@ function ActionBtn({
   count,
   active,
   title,
+  numeric = false,
   onClick,
   onPointerDown,
   onPointerUp,
@@ -308,6 +391,7 @@ function ActionBtn({
   count?: number;
   active?: boolean;
   title?: string;
+  numeric?: boolean;
   onClick?: (e: MouseEvent) => void;
   onPointerDown?: () => void;
   onPointerUp?: () => void;
@@ -318,7 +402,7 @@ function ActionBtn({
     <button
       type="button"
       className={`content-actions__btn${active ? " is-active" : ""}`}
-      aria-label={label}
+      aria-label={typeof count === "number" ? `${label} ${count}` : label}
       aria-pressed={active}
       title={title ?? label}
       onClick={onClick}
@@ -329,7 +413,7 @@ function ActionBtn({
       onContextMenu={onContextMenu}
     >
       {icon}
-      <span>{typeof count === "number" && count > 0 ? count : label}</span>
+      <span>{numeric && typeof count === "number" ? count : typeof count === "number" && count > 0 ? count : label}</span>
     </button>
   );
 }

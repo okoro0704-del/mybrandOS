@@ -11,6 +11,8 @@ import {
   commentReadMs,
   conversationHandoff,
   isLivingGalleryInteractiveTarget,
+  humanPublicationTitle,
+  isTechnicalPublicationTitle,
   livingGalleryLayout,
   nextLiveCommentIndex,
   shouldAutoProgressComments,
@@ -119,8 +121,8 @@ test("shell double-tap exempts conversation, composer, and lane", () => {
   assert.match(reveal, /living-gallery__conversation/);
   assert.match(reveal, /living-gallery__composer/);
   assert.match(reveal, /living-comment-lane/);
+  assert.match(reveal, /living-conversation-layer/);
   assert.match(live, /Pause conversation/);
-  assert.match(feed, /startedAtTop/);
   assert.match(feed, /stopPropagation/);
   assert.match(player, /fillViewport/);
   assert.match(player, /onIntrinsic/);
@@ -131,4 +133,25 @@ test("long captions clamp without dropping canonical text", () => {
   const preview = captionPreview(LIVING_GALLERY_DEV_FIXTURES.longCaption);
   assert.equal(preview.truncated, true);
   assert.ok(preview.preview.length < LIVING_GALLERY_DEV_FIXTURES.longCaption.length);
+});
+
+test("UUID and asset-id titles are not human post details", () => {
+  assert.equal(isTechnicalPublicationTitle("ECAB0203 D08B 4111 A689 D2988984F03D"), true);
+  assert.equal(humanPublicationTitle("ECAB0203-D08B-4111-A689-D2988984F03D"), null);
+  assert.equal(humanPublicationTitle("I'm ACTIVE for all real Estate Deals"), "I'm ACTIVE for all real Estate Deals");
+  assert.equal(humanPublicationTitle("asset_abc", "asset_abc"), null);
+});
+
+test("living conversation is an overlay; compact like/comment/more rail; no black peel", () => {
+  assert.match(feed, /living-conversation-layer/);
+  assert.match(feed, /variant="compact"/);
+  assert.match(feed, /humanPublicationTitle/);
+  assert.equal(feed.includes("<PublicationEntityBlock"), false);
+  assert.equal(feed.includes("post-comments__send"), false);
+  assert.match(styles, /html:has\(\.personal-os\)/);
+  assert.match(styles, /body:has\(\.personal-os\)/);
+  assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
+  assert.match(styles, /\.content-actions__row--compact/);
+  assert.match(styles, /\.living-conversation-layer/);
+  assert.match(live, /Pause conversation/);
 });

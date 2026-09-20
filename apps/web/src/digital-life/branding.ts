@@ -27,8 +27,9 @@ export function applyBrandDocument(experience: PublicBrandExperience, opts?: { a
   const title = opts?.assetTitle ? `${opts.assetTitle} · ${name}` : name;
   document.title = title;
 
-  const themeColor = brandThemeColor(experience.theme);
+  const themeColor = "#e8eaef";
   setMeta("theme-color", themeColor);
+  setMeta("apple-mobile-web-app-status-bar-style", "default");
   setMeta("description", experience.identity.tagline || experience.identity.bio || `${name} — Digital Life`);
   setMetaProperty("og:title", title);
   setMetaProperty("og:description", experience.identity.tagline || experience.identity.bio || `${name} Digital Life`);

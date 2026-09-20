@@ -49,19 +49,21 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post and creator details sit in living context, not as a media overlay copy stack", () => {
+test("post details lead the publication; duplicate creator header is not in the feed", () => {
   assert.match(feed, /living-gallery__context/);
-  assert.match(feed, /<PublicationEntityBlock/);
+  assert.match(feed, /<PostDetails/);
+  assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);
-  assert.match(entity, /kind\?: PublicationEntityKind/);
   assert.equal(feed.includes("immersive-feed__copy--on"), false);
 });
 
-test("comment action uses shared section; no second comment system", () => {
-  assert.match(feed, /onComment=\{onEnterComments\}/);
+test("comment action opens the living conversation overlay; no second comment system", () => {
+  assert.match(feed, /onComment=\{openConversation\}/);
   assert.match(feed, /LiveConversationStream/);
-  assert.match(feed, /living-gallery__composer/);
+  assert.match(feed, /living-conversation-layer/);
+  assert.match(feed, /living-gallery__composer--overlay/);
+  assert.equal(feed.includes("post-comments__send"), false);
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
 });
 

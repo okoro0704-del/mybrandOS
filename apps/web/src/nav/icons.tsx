@@ -122,6 +122,18 @@ export const Icons = {
       <path d="M16.5 16.5 20 20" strokeLinecap="round" />
     </Svg>
   ),
+  more: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none" />
+    </Svg>
+  ),
+  send: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M4.5 12 19 4.5 14.5 19.5 12 12.5 4.5 12Z" />
+    </Svg>
+  ),
   bell: (p: IconProps) => (
     <Svg {...p}>
       <path d="M6 16h12l-1.2-1.4a6.2 6.2 0 0 1-1.3-3.8V9.2A3.5 3.5 0 0 0 12 5.7 3.5 3.5 0 0 0 8.5 9.2v1.6c0 1.4-.45 2.7-1.3 3.8L6 16Z" />
