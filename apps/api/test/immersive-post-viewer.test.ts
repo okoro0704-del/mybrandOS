@@ -54,12 +54,12 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details sit under brand marks; duplicate creator card is not in the feed", () => {
+test("post details sit under collaborator marks; owner identity lives in the shell", () => {
   assert.match(feed, /living-gallery__context/);
-  assert.match(feed, /living-gallery__brand-row/);
-  assert.match(feed, /living-gallery__brands/);
+  assert.match(feed, /publicationCollaboratorMarks/);
   assert.match(feed, /<PostDetails/);
   assert.match(feed, /<OsWordmark/);
+  assert.match(feed, /living-gallery__brand--collaborator/);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);

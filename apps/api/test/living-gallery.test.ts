@@ -20,7 +20,8 @@ import {
 } from "../../web/src/lib/livingGallery.ts";
 import { LIVING_GALLERY_DEV_FIXTURES } from "../../web/src/lib/livingGallery.fixtures.ts";
 import { galleryContainFit } from "../../web/src/lib/galleryMediaFit.ts";
-import { publicationBrandMarks } from "../../web/src/digital-life/personal-os/osIdentity.ts";
+import { publicationBrandMarks, publicationCollaboratorMarks } from "../../web/src/digital-life/personal-os/osIdentity.ts";
+import { readLayoutMode } from "../../web/src/media/AdaptiveVideoPlayer.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
@@ -30,6 +31,8 @@ const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/re
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 const branding = readFileSync(join(root, "apps/web/src/digital-life/branding.ts"), "utf8");
 const actions = readFileSync(join(root, "apps/web/src/digital-life/personal-os/ContentActionBar.tsx"), "utf8");
+const html = readFileSync(join(root, "apps/web/index.html"), "utf8");
+const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
 
 test("landscape photo at 390×844 is compact with leftover conversation space", () => {
   const layout = livingGalleryLayout({ viewportW: 390, viewportH: 844, srcW: 1600, srcH: 900 });
@@ -147,6 +150,17 @@ test("collaboration header shows host and collaborator OS names without duplicat
     marks.map((m) => m.slug),
     ["felicia", "fundzman"],
   );
+  assert.deepEqual(
+    publicationCollaboratorMarks(
+      { slug: "mrfundzman", displayName: "Mr Fundzman" },
+      [{ slug: "felicia" }, { slug: "mrfundzman" }],
+    ).map((m) => m.slug),
+    ["felicia"],
+  );
+  assert.deepEqual(
+    publicationCollaboratorMarks({ slug: "mrfundzman" }, []).map((m) => m.slug),
+    [],
+  );
 });
 
 test("UUID and asset-id titles are not human post details", () => {
@@ -157,36 +171,71 @@ test("UUID and asset-id titles are not human post details", () => {
 });
 
 test("comments overlay the video only when commentsOpen; Pause and Muted pills are gone", () => {
-  assert.match(feed, /living-gallery__brand-row/);
+  assert.match(feed, /publicationCollaboratorMarks/);
   assert.match(feed, /living-comments-layer/);
   assert.match(feed, /CommentRow/);
   assert.match(feed, /commentMode \?/);
+  assert.match(feed, /shouldLockFeedSwipe/);
+  assert.match(feed, /is-comment-mode/);
   assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
   assert.match(feed, /advanceToNextPublication/);
   assert.match(feed, /GALLERY_PHOTO_DWELL_MS/);
   assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
+  assert.equal(feed.includes("composerRef.current?.focus"), false);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("CONVERSATION"), false);
   assert.equal(feed.includes("FloatingComments"), false);
   assert.equal(feed.includes("Be the first to comment"), false);
+  assert.equal(feed.includes("--gallery-media-h"), false);
   assert.equal(/<AdaptiveVideoPlayer[\s\S]*?\sloop\b/.test(feed), false);
   assert.match(styles, /html:has\(\.os-home--immersive\)/);
   assert.match(styles, /body:has\(\.os-home--immersive\)/);
-  assert.match(styles, /\.living-gallery\s*\{[^}]*flex-direction:\s*column/s);
+  assert.match(styles, /100svh/);
+  assert.match(styles, /\.living-gallery\s*\{[^}]*position:\s*relative/s);
+  assert.match(styles, /\.living-gallery \.immersive-feed__media\s*\{[^}]*inset:\s*0/s);
   assert.match(styles, /\.living-comments-layer,\s*\n?\.living-gallery__comments\s*\{[^}]*position:\s*absolute/s);
   assert.match(styles, /\.living-comments-layer[\s\S]{0,500}background:\s*transparent/);
   assert.match(styles, /\.living-gallery__rail\s*\{[^}]*position:\s*absolute/s);
   assert.equal(/\.living-comments-layer[\s\S]{0,500}min-height:\s*50/s.test(styles), false);
   assert.equal(/\.living-gallery__context\s*\{[^}]*background:\s*var\(--os-surface-solid/s.test(styles), false);
+  assert.equal(/\.os-home--immersive \.immersive-feed\.is-comment-mode\s*\{[^}]*scroll-snap-type:\s*none/s.test(styles), false);
   assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
   assert.match(styles, /\.content-actions__row--gallery/);
   assert.match(styles, /\.living-gallery__brands/);
   assert.equal(player.includes("adaptive-video__controls"), false);
   assert.equal(player.includes('{muted ? "Muted" : "Sound"}'), false);
+  assert.equal(player.includes("visualViewport?.addEventListener"), false);
   assert.match(player, /resolveGalleryVideoTap/);
   assert.match(player, /className="sr-only"/);
+  assert.match(player, /fillViewport \? "portrait"/);
+  assert.match(player, /!fillViewport && presentation === "REEL"/);
+});
+
+test("keyboard visualViewport must not flip gallery orientation", () => {
+  assert.equal(
+    readLayoutMode({
+      orientationType: "portrait-primary",
+      visualWidth: 390,
+      visualHeight: 380,
+      innerWidth: 390,
+      innerHeight: 844,
+      screenWidth: 390,
+      screenHeight: 844,
+    }),
+    "portrait",
+  );
+  assert.equal(
+    readLayoutMode({
+      orientationType: "landscape-primary",
+      visualWidth: 844,
+      visualHeight: 390,
+      screenWidth: 844,
+      screenHeight: 390,
+    }),
+    "landscape",
+  );
 });
 
 test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {
@@ -201,4 +250,13 @@ test("five gallery actions are Love Comment Save Reuse Share; status bar is tran
   assert.match(branding, /black-translucent/);
   assert.match(player, /wantSound/);
   assert.match(player, /policyBlocked/);
+});
+
+test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
+  assert.match(shell, /os-wordmark--owner/);
+  assert.equal(feed.includes("os-wordmark--signature"), false);
+  assert.match(feed, /data-role="collaborator"/);
+  assert.match(html, /interactive-widget=overlays-content/);
+  assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
+  assert.match(styles, /env\(safe-area-inset-top/);
 });

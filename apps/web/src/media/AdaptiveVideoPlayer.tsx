@@ -9,12 +9,33 @@ import {
 
 export type AdaptiveLayoutMode = "portrait" | "landscape";
 
-function readLayoutMode(): AdaptiveLayoutMode {
-  if (typeof window === "undefined") return "portrait";
-  const vv = window.visualViewport;
-  const w = vv?.width ?? window.innerWidth;
-  const h = vv?.height ?? window.innerHeight;
-  // Geometry-first: usable viewport, not a raw orientation flag alone.
+/** Layout viewport / screen orientation — never visualViewport (keyboard must not reorient media). */
+export function readLayoutMode(source?: {
+  orientationType?: string | null;
+  screenWidth?: number;
+  screenHeight?: number;
+  innerWidth?: number;
+  innerHeight?: number;
+  visualWidth?: number;
+  visualHeight?: number;
+}): AdaptiveLayoutMode {
+  void source?.visualWidth;
+  void source?.visualHeight;
+  const type =
+    source?.orientationType ??
+    (typeof window !== "undefined" ? window.screen?.orientation?.type : undefined);
+  if (type?.startsWith("landscape")) return "landscape";
+  if (type?.startsWith("portrait")) return "portrait";
+  const w =
+    source?.screenWidth ??
+    (typeof window !== "undefined" ? window.screen?.width : undefined) ??
+    source?.innerWidth ??
+    (typeof window !== "undefined" ? window.innerWidth : 390);
+  const h =
+    source?.screenHeight ??
+    (typeof window !== "undefined" ? window.screen?.height : undefined) ??
+    source?.innerHeight ??
+    (typeof window !== "undefined" ? window.innerHeight : 844);
   return w > h * 1.05 ? "landscape" : "portrait";
 }
 
@@ -92,7 +113,7 @@ export function AdaptiveVideoPlayer({
   const tapTimerRef = useRef(0);
   const lastTapRef = useRef(0);
   const pointerRef = useRef({ x: 0, y: 0, moved: false });
-  const [layout, setLayout] = useState<AdaptiveLayoutMode>(() => readLayoutMode());
+  const [layout, setLayout] = useState<AdaptiveLayoutMode>(() => (fillViewport ? "portrait" : readLayoutMode()));
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
   const [paused, setPaused] = useState(!active);
@@ -104,6 +125,7 @@ export function AdaptiveVideoPlayer({
   }, [src, active]);
 
   useEffect(() => {
+    if (fillViewport) return;
     let timer = 0;
     const apply = () => {
       window.clearTimeout(timer);
@@ -114,14 +136,12 @@ export function AdaptiveVideoPlayer({
     apply();
     window.addEventListener("resize", apply);
     window.addEventListener("orientationchange", apply);
-    window.visualViewport?.addEventListener("resize", apply);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("resize", apply);
       window.removeEventListener("orientationchange", apply);
-      window.visualViewport?.removeEventListener("resize", apply);
     };
-  }, []);
+  }, [fillViewport]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -163,8 +183,8 @@ export function AdaptiveVideoPlayer({
   }, [active, autoPlayMuted, fillViewport]);
 
   const landscapeImmersive =
-    (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";
-  const reelLandscape = presentation === "REEL" && layout === "landscape";
+    !fillViewport && (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";
+  const reelLandscape = !fillViewport && presentation === "REEL" && layout === "landscape";
   const showMeta = Boolean(meta) && !landscapeImmersive && !fillViewport;
 
   function toggleMute() {

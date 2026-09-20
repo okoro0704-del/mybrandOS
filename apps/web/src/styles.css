@@ -43,6 +43,9 @@ html:has(.os-home--immersive),
 body:has(.os-home--immersive),
 body:has(.os-home--immersive) #root {
   background: transparent;
+  height: 100svh;
+  max-height: 100svh;
+  overflow: hidden;
 }
 
 body {
@@ -1668,10 +1671,6 @@ button.linkish {
   margin: 0;
   width: 100%;
 }
-.os-home--immersive .immersive-feed.is-comment-mode {
-  overflow: hidden;
-  scroll-snap-type: none;
-}
 .immersive-feed__slide--placeholder {
   background: transparent;
 }
@@ -1845,9 +1844,7 @@ button.linkish {
 }
 
 .living-gallery {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: block;
   min-height: 100%;
   height: 100%;
   position: relative;
@@ -1856,18 +1853,18 @@ button.linkish {
   padding-bottom: 0;
 }
 .living-gallery__context {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  flex: 0 0 auto;
-  padding: 0.55rem 0.85rem 0.15rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  flex: none;
+  padding: calc(2.35rem + var(--safe-top, 0px)) 0.85rem 0.35rem;
   background: transparent;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  z-index: 1;
-  pointer-events: auto;
+  z-index: 5;
+  pointer-events: none;
 }
 .living-gallery__context > * {
   pointer-events: auto;
@@ -1886,7 +1883,8 @@ button.linkish {
 .living-gallery__brand {
   margin: 0;
   font-size: 1.02rem;
-  color: var(--os-text, #14171f);
+  color: #f8fafc;
+  filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.55));
 }
 .living-gallery__brands[data-count="1"] {
   justify-content: flex-start;
@@ -1900,13 +1898,15 @@ button.linkish {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 650;
-  color: var(--os-text, #14171f);
+  color: #f8fafc;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
 }
 .living-gallery__caption {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.4;
-  color: var(--os-text, #14171f);
+  color: #f4f6fb;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
   white-space: pre-wrap;
 }
 .living-gallery__caption.is-collapsed {
@@ -1918,12 +1918,13 @@ button.linkish {
 .living-gallery__more {
   border: 0;
   background: transparent;
-  color: var(--os-accent, #0f766e);
+  color: #fff;
   font: inherit;
   font-weight: 650;
   padding: 0;
   min-height: 32px;
   cursor: pointer;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
 }
 .living-gallery__meta {
   margin: 0;
@@ -1934,11 +1935,11 @@ button.linkish {
 }
 .living-gallery__media,
 .living-gallery .immersive-feed__media {
-  position: relative;
-  inset: auto;
-  flex: 1 1 0%;
-  min-height: 8.5rem;
-  height: auto;
+  position: absolute;
+  inset: 0;
+  flex: none;
+  min-height: 0;
+  height: 100%;
   max-height: none;
   width: 100%;
   z-index: 0;
@@ -1949,7 +1950,7 @@ button.linkish {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(3.55rem + var(--vv-bottom, 0px));
+  bottom: calc(3.55rem + var(--safe-bottom, 0px) + var(--vv-bottom, 0px));
   top: auto;
   flex: none;
   min-height: 0;
@@ -2111,14 +2112,14 @@ button.linkish {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--vv-bottom, 0px);
+  bottom: 0;
   flex: 0 0 auto;
   margin-top: 0;
   background: transparent;
   border-top: 0;
   z-index: 9;
   pointer-events: none;
-  padding: 0 0.15rem max(0.2rem, calc(var(--safe-bottom, 0px) - var(--vv-bottom, 0px)));
+  padding: 0 0.15rem max(0.2rem, var(--safe-bottom, 0px));
 }
 .living-gallery__rail .content-actions {
   pointer-events: auto;
@@ -2426,7 +2427,22 @@ button.linkish {
   min-height: 100dvh;
 }
 .personal-os:has(.os-home--immersive) .os-wordmark--signature {
-  display: none;
+  display: block;
+  position: absolute;
+  top: calc(0.55rem + var(--safe-top, 0px));
+  left: max(0.85rem, var(--safe-left, 0px));
+  right: auto;
+  z-index: 48;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  color: #f8fafc;
+  filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.55));
+}
+@media (max-width: 759px) {
+  .personal-os:has(.os-home--immersive) .os-wordmark--signature {
+    position: fixed;
+  }
 }
 .personal-os.brand-exp[data-bg="ink"],
 .personal-os.brand-exp[data-bg="dusk"],
@@ -2565,9 +2581,9 @@ button.linkish {
 .personal-os:has(.os-home--immersive) .os-phone-frame {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: 100svh;
+  min-height: 100svh;
+  max-height: 100svh;
   background: transparent !important;
 }
 .personal-os:has(.os-home--immersive) .os-topbar {
@@ -2610,9 +2626,9 @@ button.linkish {
 .personal-os[data-reveal-shell] .os-phone-frame {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  height: 100svh;
+  min-height: 100svh;
+  max-height: 100svh;
   position: relative;
   overflow: hidden;
   touch-action: pan-y;
@@ -2646,6 +2662,12 @@ button.linkish {
   transform: none;
   pointer-events: auto;
   transition: opacity 180ms var(--os-ease), transform 280ms var(--os-ease);
+}
+.personal-os[data-reveal-shell]:has(.os-home--immersive) .os-wordmark--signature,
+.personal-os[data-reveal-shell]:not([data-reveal="CLEAN"]):has(.os-home--immersive) .os-wordmark--signature {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 .personal-os[data-reveal-shell]:not([data-reveal="CLEAN"]) .os-wordmark--signature {
   opacity: 0;
@@ -2818,10 +2840,6 @@ button.linkish {
 .personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .os-dock--immersive {
   transform: translate(-50%, 0);
   pointer-events: auto;
-}
-.personal-os[data-reveal-shell][data-reveal="CLEAN"] .living-gallery__context,
-.personal-os[data-reveal-shell][data-reveal="CLOSING"] .living-gallery__context {
-  padding-top: calc(0.55rem + var(--safe-top, 0px));
 }
 .personal-os[data-reveal-shell]:has(.os-home--immersive) .os-main {
   padding: 0;
@@ -3484,9 +3502,9 @@ button.linkish {
 
 @media (min-width: 760px) {
   .personal-os:has(.os-home--immersive) .os-phone-frame {
-    min-height: calc(100dvh - 1.5rem);
-    height: calc(100dvh - 1.5rem);
-    max-height: calc(100dvh - 1.5rem);
+    min-height: calc(100svh - 1.5rem);
+    height: calc(100svh - 1.5rem);
+    max-height: calc(100svh - 1.5rem);
   }
   .personal-os:has(.os-home--immersive) .os-dock {
     position: relative;
@@ -3660,6 +3678,14 @@ button.linkish {
   object-fit: contain;
   object-position: center center;
   background: transparent;
+}
+.adaptive-video--fill.adaptive-video--reel .adaptive-video__stage,
+.adaptive-video--fill.adaptive-video--reel-landscape .adaptive-video__stage {
+  aspect-ratio: auto;
+  max-height: none;
+}
+.adaptive-video--fill.adaptive-video--reel-landscape .adaptive-video__el {
+  max-width: 100%;
 }
 .adaptive-video--fill.adaptive-video--landscape .adaptive-video__el {
   object-fit: contain;

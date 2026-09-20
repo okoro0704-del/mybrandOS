@@ -128,7 +128,6 @@ export function DigitalLifeShell({
   }, [revealEnabled]);
 
   const navHidden = revealEnabled && !revealApi.navVisible;
-  const wordmarkHidden = revealEnabled && !revealApi.wordmarkVisible;
   const name = experience.identity.displayName || "Digital Life";
   const home = publicHomePath(basePath);
 
@@ -175,8 +174,7 @@ export function DigitalLifeShell({
             slug={experience.slug}
             displayName={name}
             to={home}
-            className="os-wordmark--signature"
-            hidden={wordmarkHidden}
+            className="os-wordmark--signature os-wordmark--owner"
             identity
           />
         ) : null}

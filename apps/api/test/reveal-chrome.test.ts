@@ -68,6 +68,7 @@ test("OS suffix is green; signature sits top-right; no black peel", () => {
   assert.match(styles, /\.os-reveal-scrim\s*\{[^}]*display:\s*none/s);
   assert.equal(shell.includes("os-reveal-scrim"), false);
   assert.equal(/background:\s*#000[\s\S]{0,80}reveal/.test(styles), false);
+  assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
 });
 
 test("interactive children are exempt from reveal double-tap", () => {

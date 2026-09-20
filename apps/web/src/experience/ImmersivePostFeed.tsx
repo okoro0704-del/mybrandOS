@@ -14,7 +14,7 @@ import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
-import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
+import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
@@ -29,6 +29,7 @@ import {
   previousFeedIndex,
   resolveInitialIndex,
   shouldAdvanceAfterCommentsClose,
+  shouldLockFeedSwipe,
   shouldMountSlide,
   shouldSuspendGalleryAutoAdvance,
   videoPreloadForSlide,
@@ -172,9 +173,9 @@ function PostSlide({
     onCountChange: setCommentCount,
   });
 
-  const brands = useMemo(
+  const collaborators = useMemo(
     () =>
-      publicationBrandMarks(
+      publicationCollaboratorMarks(
         { slug: experience.slug, displayName: experience.identity.displayName },
         asset.presentation?.collaborators,
       ),
@@ -198,23 +199,28 @@ function PostSlide({
 
   useLayoutEffect(() => {
     const node = slideRef.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const apply = () => {
+    const freeze = () => {
+      if (!node) return;
       const rect = node.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
-        setViewport({ w: rect.width, h: rect.height });
+        setViewport({
+          w: rect.width,
+          h: Math.max(rect.height, typeof window !== "undefined" ? window.screen?.height || window.innerHeight : rect.height),
+        });
       }
       const chrome = contextRef.current?.offsetHeight ?? 0;
       if (chrome > 0) setContextH(chrome);
     };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(node);
-    if (contextRef.current) ro.observe(contextRef.current);
-    return () => ro.disconnect();
+    freeze();
+    window.addEventListener("orientationchange", freeze);
+    return () => window.removeEventListener("orientationchange", freeze);
   }, []);
 
   useEffect(() => {
+    if (!commentMode || !active) {
+      setVvBottom(0);
+      return;
+    }
     const vv = window.visualViewport;
     if (!vv) return;
     const apply = () => {
@@ -228,10 +234,6 @@ function PostSlide({
       vv.removeEventListener("resize", apply);
       vv.removeEventListener("scroll", apply);
     };
-  }, []);
-
-  useEffect(() => {
-    if (commentMode && active) composerRef.current?.focus();
   }, [commentMode, active]);
 
   function onIntrinsic(width: number, height: number) {
@@ -254,28 +256,24 @@ function PostSlide({
       data-comment-mode={commentMode ? "open" : undefined}
       data-comments-open={commentMode ? "true" : "false"}
       aria-hidden={!active}
-      style={
-        {
-          "--gallery-media-h": `${Math.round(layout.mediaH)}px`,
-          "--vv-bottom": `${Math.round(vvBottom)}px`,
-        } as CSSProperties
-      }
     >
       <div ref={contextRef} className="living-gallery__context">
-        <div className="living-gallery__brand-row">
-          <div className="living-gallery__brands" data-count={String(brands.length)}>
-            {brands.map((brand) => (
-              <OsWordmark
-                key={brand.slug}
-                slug={brand.slug}
-                displayName={brand.displayName}
-                to=""
-                className="living-gallery__brand"
-                identity
-              />
-            ))}
+        {collaborators.length ? (
+          <div className="living-gallery__brand-row">
+            <div className="living-gallery__brands" data-count={String(collaborators.length)} data-role="collaborator">
+              {collaborators.map((brand) => (
+                <OsWordmark
+                  key={brand.slug}
+                  slug={brand.slug}
+                  displayName={brand.displayName}
+                  to=""
+                  className="living-gallery__brand living-gallery__brand--collaborator"
+                  identity
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
         <PostDetails
           title={humanTitle}
           body={body}
@@ -317,6 +315,7 @@ function PostSlide({
             className="living-comments-layer"
             id={commentsId}
             data-comments-open="true"
+            style={{ "--vv-bottom": `${Math.round(vvBottom)}px` } as CSSProperties}
             onPointerDown={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
@@ -523,6 +522,17 @@ export function ImmersivePostFeed({
   }, []);
 
   useEffect(() => {
+    const root = listRef.current;
+    if (!root || !shouldLockFeedSwipe(commentMode ? "comments" : "feed")) return;
+    const locked = root.scrollTop;
+    const keep = () => {
+      if (root.scrollTop !== locked) root.scrollTop = locked;
+    };
+    root.addEventListener("scroll", keep);
+    return () => root.removeEventListener("scroll", keep);
+  }, [commentMode]);
+
+  useEffect(() => {
     if (commentMode) return;
     if (!shouldAdvanceAfterCommentsClose(pendingEndedRef.current, false)) return;
     pendingEndedRef.current = false;
@@ -627,7 +637,7 @@ export function ImmersivePostFeed({
   return (
     <ul
       ref={listRef}
-      className={`immersive-feed immersive-feed--${category ?? "post"}`}
+      className={`immersive-feed immersive-feed--${category ?? "post"}${commentMode ? " is-comment-mode" : ""}`}
       aria-label={category === "videos" ? "Videos" : "Posts"}
       tabIndex={0}
       data-active-asset-id={activeAssetId ?? undefined}
