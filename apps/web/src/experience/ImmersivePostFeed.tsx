@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,14 +10,23 @@ import {
 } from "react";
 import type { PublicAssetCard, PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
+import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { LiveControl } from "../digital-life/personal-os/UtilityDock";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
+import {
+  applyCommentInsert,
+  canSendComment,
+  deleteCommentGrapheme,
+  isCommentKeyboardOpen,
+  physicalKeyToCommentAction,
+  reduceCommentKeyboard,
+  type CommentKeyboardState,
+} from "../lib/commentKeyboard";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
 import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
-import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
   activeIndexFromScroll,
@@ -85,7 +95,41 @@ function videoPresentation(asset: PublicAssetCard) {
   return "POST" as const;
 }
 
-function PersistentCover({
+const PersistentGalleryVideo = memo(function PersistentGalleryVideo({
+  src,
+  presentation,
+  poster,
+  active,
+  adjacent,
+  onIntrinsic,
+  onEnded,
+}: {
+  src: string;
+  presentation: ReturnType<typeof videoPresentation>;
+  poster?: string | null;
+  active: boolean;
+  adjacent: boolean;
+  onIntrinsic?: (width: number, height: number) => void;
+  onEnded: () => void;
+}) {
+  return (
+    <AdaptiveVideoPlayer
+      className="immersive-feed__video immersive-feed__adaptive-video"
+      src={src}
+      presentation={presentation}
+      poster={poster}
+      autoPlayMuted
+      active={active}
+      fillViewport
+      maxPlays={GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE}
+      preload={videoPreloadForSlide(active, adjacent)}
+      onIntrinsic={onIntrinsic}
+      onEnded={onEnded}
+    />
+  );
+});
+
+const PersistentCover = memo(function PersistentCover({
   src,
   active,
   aspectRatio,
@@ -126,7 +170,7 @@ function PersistentCover({
       }}
     />
   );
-}
+});
 
 function PostSlide({
   asset,
@@ -169,6 +213,8 @@ function PostSlide({
   const [viewport, setViewport] = useState({ w: 390, h: 844 });
   const [contextH, setContextH] = useState(120);
   const [vvBottom, setVvBottom] = useState(0);
+  const [keyboard, setKeyboard] = useState<CommentKeyboardState>("CLOSED");
+  const [inputMode, setInputMode] = useState<CommentComposerInputMode>("internal");
 
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active,
@@ -219,7 +265,20 @@ function PostSlide({
   }, []);
 
   useEffect(() => {
-    if (!commentMode || !active) {
+    if (!commentMode) {
+      setKeyboard("CLOSED");
+      setInputMode("internal");
+      setVvBottom(0);
+    }
+  }, [commentMode]);
+
+  useEffect(() => {
+    if (!commentMode || inputMode !== "system") return;
+    composerRef.current?.focus();
+  }, [commentMode, inputMode]);
+
+  useEffect(() => {
+    if (!commentMode || !active || inputMode !== "system") {
       setVvBottom(0);
       return;
     }
@@ -236,15 +295,67 @@ function PostSlide({
       vv.removeEventListener("resize", apply);
       vv.removeEventListener("scroll", apply);
     };
-  }, [commentMode, active]);
+  }, [commentMode, active, inputMode]);
 
-  function onIntrinsic(width: number, height: number) {
+  const onIntrinsic = useCallback((width: number, height: number) => {
     setSrcW(width);
     setSrcH(height);
-  }
+  }, []);
+
+  const onGalleryEnded = useCallback(() => {
+    if (active) onVideoEnded();
+  }, [active, onVideoEnded]);
+
+  const openInternalKeyboard = useCallback(() => {
+    if (social.busy) return;
+    setInputMode("internal");
+    setKeyboard((s) => reduceCommentKeyboard(s, "OPEN"));
+  }, [social.busy]);
+
+  const closeInternalKeyboard = useCallback(() => {
+    setKeyboard("CLOSED");
+  }, []);
+
+  const sendComment = useCallback(async () => {
+    if (!canSendComment(social.draft) || social.busy) return;
+    const created = await social.submit();
+    if (created) setKeyboard("CLOSED");
+  }, [social]);
+
+  useEffect(() => {
+    if (!active || !commentMode || inputMode !== "internal" || !isCommentKeyboardOpen(keyboard)) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isEditableKeyboardTarget(e.target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const mapped = physicalKeyToCommentAction(e.key, keyboard);
+      if (!mapped) return;
+      e.preventDefault();
+      if (mapped.backspace) {
+        social.setDraft(deleteCommentGrapheme);
+        return;
+      }
+      if (mapped.send) {
+        void sendComment();
+        return;
+      }
+      if (mapped.space) {
+        social.setDraft((prev) => applyCommentInsert(prev, " "));
+        return;
+      }
+      if (mapped.insert) {
+        social.setDraft((prev) => applyCommentInsert(prev, mapped.insert!));
+        if (/^[a-z]$/i.test(mapped.insert)) {
+          setKeyboard((s) => reduceCommentKeyboard(s, "LETTER"));
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, commentMode, inputMode, keyboard, sendComment, social]);
 
   const presentation = videoPresentation(asset);
   const humanTitle = humanPublicationTitle(asset.title, asset.id);
+  const keyboardOpen = isCommentKeyboardOpen(keyboard) && inputMode === "internal";
 
   return (
     <li
@@ -291,20 +402,14 @@ function PostSlide({
             <p>{body || humanTitle}</p>
           </div>
         ) : isVideo ? (
-          <AdaptiveVideoPlayer
-            className="immersive-feed__video immersive-feed__adaptive-video"
+          <PersistentGalleryVideo
             src={`${mediaBase}/assets/${asset.id}/media`}
             presentation={presentation}
             poster={coverUrl ?? null}
-            autoPlayMuted
             active={active}
-            fillViewport
-            maxPlays={GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE}
-            preload={videoPreloadForSlide(active, adjacent)}
+            adjacent={adjacent}
             onIntrinsic={onIntrinsic}
-            onEnded={() => {
-              if (active) onVideoEnded();
-            }}
+            onEnded={onGalleryEnded}
           />
         ) : coverUrl ? (
           <PersistentCover src={coverUrl} active={active} aspectRatio={asset.aspectRatio} onIntrinsic={onIntrinsic} />
@@ -317,7 +422,9 @@ function PostSlide({
             className="living-comments-layer"
             id={commentsId}
             data-comments-open="true"
-            style={{ "--vv-bottom": `${Math.round(vvBottom)}px` } as CSSProperties}
+            data-keyboard={keyboardOpen ? "open" : "closed"}
+            data-input-mode={inputMode}
+            style={{ "--vv-bottom": `${Math.round(inputMode === "system" ? vvBottom : 0)}px` } as CSSProperties}
             onPointerDown={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
@@ -341,53 +448,114 @@ function PostSlide({
                 ))}
               </div>
             ) : null}
-            <form
-              className="living-gallery__composer living-gallery__composer--float post-comments__composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void social.submit();
-              }}
-            >
-              <label className="sr-only" htmlFor={`${commentsId}-input`}>
-                Write a comment
-              </label>
-              <textarea
-                ref={composerRef}
-                id={`${commentsId}-input`}
-                className="post-comments__input"
-                value={social.draft}
-                onChange={(e) => social.setDraft(e.target.value)}
-                placeholder="Write a comment…"
-                maxLength={2000}
-                rows={1}
-                disabled={social.busy}
-                enterKeyHint="send"
-                autoComplete="off"
-                autoCorrect="on"
-                spellCheck
-                style={{ scrollMargin: 0 }}
-                onFocus={() => {
-                  const root = slideRef.current?.closest(".immersive-feed");
-                  if (root instanceof HTMLElement) {
-                    const locked = root.scrollTop;
-                    requestAnimationFrame(() => {
-                      root.scrollTop = locked;
-                    });
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void social.submit();
-                  }
-                }}
-              />
-              {social.draft.trim() ? (
-                <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
-                  <Icons.send size={18} />
+            <div className="living-gallery__composer living-gallery__composer--float post-comments__composer">
+              {inputMode === "system" ? (
+                <>
+                  <label className="sr-only" htmlFor={`${commentsId}-input`}>
+                    Write a comment
+                  </label>
+                  <textarea
+                    ref={composerRef}
+                    id={`${commentsId}-input`}
+                    className="post-comments__input"
+                    value={social.draft}
+                    onChange={(e) => social.setDraft(e.target.value)}
+                    placeholder="Write a comment…"
+                    maxLength={2000}
+                    rows={1}
+                    disabled={social.busy}
+                    enterKeyHint="send"
+                    autoComplete="off"
+                    autoCorrect="on"
+                    spellCheck
+                    style={{ scrollMargin: 0 }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendComment();
+                      }
+                    }}
+                  />
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`comment-composer__field post-comments__input${social.draft ? "" : " is-empty"}`}
+                  data-comment-composer="internal"
+                  aria-label="Write a comment"
+                  aria-expanded={keyboardOpen}
+                  disabled={social.busy}
+                  onClick={openInternalKeyboard}
+                >
+                  {social.draft ? social.draft : "Write a comment…"}
                 </button>
-              ) : null}
-            </form>
+              )}
+              <button
+                type="button"
+                className="comment-composer__fallback"
+                onClick={() => {
+                  if (inputMode === "system") {
+                    setInputMode("internal");
+                    openInternalKeyboard();
+                    return;
+                  }
+                  setKeyboard("CLOSED");
+                  setInputMode("system");
+                }}
+              >
+                {inputMode === "system" ? "On-screen keyboard" : "System keyboard"}
+              </button>
+            </div>
+            <CommentKeyboard
+              state={inputMode === "internal" ? keyboard : "CLOSED"}
+              draft={social.draft}
+              busy={social.busy}
+              onAction={(action) => {
+                if (action.type === "char") {
+                  social.setDraft((prev) => applyCommentInsert(prev, action.value));
+                  if (/^[a-z]$/i.test(action.value)) {
+                    setKeyboard((s) => reduceCommentKeyboard(s, "LETTER"));
+                  }
+                  return;
+                }
+                if (action.type === "space") {
+                  social.setDraft((prev) => applyCommentInsert(prev, " "));
+                  return;
+                }
+                if (action.type === "backspace") {
+                  social.setDraft(deleteCommentGrapheme);
+                  return;
+                }
+                if (action.type === "shift") {
+                  setKeyboard((s) => reduceCommentKeyboard(s, "SHIFT"));
+                  return;
+                }
+                if (action.type === "symbols") {
+                  setKeyboard((s) => reduceCommentKeyboard(s, "SYMBOLS"));
+                  return;
+                }
+                if (action.type === "letters") {
+                  setKeyboard((s) => reduceCommentKeyboard(s, "ABC"));
+                  return;
+                }
+                if (action.type === "close") {
+                  closeInternalKeyboard();
+                  return;
+                }
+                if (action.type === "send") {
+                  void sendComment();
+                  return;
+                }
+                if (action.type === "paste") {
+                  if (!navigator.clipboard?.readText) return;
+                  void navigator.clipboard.readText().then((text) => {
+                    if (text) social.setDraft((prev) => applyCommentInsert(prev, text));
+                  }).catch(() => {
+                    /* clipboard permission denied — keep draft */
+                  });
+                }
+              }}
+            />
           </div>
         ) : null}
 

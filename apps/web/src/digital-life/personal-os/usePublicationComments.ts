@@ -16,6 +16,8 @@ export function usePublicationComments(
   onCountChangeRef.current = opts.onCountChange;
   const [comments, setComments] = useState<PublicComment[]>([]);
   const [draft, setDraft] = useState("");
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function usePublicationComments(
 
   const submit = useCallback(async () => {
     if (busy) return null;
-    const body = draft.trim();
+    const body = draftRef.current.trim();
     if (!body) {
       setError("Write a comment before submitting.");
       return null;
@@ -73,7 +75,7 @@ export function usePublicationComments(
     } finally {
       setBusy(false);
     }
-  }, [busy, draft, slug, publicationId]);
+  }, [busy, slug, publicationId]);
 
   const retry = useCallback(() => {
     setError(null);

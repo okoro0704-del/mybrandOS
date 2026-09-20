@@ -182,7 +182,7 @@ test("comments overlay the video only when commentsOpen; Pause and Muted pills a
   assert.match(feed, /advanceToNextPublication/);
   assert.match(feed, /GALLERY_PHOTO_DWELL_MS/);
   assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
-  assert.equal(feed.includes("composerRef.current?.focus"), false);
+  assert.equal(feed.includes("composerRef.current?.focus"), true);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("CONVERSATION"), false);
@@ -279,8 +279,9 @@ test("comments toggle over video; Life moves into transparent bottom bar; no whi
   assert.match(player, /enableSoundFromGesture/);
   assert.match(player, /setSoundEnabledByUser/);
   assert.equal(player.includes("adaptive-video__controls"), false);
+  assert.match(feed, /<CommentKeyboard/);
+  assert.match(feed, /data-comment-composer="internal"/);
   assert.equal(feed.includes("contenteditable"), false);
-  assert.equal(/custom keyboard|qwerty/i.test(feed), false);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-dock \.os-dock__live\s*\{[^}]*display:\s*none/s);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\)\s*\{[^}]*background:\s*transparent\s*!important/s);
   assert.equal(/\.personal-os:has\(\.os-home--immersive\) \.os-dock--immersive[\s\S]{0,280}background:\s*rgba\(255,\s*255,\s*255,\s*0\.94\)/.test(styles), false);
