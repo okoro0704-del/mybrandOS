@@ -39,6 +39,7 @@ import {
   configuredServiceCapabilities,
   internalServiceAuthConfigured,
   MYBRANDOS_S2S_DRAFT_CREATE,
+  MYBRANDOS_S2S_DRAFT_PUBLISH,
 } from "./lib/s2s.js";
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
@@ -138,7 +139,7 @@ async function healthPayload() {
       configured: internalServiceAuthConfigured(),
       readsEnabled: configuredServiceCapabilities().includes("mybrandos:read:published"),
       createDraftEnabled: configuredServiceCapabilities().includes(MYBRANDOS_S2S_DRAFT_CREATE),
-      publishEnabled: false,
+      publishEnabled: configuredServiceCapabilities().includes(MYBRANDOS_S2S_DRAFT_PUBLISH),
       deleteEnabled: false,
     },
   };
@@ -184,7 +185,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
   registerInternalDigitalLifeRoutes(instance, primitives);
-  registerInternalDraftRoutes(instance);
+  registerInternalDraftRoutes(instance, primitives);
   registerPublishRoutes(instance, primitives);
   registerTwinRoutes(instance, primitives);
 }

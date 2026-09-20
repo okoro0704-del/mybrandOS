@@ -17,9 +17,13 @@ try {
   const draftIdem = await prisma.$queryRawUnsafe(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='DigiAiDraftIdempotency' LIMIT 1",
   );
+  const publishIdem = await prisma.$queryRawUnsafe(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='DigiAiPublishIdempotency' LIMIT 1",
+  );
   await prisma.$disconnect();
   if (!names.includes("presentationConfig")) process.exit(2);
   if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
+  if (!Array.isArray(publishIdem) || publishIdem.length === 0) process.exit(2);
   process.exit(0);
 } catch {
   try {
