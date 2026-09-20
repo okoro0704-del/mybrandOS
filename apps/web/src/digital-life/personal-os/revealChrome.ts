@@ -67,6 +67,7 @@ const INTERACTIVE_SELECTOR = [
   ".living-gallery__conversation",
   ".living-gallery__composer",
   ".living-gallery__comments",
+  ".living-comments-layer",
   ".living-comment-lane",
   ".floating-comments",
   ".floating-comment",

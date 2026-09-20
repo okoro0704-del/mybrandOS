@@ -121,7 +121,7 @@ test("living gallery keeps contain and transparent immersive canvas", () => {
 
 test("shell double-tap exempts composer, comments, and details", () => {
   assert.match(reveal, /living-gallery__composer/);
-  assert.match(reveal, /living-gallery__comments/);
+  assert.match(reveal, /living-comments-layer/);
   assert.match(reveal, /living-gallery__brands/);
   assert.match(feed, /stopPropagation/);
   assert.match(player, /fillViewport/);
@@ -156,10 +156,11 @@ test("UUID and asset-id titles are not human post details", () => {
   assert.equal(humanPublicationTitle("asset_abc", "asset_abc"), null);
 });
 
-test("stacked gallery keeps brand, details, media, and comments in document flow", () => {
+test("comments overlay the video only when commentsOpen; Pause and Muted pills are gone", () => {
   assert.match(feed, /living-gallery__brand-row/);
-  assert.match(feed, /living-gallery__comments/);
+  assert.match(feed, /living-comments-layer/);
   assert.match(feed, /CommentRow/);
+  assert.match(feed, /commentMode \?/);
   assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
   assert.match(feed, /advanceToNextPublication/);
@@ -169,21 +170,23 @@ test("stacked gallery keeps brand, details, media, and comments in document flow
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("CONVERSATION"), false);
   assert.equal(feed.includes("FloatingComments"), false);
+  assert.equal(feed.includes("Be the first to comment"), false);
   assert.equal(/<AdaptiveVideoPlayer[\s\S]*?\sloop\b/.test(feed), false);
   assert.match(styles, /html:has\(\.os-home--immersive\)/);
   assert.match(styles, /body:has\(\.os-home--immersive\)/);
   assert.match(styles, /\.living-gallery\s*\{[^}]*flex-direction:\s*column/s);
-  assert.match(styles, /\.living-gallery__context\s*\{[^}]*position:\s*relative/s);
-  assert.match(styles, /\.living-gallery__media,\s*\n?\.living-gallery \.immersive-feed__media\s*\{[^}]*position:\s*relative/s);
-  assert.match(styles, /\.living-gallery__rail\s*\{[^}]*position:\s*relative/s);
-  assert.match(styles, /\.living-gallery__comments\s*\{/s);
-  assert.equal(/\.living-gallery__context\s*\{[^}]*position:\s*absolute/s.test(styles), false);
+  assert.match(styles, /\.living-comments-layer,\s*\n?\.living-gallery__comments\s*\{[^}]*position:\s*absolute/s);
+  assert.match(styles, /\.living-comments-layer[\s\S]{0,500}background:\s*transparent/);
+  assert.match(styles, /\.living-gallery__rail\s*\{[^}]*position:\s*absolute/s);
+  assert.equal(/\.living-comments-layer[\s\S]{0,500}min-height:\s*50/s.test(styles), false);
   assert.equal(/\.living-gallery__context\s*\{[^}]*background:\s*var\(--os-surface-solid/s.test(styles), false);
   assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
   assert.match(styles, /\.content-actions__row--gallery/);
   assert.match(styles, /\.living-gallery__brands/);
-  assert.match(styles, /--os-bottom-nav-h/);
-  assert.match(styles, /data-reveal-shell\]:has\(\.os-home--immersive\) \.os-bottom-nav\s*\{[^}]*bottom:\s*0/s);
+  assert.equal(player.includes("adaptive-video__controls"), false);
+  assert.equal(player.includes('{muted ? "Muted" : "Sound"}'), false);
+  assert.match(player, /resolveGalleryVideoTap/);
+  assert.match(player, /className="sr-only"/);
 });
 
 test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {

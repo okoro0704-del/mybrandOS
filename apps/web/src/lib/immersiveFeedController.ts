@@ -120,6 +120,21 @@ export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto"
 
 export const GALLERY_PHOTO_DWELL_MS = 5000;
 export const GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE = 2;
+/** Wait past shell double-tap so a single video tap pauses without fighting navigation. */
+export const GALLERY_VIDEO_TAP_MS = 300;
+export const GALLERY_VIDEO_DOUBLE_TAP_MS = 280;
+
+export function resolveGalleryVideoTap(opts: {
+  interactive: boolean;
+  moved: boolean;
+  dt: number;
+  doubleTapMs?: number;
+}): "playback" | "double-tap" | "ignore" {
+  if (opts.interactive || opts.moved) return "ignore";
+  const windowMs = opts.doubleTapMs ?? GALLERY_VIDEO_DOUBLE_TAP_MS;
+  if (opts.dt > 0 && opts.dt <= windowMs) return "double-tap";
+  return "playback";
+}
 export type GalleryAdvanceReason = "photo-timeout" | "video-ended";
 
 /** First ended → replay same video. Second ended → advance. */

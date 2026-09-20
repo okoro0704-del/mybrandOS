@@ -204,14 +204,13 @@ function PostSlide({
       if (rect.width > 0 && rect.height > 0) {
         setViewport({ w: rect.width, h: rect.height });
       }
-      const chrome = (contextRef.current?.offsetHeight ?? 0) + (railRef.current?.offsetHeight ?? 0);
+      const chrome = contextRef.current?.offsetHeight ?? 0;
       if (chrome > 0) setContextH(chrome);
     };
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(node);
     if (contextRef.current) ro.observe(contextRef.current);
-    if (railRef.current) ro.observe(railRef.current);
     return () => ro.disconnect();
   }, []);
 
@@ -253,6 +252,7 @@ function PostSlide({
       data-gallery-mode={layout.mode}
       data-gallery-fit="contain"
       data-comment-mode={commentMode ? "open" : undefined}
+      data-comments-open={commentMode ? "true" : "false"}
       aria-hidden={!active}
       style={
         {
@@ -311,78 +311,88 @@ function PostSlide({
         ) : (
           <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
         )}
-      </div>
 
-      <section className="living-gallery__comments" id={commentsId} aria-label="Comments">
-        <div className="living-gallery__conversation" onTouchMove={(e) => e.stopPropagation()}>
-          {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
-          {social.error ? (
-            <p className="living-gallery__status living-gallery__status--error" role="alert">
-              {social.error}{" "}
-              <button type="button" className="living-comment__reply" onClick={social.retry}>
-                Retry
-              </button>
-            </p>
-          ) : null}
-          {!social.loading && social.comments.length === 0 ? (
-            <p className="living-gallery__empty">Be the first to comment</p>
-          ) : null}
-          {social.comments.slice(-8).map((comment) => (
-            <CommentRow
-              key={comment.id}
-              comment={comment}
-              onReply={social.startReply}
-            />
-          ))}
-        </div>
-        <form
-          className="living-gallery__composer living-gallery__composer--flow post-comments__composer"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void social.submit();
-          }}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
-          <label className="sr-only" htmlFor={`${commentsId}-input`}>
-            Write a comment
-          </label>
-          <textarea
-            ref={composerRef}
-            id={`${commentsId}-input`}
-            className="post-comments__input"
-            value={social.draft}
-            onChange={(e) => social.setDraft(e.target.value)}
-            placeholder="Write a comment…"
-            maxLength={2000}
-            rows={1}
-            disabled={social.busy}
-            enterKeyHint="send"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+        {commentMode ? (
+          <div
+            className="living-comments-layer"
+            id={commentsId}
+            data-comments-open="true"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {social.comments.length > 0 || social.loading || social.error ? (
+              <div className="living-gallery__conversation">
+                {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
+                {social.error ? (
+                  <p className="living-gallery__status living-gallery__status--error" role="alert">
+                    {social.error}{" "}
+                    <button type="button" className="living-comment__reply" onClick={social.retry}>
+                      Retry
+                    </button>
+                  </p>
+                ) : null}
+                {social.comments.map((comment) => (
+                  <CommentRow
+                    key={comment.id}
+                    comment={comment}
+                    onReply={social.startReply}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <form
+              className="living-gallery__composer living-gallery__composer--float post-comments__composer"
+              onSubmit={(e) => {
                 e.preventDefault();
                 void social.submit();
-              }
-            }}
-          />
-          {social.draft.trim() ? (
-            <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
-              <Icons.send size={18} />
-            </button>
-          ) : null}
-        </form>
-      </section>
+              }}
+            >
+              <label className="sr-only" htmlFor={`${commentsId}-input`}>
+                Write a comment
+              </label>
+              <textarea
+                ref={composerRef}
+                id={`${commentsId}-input`}
+                className="post-comments__input"
+                value={social.draft}
+                onChange={(e) => social.setDraft(e.target.value)}
+                placeholder="Write a comment…"
+                maxLength={2000}
+                rows={1}
+                disabled={social.busy}
+                enterKeyHint="send"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void social.submit();
+                  }
+                }}
+              />
+              {social.draft.trim() ? (
+                <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
+                  <Icons.send size={18} />
+                </button>
+              ) : null}
+            </form>
+          </div>
+        ) : null}
 
-      <div ref={railRef} className="living-gallery__rail">
-        <ContentActionBar
-          asset={asset}
-          slug={experience.slug}
-          mediaBase={mediaBase}
-          creatorLabel={author}
-          commentCount={commentCount}
-          hideComposer
-          variant="gallery"
-          onComment={onToggleComments}
-        />
+        <div
+          ref={railRef}
+          className="living-gallery__rail"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <ContentActionBar
+            asset={asset}
+            slug={experience.slug}
+            mediaBase={mediaBase}
+            creatorLabel={author}
+            commentCount={commentCount}
+            hideComposer
+            variant="gallery"
+            onComment={onToggleComments}
+          />
+        </div>
       </div>
     </li>
   );

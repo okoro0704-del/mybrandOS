@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { PresentationType } from "@mybrandos/shared";
 import {
+  GALLERY_VIDEO_TAP_MS,
   getImmersiveSessionMuted,
+  resolveGalleryVideoTap,
   setImmersiveSessionMuted,
 } from "../lib/immersiveFeedController";
 
@@ -87,6 +89,9 @@ export function AdaptiveVideoPlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const renderedRef = useRef(false);
+  const tapTimerRef = useRef(0);
+  const lastTapRef = useRef(0);
+  const pointerRef = useRef({ x: 0, y: 0, moved: false });
   const [layout, setLayout] = useState<AdaptiveLayoutMode>(() => readLayoutMode());
   const [ready, setReady] = useState(false);
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
@@ -193,6 +198,44 @@ export function AdaptiveVideoPlayer({
     }
   }
 
+  function onFillPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!fillViewport || !active) return;
+    pointerRef.current = { x: e.clientX, y: e.clientY, moved: false };
+  }
+
+  function onFillPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!fillViewport || !active) return;
+    if (Math.abs(e.clientX - pointerRef.current.x) > 12 || Math.abs(e.clientY - pointerRef.current.y) > 12) {
+      pointerRef.current.moved = true;
+    }
+  }
+
+  function onFillPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!fillViewport || !active) return;
+    const target = e.target;
+    const interactive =
+      target instanceof Element &&
+      Boolean(target.closest("button, a, input, textarea, select, [contenteditable='true']"));
+    const now = e.timeStamp || Date.now();
+    const verdict = resolveGalleryVideoTap({
+      interactive,
+      moved: pointerRef.current.moved,
+      dt: now - lastTapRef.current,
+    });
+    lastTapRef.current = now;
+    window.clearTimeout(tapTimerRef.current);
+    if (verdict === "double-tap" || verdict === "ignore") {
+      tapTimerRef.current = 0;
+      return;
+    }
+    tapTimerRef.current = window.setTimeout(() => {
+      tapTimerRef.current = 0;
+      togglePlay();
+    }, GALLERY_VIDEO_TAP_MS);
+  }
+
+  useEffect(() => () => window.clearTimeout(tapTimerRef.current), []);
+
   return (
     <div
       className={`adaptive-video adaptive-video--${presentation.toLowerCase()} adaptive-video--${layout}${
@@ -206,7 +249,13 @@ export function AdaptiveVideoPlayer({
       data-gallery-fit={fillViewport ? "contain" : undefined}
       data-play-blocked={playBlocked ? "true" : undefined}
     >
-      <div className="adaptive-video__stage">
+      <div
+        className="adaptive-video__stage"
+        onPointerDown={fillViewport ? onFillPointerDown : undefined}
+        onPointerMove={fillViewport ? onFillPointerMove : undefined}
+        onPointerUp={fillViewport ? onFillPointerUp : undefined}
+        onPointerCancel={fillViewport ? () => { pointerRef.current.moved = true; } : undefined}
+      >
         {!ready && !poster ? <div className="adaptive-video__loading" aria-hidden /> : null}
         <video
           ref={videoRef}
@@ -219,6 +268,7 @@ export function AdaptiveVideoPlayer({
           autoPlay={Boolean(autoPlayMuted && active)}
           loop={loop}
           preload={preload}
+          aria-label={fillViewport ? (paused ? "Video, paused. Activate to play." : "Video, playing. Activate to pause.") : undefined}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
             if (v.videoWidth && v.videoHeight) {
@@ -253,27 +303,17 @@ export function AdaptiveVideoPlayer({
           }}
         />
         {reelLandscape && !fillViewport ? <div className="adaptive-video__pillar" aria-hidden /> : null}
-        {fillViewport ? (
-          <div className="adaptive-video__controls">
-            <button
-              type="button"
-              className="adaptive-video__ctrl"
-              aria-label={paused ? "Play" : "Pause"}
-              onClick={togglePlay}
-            >
-              {paused ? "Play" : "Pause"}
-            </button>
-            <button
-              type="button"
-              className="adaptive-video__ctrl"
-              aria-label={muted ? "Unmute" : "Mute"}
-              onClick={toggleMute}
-            >
-              {muted ? "Muted" : "Sound"}
-            </button>
-          </div>
-        ) : null}
       </div>
+      {fillViewport ? (
+        <div className="sr-only">
+          <button type="button" onClick={togglePlay} aria-label={paused ? "Play" : "Pause"}>
+            {paused ? "Play" : "Pause"}
+          </button>
+          <button type="button" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
+            {muted ? "Unmute" : "Mute"}
+          </button>
+        </div>
+      ) : null}
       {showMeta ? (
         <div className="adaptive-video__meta">
           {creatorLabel ? <div className="adaptive-video__creator">{creatorLabel}</div> : null}

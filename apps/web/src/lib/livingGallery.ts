@@ -152,6 +152,7 @@ export function isLivingGalleryInteractiveTarget(target: EventTarget | null): bo
         ".living-gallery__conversation",
         ".living-gallery__composer",
         ".living-gallery__comments",
+        ".living-comments-layer",
         ".living-comment-lane",
         ".floating-comments",
         ".living-gallery__rail",

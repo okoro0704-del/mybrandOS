@@ -19,6 +19,8 @@ import {
   shouldAdvanceAfterCommentsClose,
   shouldReplayVideoBeforeAdvance,
   shouldSuspendGalleryAutoAdvance,
+  resolveGalleryVideoTap,
+  GALLERY_VIDEO_TAP_MS,
 } from "../../web/src/lib/immersiveFeedController.ts";
 
 test("one active index from scroll", () => {
@@ -92,4 +94,12 @@ test("gallery auto-advance owner: photos dwell 5s, comments suspend navigation, 
   assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: false, documentHidden: false }), false);
   assert.equal(shouldAdvanceAfterCommentsClose(true, false), true);
   assert.equal(shouldAdvanceAfterCommentsClose(true, true), false);
+});
+
+test("neutral video tap pauses; double-tap and interactive targets do not", () => {
+  assert.ok(GALLERY_VIDEO_TAP_MS >= 280);
+  assert.equal(resolveGalleryVideoTap({ interactive: false, moved: false, dt: 0 }), "playback");
+  assert.equal(resolveGalleryVideoTap({ interactive: false, moved: false, dt: 120 }), "double-tap");
+  assert.equal(resolveGalleryVideoTap({ interactive: true, moved: false, dt: 0 }), "ignore");
+  assert.equal(resolveGalleryVideoTap({ interactive: false, moved: true, dt: 0 }), "ignore");
 });

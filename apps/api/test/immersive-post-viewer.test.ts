@@ -66,10 +66,14 @@ test("post details sit under brand marks; duplicate creator card is not in the f
   assert.equal(feed.includes("immersive-feed__copy--on"), false);
 });
 
-test("comment action opens the in-flow comment section; no conversation sheet", () => {
+test("comment action opens a transparent overlay; no conversation sheet", () => {
   assert.match(feed, /onComment=\{onToggleComments\}/);
-  assert.match(feed, /living-gallery__comments/);
-  assert.match(feed, /living-gallery__composer--flow/);
+  assert.match(feed, /living-comments-layer/);
+  assert.match(feed, /living-gallery__composer--float/);
+  assert.match(feed, /data-comments-open/);
+  assert.match(feed, /commentMode \?/);
+  assert.equal(feed.includes("living-gallery__composer--flow"), false);
+  assert.equal(feed.includes("Be the first to comment"), false);
   assert.equal(feed.includes("FloatingComments"), false);
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("LiveConversationStream"), false);
