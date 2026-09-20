@@ -7,6 +7,7 @@ import {
   LIVING_GALLERY_BALANCED_MIN,
   LIVING_GALLERY_BOUNDARY_HANDOFF_PX,
   LIVING_GALLERY_COMPACT_MIN,
+  LIVING_GALLERY_DETAILS_LINES,
   captionPreview,
   commentReadMs,
   conversationHandoff,
@@ -19,11 +20,11 @@ import {
 } from "../../web/src/lib/livingGallery.ts";
 import { LIVING_GALLERY_DEV_FIXTURES } from "../../web/src/lib/livingGallery.fixtures.ts";
 import { galleryContainFit } from "../../web/src/lib/galleryMediaFit.ts";
+import { publicationBrandMarks } from "../../web/src/digital-life/personal-os/osIdentity.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
-const live = readFileSync(join(root, "apps/web/src/digital-life/personal-os/LiveConversation.tsx"), "utf8");
 const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
 const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/revealChrome.ts"), "utf8");
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
@@ -103,7 +104,6 @@ test("canonical comments only — fixtures stay out of production UI", () => {
   assert.match(hook, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/social/);
   assert.match(hook, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/comments/);
   assert.equal(feed.includes("livingGallery.fixtures"), false);
-  assert.equal(live.includes("livingGallery.fixtures"), false);
   assert.equal(LIVING_GALLERY_DEV_FIXTURES.empty.length, 0);
   assert.equal(LIVING_GALLERY_DEV_FIXTURES.one.length, 1);
   assert.equal(LIVING_GALLERY_DEV_FIXTURES.many.length, 20);
@@ -119,22 +119,34 @@ test("living gallery keeps contain and transparent immersive canvas", () => {
   assert.match(styles, /\.living-comment-lane/);
 });
 
-test("shell double-tap exempts conversation, composer, and lane", () => {
-  assert.match(reveal, /living-gallery__conversation/);
+test("shell double-tap exempts composer, floating comments, and details", () => {
   assert.match(reveal, /living-gallery__composer/);
-  assert.match(reveal, /living-comment-lane/);
-  assert.match(reveal, /living-conversation-layer/);
-  assert.match(live, /Pause conversation/);
+  assert.match(reveal, /floating-comments/);
+  assert.match(reveal, /living-gallery__brands/);
   assert.match(feed, /stopPropagation/);
   assert.match(player, /fillViewport/);
   assert.match(player, /onIntrinsic/);
   assert.equal(isLivingGalleryInteractiveTarget(null), false);
 });
 
-test("long captions clamp without dropping canonical text", () => {
+test("post captions collapse to two lines with See more", () => {
+  assert.equal(LIVING_GALLERY_DETAILS_LINES, 2);
+  assert.match(styles, /-webkit-line-clamp:\s*2/);
+  assert.match(feed, /See more/);
   const preview = captionPreview(LIVING_GALLERY_DEV_FIXTURES.longCaption);
   assert.equal(preview.truncated, true);
   assert.ok(preview.preview.length < LIVING_GALLERY_DEV_FIXTURES.longCaption.length);
+});
+
+test("collaboration header shows host and collaborator OS names without duplicates", () => {
+  const marks = publicationBrandMarks(
+    { slug: "felicia", displayName: "Felicia" },
+    [{ slug: "fundzman", displayName: "fundzman" }, { slug: "felicia" }],
+  );
+  assert.deepEqual(
+    marks.map((m) => m.slug),
+    ["felicia", "fundzman"],
+  );
 });
 
 test("UUID and asset-id titles are not human post details", () => {
@@ -144,26 +156,26 @@ test("UUID and asset-id titles are not human post details", () => {
   assert.equal(humanPublicationTitle("asset_abc", "asset_abc"), null);
 });
 
-test("living conversation overlays media; five-icon gallery rail; no white peel", () => {
-  assert.match(feed, /living-conversation-layer/);
+test("comments float over media; five-icon gallery rail; no conversation sheet", () => {
+  assert.match(feed, /FloatingComments/);
   assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
   assert.match(feed, /advanceToNextPublication/);
   assert.match(feed, /GALLERY_PHOTO_DWELL_MS/);
-  assert.match(feed, /onEnded/);
+  assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
-  assert.equal(feed.includes("post-comments__send"), false);
+  assert.equal(feed.includes("living-conversation-layer"), false);
+  assert.equal(feed.includes("CONVERSATION"), false);
   assert.equal(/<AdaptiveVideoPlayer[\s\S]*?\sloop\b/.test(feed), false);
   assert.match(styles, /html:has\(\.os-home--immersive\)/);
   assert.match(styles, /body:has\(\.os-home--immersive\)/);
   assert.match(styles, /\.living-gallery__context\s*\{[^}]*background:\s*linear-gradient/s);
-  assert.match(styles, /\.living-conversation-layer\s*\{[^}]*background:\s*linear-gradient/s);
+  assert.match(styles, /\.floating-comments/);
+  assert.match(styles, /@keyframes floating-comment-rise/);
   assert.equal(/\.living-gallery__context\s*\{[^}]*background:\s*var\(--os-surface-solid/s.test(styles), false);
-  assert.equal(/\.living-conversation-layer\s*\{[^}]*--os-surface-solid,\s*#fff/s.test(styles), false);
   assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
   assert.match(styles, /\.content-actions__row--gallery/);
-  assert.match(styles, /\.living-conversation-layer/);
-  assert.match(live, /Pause conversation/);
+  assert.match(styles, /\.living-gallery__brands/);
 });
 
 test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {

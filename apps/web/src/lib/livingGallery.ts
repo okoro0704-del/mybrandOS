@@ -18,7 +18,7 @@ export const LIVING_GALLERY_IDLE_RESUME_MS = 8000;
 export const LIVING_GALLERY_COMMENT_WINDOW = 48;
 export const LIVING_GALLERY_CAPTION_PREVIEW = 140;
 /** Collapsed post-details line clamp — measured, not character-counted. */
-export const LIVING_GALLERY_DETAILS_LINES = 4;
+export const LIVING_GALLERY_DETAILS_LINES = 2;
 
 export type LivingGalleryLayoutInput = {
   viewportW: number;
@@ -152,7 +152,7 @@ export function isLivingGalleryInteractiveTarget(target: EventTarget | null): bo
         ".living-gallery__conversation",
         ".living-gallery__composer",
         ".living-comment-lane",
-        ".living-conversation-layer",
+        ".floating-comments",
         ".living-gallery__rail",
         ".post-comments",
         ".adaptive-video__ctrl",

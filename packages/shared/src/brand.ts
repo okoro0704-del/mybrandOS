@@ -105,6 +105,8 @@ export interface PublicAssetPresentation {
   websiteUrl: string;
   downloadAvailable: boolean;
   storeAvailable: false;
+  /** Public-safe credited Digital Lives on a collaboration post. */
+  collaborators?: Array<{ slug: string; displayName?: string }>;
 }
 
 /** Intentionally smaller than `Asset`. No owner, files, jobs, intelligence, or origin internals. */

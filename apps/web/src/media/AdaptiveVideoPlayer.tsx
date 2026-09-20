@@ -59,6 +59,7 @@ export function AdaptiveVideoPlayer({
   meta,
   fillViewport = false,
   loop = false,
+  maxPlays = 1,
   preload = "metadata",
   onIntrinsic,
   onEnded,
@@ -78,6 +79,8 @@ export function AdaptiveVideoPlayer({
   /** Occupy the parent media viewport; paint with contain, never cover-crop. */
   fillViewport?: boolean;
   loop?: boolean;
+  /** Gallery videos replay locally this many times, then call onEnded. */
+  maxPlays?: number;
   preload?: "auto" | "metadata" | "none";
   onIntrinsic?: (width: number, height: number) => void;
   onEnded?: () => void;
@@ -89,6 +92,11 @@ export function AdaptiveVideoPlayer({
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
   const [paused, setPaused] = useState(!active);
   const [playBlocked, setPlayBlocked] = useState(false);
+  const playCountRef = useRef(0);
+
+  useEffect(() => {
+    playCountRef.current = 0;
+  }, [src, active]);
 
   useEffect(() => {
     let timer = 0;
@@ -229,6 +237,14 @@ export function AdaptiveVideoPlayer({
           onPause={() => setPaused(true)}
           onEnded={() => {
             if (!active || loop) return;
+            const el = videoRef.current;
+            playCountRef.current += 1;
+            const limit = Math.max(1, maxPlays);
+            if (el && playCountRef.current < limit) {
+              el.currentTime = 0;
+              void playActiveVideo(el, fillViewport ? !getImmersiveSessionMuted() : !el.muted);
+              return;
+            }
             onEnded?.();
           }}
           onError={() => {

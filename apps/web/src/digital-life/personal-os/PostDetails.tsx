@@ -8,6 +8,10 @@ export function PostDetails({
   publishedLabel,
   kind,
   visibility = "Public",
+  lines = LIVING_GALLERY_DETAILS_LINES,
+  moreLabel = "See more",
+  lessLabel = "See less",
+  hideMeta = false,
 }: {
   title?: string | null;
   body?: string | null;
@@ -15,6 +19,10 @@ export function PostDetails({
   publishedLabel?: string | null;
   kind?: string | null;
   visibility?: string | null;
+  lines?: number;
+  moreLabel?: string;
+  lessLabel?: string;
+  hideMeta?: boolean;
 }) {
   const copy = (body ?? "").trim();
   const heading = (title ?? "").trim();
@@ -22,6 +30,7 @@ export function PostDetails({
   const textRef = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
+  const clampLines = Math.max(1, lines);
 
   useLayoutEffect(() => {
     const el = textRef.current;
@@ -38,9 +47,9 @@ export function PostDetails({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [copy, heading, expanded]);
+  }, [copy, heading, expanded, clampLines]);
 
-  if (!showHeading && !copy && !publishedLabel && !kind) return null;
+  if (!showHeading && !copy && (hideMeta || (!publishedLabel && !kind))) return null;
 
   return (
     <div className="living-gallery__details">
@@ -49,7 +58,7 @@ export function PostDetails({
         <p
           ref={textRef}
           className={`living-gallery__caption${expanded ? "" : " is-collapsed"}`}
-          style={{ WebkitLineClamp: expanded ? undefined : LIVING_GALLERY_DETAILS_LINES }}
+          style={{ WebkitLineClamp: expanded ? undefined : clampLines }}
         >
           {copy}
         </p>
@@ -61,14 +70,16 @@ export function PostDetails({
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? "Less" : "More"}
+          {expanded ? lessLabel : moreLabel}
         </button>
       ) : null}
-      <p className="living-gallery__meta">
-        {publishedAt ? <time dateTime={publishedAt}>{publishedLabel}</time> : publishedLabel ? <span>{publishedLabel}</span> : null}
-        {kind ? <span>{kind}</span> : null}
-        {visibility ? <span>{visibility}</span> : null}
-      </p>
+      {hideMeta ? null : (
+        <p className="living-gallery__meta">
+          {publishedAt ? <time dateTime={publishedAt}>{publishedLabel}</time> : publishedLabel ? <span>{publishedLabel}</span> : null}
+          {kind ? <span>{kind}</span> : null}
+          {visibility ? <span>{visibility}</span> : null}
+        </p>
+      )}
     </div>
   );
 }

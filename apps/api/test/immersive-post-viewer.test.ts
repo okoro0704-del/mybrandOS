@@ -30,15 +30,16 @@ test("photo and video posts share canonical comments bound to publication id", (
   assert.equal(actions.includes("content-actions__comment-form"), false);
 });
 
-test("active video autoplays inline; gallery does not loop; inactive pauses", () => {
+test("gallery video replays once then advances on the second ended", () => {
   assert.match(player, /playsInline/);
   assert.match(player, /el\.pause\(\)/);
   assert.match(player, /playActiveVideo/);
   assert.match(player, /loop=\{loop\}/);
   assert.equal(player.includes("loop={loop || fillViewport}"), false);
   assert.match(player, /autoPlay=\{Boolean\(autoPlayMuted && active\)\}/);
-  assert.match(player, /setImmersiveSessionMuted/);
-  assert.equal(player.includes("setImmersiveSessionMuted(true)"), false);
+  assert.match(player, /maxPlays/);
+  assert.match(player, /playCountRef/);
+  assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
   assert.match(feed, /autoPlayMuted/);
   assert.match(feed, /fillViewport/);
   assert.match(feed, /active=\{active\}/);
@@ -53,21 +54,23 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details lead the publication; duplicate creator header is not in the feed", () => {
+test("post details sit under brand marks; duplicate creator card is not in the feed", () => {
   assert.match(feed, /living-gallery__context/);
+  assert.match(feed, /living-gallery__brands/);
   assert.match(feed, /<PostDetails/);
+  assert.match(feed, /<OsWordmark/);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);
   assert.equal(feed.includes("immersive-feed__copy--on"), false);
 });
 
-test("comment action opens the living conversation overlay; no second comment system", () => {
-  assert.match(feed, /onComment=\{openConversation\}/);
-  assert.match(feed, /LiveConversationStream/);
-  assert.match(feed, /living-conversation-layer/);
-  assert.match(feed, /living-gallery__composer--overlay/);
-  assert.equal(feed.includes("post-comments__send"), false);
+test("comment action floats comments over the video; no conversation sheet", () => {
+  assert.match(feed, /onComment=\{onToggleComments\}/);
+  assert.match(feed, /FloatingComments/);
+  assert.match(feed, /living-gallery__composer--float/);
+  assert.equal(feed.includes("living-conversation-layer"), false);
+  assert.equal(feed.includes("LiveConversationStream"), false);
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
 });
 

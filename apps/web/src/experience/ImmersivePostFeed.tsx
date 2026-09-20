@@ -7,23 +7,21 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import {
-  ASSET_TYPE_LABELS,
-  type PublicAssetCard,
-  type PublicBrandExperience,
-} from "@mybrandos/shared";
+import type { PublicAssetCard, PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
-import { LiveConversationStream } from "../digital-life/personal-os/LiveConversation";
+import { FloatingComments } from "../digital-life/personal-os/FloatingComments";
+import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
-import { formatRelativeTime } from "../digital-life/personal-os/osIdentity";
+import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
   activeIndexFromScroll,
   commentsSectionId,
   GALLERY_PHOTO_DWELL_MS,
+  GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
   galleryMediaKind,
   immersiveScrollBehavior,
   isEditableKeyboardTarget,
@@ -134,9 +132,8 @@ function PostSlide({
   mediaBase,
   active,
   adjacent,
-  conversationOpen,
-  onOpenConversation,
-  onCloseConversation,
+  commentMode,
+  onToggleComments,
   onVideoEnded,
 }: {
   asset: PublicAssetCard;
@@ -145,9 +142,8 @@ function PostSlide({
   basePath: string;
   active: boolean;
   adjacent: boolean;
-  conversationOpen: boolean;
-  onOpenConversation: () => void;
-  onCloseConversation: () => void;
+  commentMode: boolean;
+  onToggleComments: () => void;
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
@@ -170,12 +166,20 @@ function PostSlide({
   const [viewport, setViewport] = useState({ w: 390, h: 844 });
   const [contextH, setContextH] = useState(120);
   const [vvBottom, setVvBottom] = useState(0);
-  const [writingMode, setWritingMode] = useState(false);
 
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active,
     onCountChange: setCommentCount,
   });
+
+  const brands = useMemo(
+    () =>
+      publicationBrandMarks(
+        { slug: experience.slug, displayName: experience.identity.displayName },
+        asset.presentation?.collaborators,
+      ),
+    [experience.slug, experience.identity.displayName, asset.presentation?.collaborators],
+  );
 
   const layout = useMemo(
     () =>
@@ -228,75 +232,27 @@ function PostSlide({
   }, []);
 
   useEffect(() => {
-    if (!active) {
-      setWritingMode(false);
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (!conversationOpen) {
-      setWritingMode(false);
-      return;
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCloseConversation();
-      }
-    };
-    const onPop = () => onCloseConversation();
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("popstate", onPop);
-    };
-  }, [conversationOpen, onCloseConversation]);
+    if (commentMode && active) composerRef.current?.focus();
+  }, [commentMode, active]);
 
   function onIntrinsic(width: number, height: number) {
     setSrcW(width);
     setSrcH(height);
   }
 
-  function openConversation() {
-    if (!conversationOpen) {
-      try {
-        history.pushState({ livingConversation: asset.id }, "");
-      } catch {
-        /* ignore */
-      }
-    }
-    onOpenConversation();
-  }
-
-  function closeConversation() {
-    setWritingMode(false);
-    onCloseConversation();
-    if (typeof history.state === "object" && history.state?.livingConversation === asset.id) {
-      history.back();
-    }
-  }
-
   const presentation = videoPresentation(asset);
-  const mediaKind =
-    asset.presentationTypes.includes("REEL")
-      ? "Reel"
-      : ASSET_TYPE_LABELS[asset.assetType] || asset.assetType;
-  const published = formatRelativeTime(asset.publishedAt);
   const humanTitle = humanPublicationTitle(asset.title, asset.id);
-  const overlayTall = layout.mode === "compact" || layout.mode === "balanced";
 
   return (
     <li
       ref={slideRef}
-      className={`immersive-feed__slide living-gallery${writing ? " immersive-feed__slide--writing" : ""}${conversationOpen ? " is-conversation-open" : ""}`}
+      className={`immersive-feed__slide living-gallery${writing ? " immersive-feed__slide--writing" : ""}${commentMode ? " is-comment-mode" : ""}`}
       data-active={active ? "true" : undefined}
       data-asset-id={asset.id}
       data-publication-id={asset.id}
       data-gallery-mode={layout.mode}
       data-gallery-fit="contain"
-      data-conversation={conversationOpen ? "open" : undefined}
-      data-writing={writingMode ? "true" : undefined}
+      data-comment-mode={commentMode ? "float" : undefined}
       aria-hidden={!active}
       style={
         {
@@ -306,13 +262,24 @@ function PostSlide({
       }
     >
       <div ref={contextRef} className="living-gallery__context">
+        <div className="living-gallery__brands" data-count={String(brands.length)}>
+          {brands.map((brand) => (
+            <OsWordmark
+              key={brand.slug}
+              slug={brand.slug}
+              displayName={brand.displayName}
+              to=""
+              className="living-gallery__brand"
+              identity
+            />
+          ))}
+        </div>
         <PostDetails
           title={humanTitle}
           body={body}
-          publishedAt={asset.publishedAt}
-          publishedLabel={published}
-          kind={mediaKind}
-          visibility="Public"
+          hideMeta
+          moreLabel="See more"
+          lessLabel="See less"
         />
       </div>
 
@@ -330,6 +297,7 @@ function PostSlide({
             autoPlayMuted
             active={active}
             fillViewport
+            maxPlays={GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE}
             preload={videoPreloadForSlide(active, adjacent)}
             onIntrinsic={onIntrinsic}
             onEnded={() => {
@@ -341,9 +309,52 @@ function PostSlide({
         ) : (
           <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
         )}
+        <FloatingComments comments={social.comments} active={active && commentMode} />
       </div>
 
       <div ref={railRef} className="living-gallery__rail">
+        {commentMode ? (
+          <form
+            className="living-gallery__composer living-gallery__composer--float post-comments__composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void social.submit();
+            }}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            <label className="sr-only" htmlFor={`${commentsId}-input`}>
+              Write a comment
+            </label>
+            <textarea
+              ref={composerRef}
+              id={`${commentsId}-input`}
+              className="post-comments__input"
+              value={social.draft}
+              onChange={(e) => social.setDraft(e.target.value)}
+              placeholder="Write a comment…"
+              maxLength={2000}
+              rows={1}
+              disabled={social.busy}
+              enterKeyHint="send"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void social.submit();
+                }
+              }}
+            />
+            {social.draft.trim() ? (
+              <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
+                <Icons.send size={18} />
+              </button>
+            ) : null}
+            {social.error ? (
+              <p className="post-comments__error" role="alert">
+                {social.error}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
         <ContentActionBar
           asset={asset}
           slug={experience.slug}
@@ -352,90 +363,9 @@ function PostSlide({
           commentCount={commentCount}
           hideComposer
           variant="gallery"
-          onComment={openConversation}
+          onComment={onToggleComments}
         />
       </div>
-
-      {conversationOpen ? (
-        <>
-          <button
-            type="button"
-            className="living-conversation-layer__scrim"
-            aria-label="Close conversation"
-            onClick={closeConversation}
-          />
-          <div
-            className={`living-conversation-layer${overlayTall ? " living-conversation-layer--roomy" : ""}`}
-            data-writing={writingMode ? "true" : undefined}
-            onTouchMove={(e) => e.stopPropagation()}
-            onWheel={(e) => e.stopPropagation()}
-          >
-            <header className="living-conversation-layer__head">
-              <p>Conversation</p>
-              <button type="button" className="living-conversation-layer__close" onClick={closeConversation} aria-label="Close conversation">
-                Close
-              </button>
-            </header>
-            <div className="living-gallery__conversation" id={commentsId}>
-              <LiveConversationStream
-                comments={social.comments}
-                loading={social.loading}
-                error={social.error}
-                emptyHint="Start the conversation"
-                active={active && conversationOpen}
-                onReply={(name) => {
-                  social.startReply(name);
-                  setWritingMode(true);
-                  composerRef.current?.focus();
-                }}
-                onRetry={social.retry}
-                onUserControl={() => undefined}
-              />
-            </div>
-            <form
-              className="living-gallery__composer living-gallery__composer--overlay post-comments__composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void social.submit();
-              }}
-            >
-              <label className="sr-only" htmlFor={`${commentsId}-input`}>
-                Add a comment
-              </label>
-              <textarea
-                ref={composerRef}
-                id={`${commentsId}-input`}
-                className="post-comments__input"
-                value={social.draft}
-                onChange={(e) => social.setDraft(e.target.value)}
-                placeholder="Add a comment…"
-                maxLength={2000}
-                rows={writingMode ? 3 : 1}
-                disabled={social.busy}
-                enterKeyHint="send"
-                onFocus={() => setWritingMode(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void social.submit();
-                  }
-                }}
-              />
-              {social.draft.trim() ? (
-                <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
-                  <Icons.send size={18} />
-                </button>
-              ) : null}
-            </form>
-            {social.replyHint ? <p className="post-comments__hint">Replying to @{social.replyHint}</p> : null}
-            {social.error ? (
-              <p className="post-comments__error" role="alert">
-                {social.error}
-              </p>
-            ) : null}
-          </div>
-        </>
-      ) : null}
     </li>
   );
 }
@@ -475,9 +405,9 @@ export function ImmersivePostFeed({
   const activeIndexRef = useRef(activeIndex);
   activeIndexRef.current = activeIndex;
   const didInitScroll = useRef(false);
-  const [conversationOpen, setConversationOpen] = useState(false);
-  const conversationOpenRef = useRef(false);
-  conversationOpenRef.current = conversationOpen;
+  const [commentMode, setCommentMode] = useState(false);
+  const commentModeRef = useRef(false);
+  commentModeRef.current = commentMode;
   const pendingEndedRef = useRef(false);
   const draggingRef = useRef(false);
   const advanceGenRef = useRef(0);
@@ -499,7 +429,7 @@ export function ImmersivePostFeed({
     (reason: "photo-timeout" | "video-ended") => {
       if (
         shouldSuspendGalleryAutoAdvance({
-          commentsOpen: conversationOpenRef.current,
+          commentsOpen: commentModeRef.current,
           dragging: draggingRef.current,
           documentHidden: typeof document !== "undefined" && document.hidden,
         })
@@ -511,19 +441,15 @@ export function ImmersivePostFeed({
       if (next === activeIndexRef.current) return;
       pendingEndedRef.current = false;
       advanceGenRef.current += 1;
-      setConversationOpen(false);
+      setCommentMode(false);
       setActiveIndex(next);
       snapToIndex(next);
     },
     [items.length, snapToIndex],
   );
 
-  const enterComments = useCallback(() => {
-    setConversationOpen(true);
-  }, []);
-
-  const closeComments = useCallback(() => {
-    setConversationOpen(false);
+  const toggleComments = useCallback(() => {
+    setCommentMode((open) => !open);
   }, []);
 
   const onVideoEnded = useCallback(() => {
@@ -569,11 +495,11 @@ export function ImmersivePostFeed({
   }, []);
 
   useEffect(() => {
-    if (conversationOpen) return;
+    if (commentMode) return;
     if (!shouldAdvanceAfterCommentsClose(pendingEndedRef.current, false)) return;
     pendingEndedRef.current = false;
     advanceToNextPublication("video-ended");
-  }, [conversationOpen, advanceToNextPublication]);
+  }, [commentMode, advanceToNextPublication]);
 
   useEffect(() => {
     advanceGenRef.current += 1;
@@ -583,7 +509,7 @@ export function ImmersivePostFeed({
     if (galleryMediaKind(asset) !== "photo") return;
     if (
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: conversationOpen,
+        commentsOpen: commentMode,
         dragging: draggingRef.current,
         documentHidden,
       })
@@ -595,7 +521,7 @@ export function ImmersivePostFeed({
       advanceToNextPublication("photo-timeout");
     }, GALLERY_PHOTO_DWELL_MS);
     return () => window.clearTimeout(t);
-  }, [activeIndex, conversationOpen, documentHidden, interactionNonce, items, advanceToNextPublication]);
+  }, [activeIndex, commentMode, documentHidden, interactionNonce, items, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;
@@ -616,7 +542,7 @@ export function ImmersivePostFeed({
           advanceGenRef.current += 1;
           pendingEndedRef.current = false;
           setActiveIndex(next);
-          setConversationOpen(false);
+          setCommentMode(false);
         }
       });
     };
@@ -638,11 +564,10 @@ export function ImmersivePostFeed({
         root.matches(":focus-within");
       if (!focusOk) return;
       if (e.key === "Escape") {
-        setConversationOpen(false);
+        setCommentMode(false);
         (document.activeElement as HTMLElement | null)?.blur?.();
         return;
       }
-      if (conversationOpen) return;
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         e.preventDefault();
         advanceGenRef.current += 1;
@@ -661,7 +586,7 @@ export function ImmersivePostFeed({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [items.length, snapToIndex, conversationOpen]);
+  }, [items.length, snapToIndex]);
 
   if (!items.length) {
     return (
@@ -674,7 +599,7 @@ export function ImmersivePostFeed({
   return (
     <ul
       ref={listRef}
-      className={`immersive-feed immersive-feed--${category ?? "post"}${conversationOpen ? " is-comment-mode" : ""}`}
+      className={`immersive-feed immersive-feed--${category ?? "post"}`}
       aria-label={category === "videos" ? "Videos" : "Posts"}
       tabIndex={0}
       data-active-asset-id={activeAssetId ?? undefined}
@@ -717,9 +642,8 @@ export function ImmersivePostFeed({
             basePath={basePath}
             active={active}
             adjacent={Math.abs(index - activeIndex) === 1}
-            conversationOpen={conversationOpen && active}
-            onOpenConversation={enterComments}
-            onCloseConversation={closeComments}
+            commentMode={commentMode && active}
+            onToggleComments={toggleComments}
             onPublicationHandoff={handoffPublication}
             onVideoEnded={onVideoEnded}
           />

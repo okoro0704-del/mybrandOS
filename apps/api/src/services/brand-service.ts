@@ -42,6 +42,32 @@ import { parseWebsitePages } from "./website-service.js";
 
 const MEDIA_SLOTS: BrandMediaSlot[] = ["logo", "avatar", "cover"];
 
+function parsePublicCollaborators(
+  metadata: Record<string, unknown> | null | undefined,
+): Array<{ slug: string; displayName?: string }> {
+  const raw = metadata?.collaborators ?? metadata?.collabBrands ?? metadata?.creditBrands ?? metadata?.withBrands;
+  if (!Array.isArray(raw)) return [];
+  const marks: Array<{ slug: string; displayName?: string }> = [];
+  for (const item of raw) {
+    if (typeof item === "string") {
+      const slug = item.trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9-]/g, "");
+      if (slug) marks.push({ slug });
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const slug = String(row.slug ?? row.handle ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/^@/, "")
+      .replace(/[^a-z0-9-]/g, "");
+    if (!slug) continue;
+    const displayName = typeof row.displayName === "string" ? row.displayName : undefined;
+    marks.push(displayName ? { slug, displayName } : { slug });
+  }
+  return marks.slice(0, 4);
+}
+
 function emptyMessaging() {
   return { available: false, detail: "Messaging is currently unavailable." };
 }
@@ -99,6 +125,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
           ? publishWriteup
           : asset.description;
   }
+  presentation.collaborators = parsePublicCollaborators(asset.metadata);
   if (asset.assetType === "SOFTWARE") {
     presentation.version = typeof software.version === "string" ? software.version : "";
     presentation.developer = typeof software.developer === "string" ? software.developer : "";

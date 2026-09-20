@@ -1,4 +1,23 @@
 /** Derive personal OS wordmark from brand slug (e.g. mrfundzman → mrfundzmanOS). */
+export type PublicationBrandMark = { slug: string; displayName?: string };
+
+/** Host Digital Life plus any credited collaborator brands, without duplicates. */
+export function publicationBrandMarks(
+  host: PublicationBrandMark,
+  collaborators?: PublicationBrandMark[] | null,
+): PublicationBrandMark[] {
+  const hostSlug = (host.slug || "").trim().toLowerCase().replace(/^@/, "");
+  const marks: PublicationBrandMark[] = hostSlug
+    ? [{ slug: hostSlug, displayName: host.displayName }]
+    : [];
+  for (const item of collaborators ?? []) {
+    const slug = (item.slug || "").trim().toLowerCase().replace(/^@/, "");
+    if (!slug || marks.some((mark) => mark.slug === slug)) continue;
+    marks.push({ slug, displayName: item.displayName });
+  }
+  return marks.slice(0, 4);
+}
+
 export function personalOsName(slug: string, displayName?: string): { stem: string; suffix: string; full: string } {
   const raw = (slug || displayName || "brand")
     .trim()

@@ -14,8 +14,10 @@ import {
   videoPreloadForSlide,
   galleryMediaKind,
   GALLERY_PHOTO_DWELL_MS,
+  GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
   galleryStopsAtEnd,
   shouldAdvanceAfterCommentsClose,
+  shouldReplayVideoBeforeAdvance,
   shouldSuspendGalleryAutoAdvance,
 } from "../../web/src/lib/immersiveFeedController.ts";
 
@@ -76,6 +78,9 @@ test("preload is bounded: active auto, adjacent metadata, far none", () => {
 
 test("gallery auto-advance owner: photos dwell 5s, comments suspend navigation, gallery stops at end", () => {
   assert.equal(GALLERY_PHOTO_DWELL_MS, 5000);
+  assert.equal(GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE, 2);
+  assert.equal(shouldReplayVideoBeforeAdvance(1), true);
+  assert.equal(shouldReplayVideoBeforeAdvance(2), false);
   assert.equal(galleryMediaKind({ assetType: "VIDEO", mediaAvailable: true }), "video");
   assert.equal(galleryMediaKind({ assetType: "PHOTO", coverAvailable: true }), "photo");
   assert.equal(galleryMediaKind({ assetType: "WRITING" }), "other");

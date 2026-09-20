@@ -119,7 +119,16 @@ export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto"
 }
 
 export const GALLERY_PHOTO_DWELL_MS = 5000;
+export const GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE = 2;
 export type GalleryAdvanceReason = "photo-timeout" | "video-ended";
+
+/** First ended → replay same video. Second ended → advance. */
+export function shouldReplayVideoBeforeAdvance(
+  playsCompleted: number,
+  maxPlays = GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
+): boolean {
+  return playsCompleted > 0 && playsCompleted < maxPlays;
+}
 
 export type GalleryAutoAdvanceGate = {
   commentsOpen: boolean;
