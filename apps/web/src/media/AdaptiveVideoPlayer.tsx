@@ -48,6 +48,7 @@ export function AdaptiveVideoPlayer({
   fillViewport = false,
   loop = false,
   preload = "metadata",
+  onIntrinsic,
 }: {
   src: string;
   presentation: PresentationType;
@@ -65,6 +66,7 @@ export function AdaptiveVideoPlayer({
   fillViewport?: boolean;
   loop?: boolean;
   preload?: "auto" | "metadata" | "none";
+  onIntrinsic?: (width: number, height: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const renderedRef = useRef(false);
@@ -184,6 +186,7 @@ export function AdaptiveVideoPlayer({
             const v = e.currentTarget;
             if (v.videoWidth && v.videoHeight) {
               v.dataset.intrinsic = `${v.videoWidth}x${v.videoHeight}`;
+              onIntrinsic?.(v.videoWidth, v.videoHeight);
             }
           }}
           onLoadedData={() => {

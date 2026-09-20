@@ -21,10 +21,10 @@ test("immersive feed keeps one swipe engine and publication keys", () => {
   assert.equal(feed.includes("key={index}"), false);
 });
 
-test("photo and video posts share PostComments bound to publication id", () => {
-  assert.match(feed, /<PostComments/);
-  assert.match(feed, /publicationId=\{asset\.id\}/);
-  assert.equal((feed.match(/<PostComments/g) || []).length, 1);
+test("photo and video posts share canonical comments bound to publication id", () => {
+  const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
+  assert.match(feed, /usePublicationComments/);
+  assert.match(hook, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/comments/);
   assert.match(comments, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/comments/);
   assert.match(actions, /from "\.\/PostComments"/);
   assert.equal(actions.includes("content-actions__comment-form"), false);
@@ -49,9 +49,8 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post and creator details sit below media, not as a media overlay copy stack", () => {
-  assert.match(feed, /immersive-feed__article/);
-  assert.match(feed, /immersive-feed__details/);
+test("post and creator details sit in living context, not as a media overlay copy stack", () => {
+  assert.match(feed, /living-gallery__context/);
   assert.match(feed, /<PublicationEntityBlock/);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);
@@ -61,8 +60,8 @@ test("post and creator details sit below media, not as a media overlay copy stac
 
 test("comment action uses shared section; no second comment system", () => {
   assert.match(feed, /onComment=\{onEnterComments\}/);
-  assert.match(feed, /data-mode=\{mode\}/);
-  assert.match(feed, /is-comment-mode/);
+  assert.match(feed, /LiveConversationStream/);
+  assert.match(feed, /living-gallery__composer/);
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
 });
 

@@ -54,7 +54,7 @@ test("hysteresis avoids tiny-scroll flips", () => {
   assert.equal(activeIndexFromScroll(200, 800, 5, 0), 0);
 });
 
-test("comment mode locks feed swipe; feed mode does not", () => {
+test("comment mode helper still exists; living gallery isolates conversation scroll", () => {
   assert.equal(shouldLockFeedSwipe("comments"), true);
   assert.equal(shouldLockFeedSwipe("feed"), false);
 });
