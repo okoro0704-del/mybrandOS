@@ -119,9 +119,9 @@ test("living gallery keeps contain and transparent immersive canvas", () => {
   assert.match(styles, /\.living-comment-lane/);
 });
 
-test("shell double-tap exempts composer, floating comments, and details", () => {
+test("shell double-tap exempts composer, comments, and details", () => {
   assert.match(reveal, /living-gallery__composer/);
-  assert.match(reveal, /floating-comments/);
+  assert.match(reveal, /living-gallery__comments/);
   assert.match(reveal, /living-gallery__brands/);
   assert.match(feed, /stopPropagation/);
   assert.match(player, /fillViewport/);
@@ -156,8 +156,10 @@ test("UUID and asset-id titles are not human post details", () => {
   assert.equal(humanPublicationTitle("asset_abc", "asset_abc"), null);
 });
 
-test("comments float over media; five-icon gallery rail; no conversation sheet", () => {
-  assert.match(feed, /FloatingComments/);
+test("stacked gallery keeps brand, details, media, and comments in document flow", () => {
+  assert.match(feed, /living-gallery__brand-row/);
+  assert.match(feed, /living-gallery__comments/);
+  assert.match(feed, /CommentRow/);
   assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
   assert.match(feed, /advanceToNextPublication/);
@@ -166,16 +168,22 @@ test("comments float over media; five-icon gallery rail; no conversation sheet",
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("CONVERSATION"), false);
+  assert.equal(feed.includes("FloatingComments"), false);
   assert.equal(/<AdaptiveVideoPlayer[\s\S]*?\sloop\b/.test(feed), false);
   assert.match(styles, /html:has\(\.os-home--immersive\)/);
   assert.match(styles, /body:has\(\.os-home--immersive\)/);
-  assert.match(styles, /\.living-gallery__context\s*\{[^}]*background:\s*linear-gradient/s);
-  assert.match(styles, /\.floating-comments/);
-  assert.match(styles, /@keyframes floating-comment-rise/);
+  assert.match(styles, /\.living-gallery\s*\{[^}]*flex-direction:\s*column/s);
+  assert.match(styles, /\.living-gallery__context\s*\{[^}]*position:\s*relative/s);
+  assert.match(styles, /\.living-gallery__media,\s*\n?\.living-gallery \.immersive-feed__media\s*\{[^}]*position:\s*relative/s);
+  assert.match(styles, /\.living-gallery__rail\s*\{[^}]*position:\s*relative/s);
+  assert.match(styles, /\.living-gallery__comments\s*\{/s);
+  assert.equal(/\.living-gallery__context\s*\{[^}]*position:\s*absolute/s.test(styles), false);
   assert.equal(/\.living-gallery__context\s*\{[^}]*background:\s*var\(--os-surface-solid/s.test(styles), false);
   assert.match(styles, /\.living-gallery__caption\.is-collapsed/);
   assert.match(styles, /\.content-actions__row--gallery/);
   assert.match(styles, /\.living-gallery__brands/);
+  assert.match(styles, /--os-bottom-nav-h/);
+  assert.match(styles, /data-reveal-shell\]:has\(\.os-home--immersive\) \.os-bottom-nav\s*\{[^}]*bottom:\s*0/s);
 });
 
 test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {

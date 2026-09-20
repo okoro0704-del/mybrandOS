@@ -10,7 +10,7 @@ import {
 } from "../../lib/livingGallery";
 import { prefersReducedMotion } from "../../lib/immersiveFeedController";
 
-function CommentRow({
+export function CommentRow({
   comment,
   onReply,
 }: {

@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { PublicAssetCard, PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
-import { FloatingComments } from "../digital-life/personal-os/FloatingComments";
+import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
@@ -252,7 +252,7 @@ function PostSlide({
       data-publication-id={asset.id}
       data-gallery-mode={layout.mode}
       data-gallery-fit="contain"
-      data-comment-mode={commentMode ? "float" : undefined}
+      data-comment-mode={commentMode ? "open" : undefined}
       aria-hidden={!active}
       style={
         {
@@ -262,17 +262,19 @@ function PostSlide({
       }
     >
       <div ref={contextRef} className="living-gallery__context">
-        <div className="living-gallery__brands" data-count={String(brands.length)}>
-          {brands.map((brand) => (
-            <OsWordmark
-              key={brand.slug}
-              slug={brand.slug}
-              displayName={brand.displayName}
-              to=""
-              className="living-gallery__brand"
-              identity
-            />
-          ))}
+        <div className="living-gallery__brand-row">
+          <div className="living-gallery__brands" data-count={String(brands.length)}>
+            {brands.map((brand) => (
+              <OsWordmark
+                key={brand.slug}
+                slug={brand.slug}
+                displayName={brand.displayName}
+                to=""
+                className="living-gallery__brand"
+                identity
+              />
+            ))}
+          </div>
         </div>
         <PostDetails
           title={humanTitle}
@@ -309,52 +311,68 @@ function PostSlide({
         ) : (
           <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
         )}
-        <FloatingComments comments={social.comments} active={active && commentMode} />
       </div>
 
-      <div ref={railRef} className="living-gallery__rail">
-        {commentMode ? (
-          <form
-            className="living-gallery__composer living-gallery__composer--float post-comments__composer"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void social.submit();
-            }}
-            onTouchMove={(e) => e.stopPropagation()}
-          >
-            <label className="sr-only" htmlFor={`${commentsId}-input`}>
-              Write a comment
-            </label>
-            <textarea
-              ref={composerRef}
-              id={`${commentsId}-input`}
-              className="post-comments__input"
-              value={social.draft}
-              onChange={(e) => social.setDraft(e.target.value)}
-              placeholder="Write a comment…"
-              maxLength={2000}
-              rows={1}
-              disabled={social.busy}
-              enterKeyHint="send"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void social.submit();
-                }
-              }}
-            />
-            {social.draft.trim() ? (
-              <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
-                <Icons.send size={18} />
+      <section className="living-gallery__comments" id={commentsId} aria-label="Comments">
+        <div className="living-gallery__conversation" onTouchMove={(e) => e.stopPropagation()}>
+          {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
+          {social.error ? (
+            <p className="living-gallery__status living-gallery__status--error" role="alert">
+              {social.error}{" "}
+              <button type="button" className="living-comment__reply" onClick={social.retry}>
+                Retry
               </button>
-            ) : null}
-            {social.error ? (
-              <p className="post-comments__error" role="alert">
-                {social.error}
-              </p>
-            ) : null}
-          </form>
-        ) : null}
+            </p>
+          ) : null}
+          {!social.loading && social.comments.length === 0 ? (
+            <p className="living-gallery__empty">Be the first to comment</p>
+          ) : null}
+          {social.comments.slice(-8).map((comment) => (
+            <CommentRow
+              key={comment.id}
+              comment={comment}
+              onReply={social.startReply}
+            />
+          ))}
+        </div>
+        <form
+          className="living-gallery__composer living-gallery__composer--flow post-comments__composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void social.submit();
+          }}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <label className="sr-only" htmlFor={`${commentsId}-input`}>
+            Write a comment
+          </label>
+          <textarea
+            ref={composerRef}
+            id={`${commentsId}-input`}
+            className="post-comments__input"
+            value={social.draft}
+            onChange={(e) => social.setDraft(e.target.value)}
+            placeholder="Write a comment…"
+            maxLength={2000}
+            rows={1}
+            disabled={social.busy}
+            enterKeyHint="send"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void social.submit();
+              }
+            }}
+          />
+          {social.draft.trim() ? (
+            <button type="submit" className="living-gallery__send" disabled={social.busy} aria-label={social.busy ? "Posting" : "Send comment"}>
+              <Icons.send size={18} />
+            </button>
+          ) : null}
+        </form>
+      </section>
+
+      <div ref={railRef} className="living-gallery__rail">
         <ContentActionBar
           asset={asset}
           slug={experience.slug}

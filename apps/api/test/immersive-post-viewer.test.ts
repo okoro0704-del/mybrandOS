@@ -56,6 +56,7 @@ test("online/offline does not remount rendered media", () => {
 
 test("post details sit under brand marks; duplicate creator card is not in the feed", () => {
   assert.match(feed, /living-gallery__context/);
+  assert.match(feed, /living-gallery__brand-row/);
   assert.match(feed, /living-gallery__brands/);
   assert.match(feed, /<PostDetails/);
   assert.match(feed, /<OsWordmark/);
@@ -65,10 +66,11 @@ test("post details sit under brand marks; duplicate creator card is not in the f
   assert.equal(feed.includes("immersive-feed__copy--on"), false);
 });
 
-test("comment action floats comments over the video; no conversation sheet", () => {
+test("comment action opens the in-flow comment section; no conversation sheet", () => {
   assert.match(feed, /onComment=\{onToggleComments\}/);
-  assert.match(feed, /FloatingComments/);
-  assert.match(feed, /living-gallery__composer--float/);
+  assert.match(feed, /living-gallery__comments/);
+  assert.match(feed, /living-gallery__composer--flow/);
+  assert.equal(feed.includes("FloatingComments"), false);
   assert.equal(feed.includes("living-conversation-layer"), false);
   assert.equal(feed.includes("LiveConversationStream"), false);
   assert.equal((comments.match(/export function PostComments/g) || []).length, 1);
