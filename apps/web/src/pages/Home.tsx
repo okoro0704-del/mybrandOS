@@ -53,9 +53,9 @@ export function HomePage() {
     <section className="page home-page">
       <header className="page-head">
         <div className="eyebrow">Studio</div>
-        <h1>{home.greeting}</h1>
+        <h1 className="home-greeting">{home.greeting}</h1>
         <p>Operate your Digital Life. Publish when ready.</p>
-        <div className="actions" style={{ marginTop: "0.85rem" }}>
+        <div className="actions home-hero-actions">
           {brand?.slug ? (
             <AppLink className="btn" to={publicExperiencePath(brand.slug)}>
               View public app

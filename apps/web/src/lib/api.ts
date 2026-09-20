@@ -44,3 +44,47 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return (await res.json()) as T;
 }
+
+export function uploadForm<T>(
+  path: string,
+  form: FormData,
+  onProgress?: (percent: number | null) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("x-mybrandos-host", window.location.hostname);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (!onProgress) return;
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      } else {
+        onProgress(null);
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "request_failed", "Upload failed. Retry."));
+    xhr.onload = () => {
+      let parsed: { error?: string; message?: string } = {};
+      try {
+        parsed = JSON.parse(xhr.responseText || "{}") as { error?: string; message?: string };
+      } catch {
+        /* ignore */
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(
+          new ApiError(
+            xhr.status,
+            parsed.error ?? "request_failed",
+            parsed.message ?? (xhr.statusText || "Upload failed. Retry."),
+          ),
+        );
+        return;
+      }
+      resolve(parsed as T);
+    };
+    xhr.send(form);
+  });
+}

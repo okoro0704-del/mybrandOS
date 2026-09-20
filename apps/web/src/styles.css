@@ -130,6 +130,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-height: 100dvh;
   display: grid;
   grid-template-columns: var(--rail) 1fr;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 .rail {
@@ -205,12 +207,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .stage {
   min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
   padding: calc(1.25rem + var(--safe-top)) 1.5rem calc(6.5rem + var(--safe-bottom));
 }
 
-.page { width: min(1120px, 100%); margin: 0 auto; }
+.page { width: min(1120px, 100%); margin: 0 auto; min-width: 0; }
 .page-head { margin-bottom: 1.4rem; }
-.page-head h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+.page-head h1, .home-greeting {
+  font-size: clamp(1.45rem, 4.8vw, 2.6rem);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.home-hero-actions { margin-top: 0.85rem; }
 .page-head p { margin: 0; color: var(--bos-muted); max-width: 52ch; line-height: 1.55; }
 .home-page { display: grid; gap: 1.75rem; }
 .home-section { display: grid; gap: 0.75rem; }
@@ -244,8 +253,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .stat b {
   display: block;
   font-family: var(--bos-display);
-  font-size: 1.8rem;
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .chip {
@@ -371,7 +381,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   gap: 1rem;
   padding: 0.8rem 0;
   border-bottom: 1px solid var(--bos-border);
+  min-width: 0;
 }
+.list-row > div { min-width: 0; }
+.list-row strong { overflow-wrap: anywhere; word-break: break-word; }
 
 .list-row:last-child { border-bottom: 0; }
 
@@ -435,11 +448,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0.18rem;
     color: var(--bos-muted);
-    font-size: 0.68rem;
+    font-size: clamp(0.52rem, 2.4vw, 0.68rem);
     text-decoration: none;
-    padding: 0.35rem 0;
+    padding: 0.35rem 0.15rem;
+    min-width: 0;
+    min-height: 44px;
+    overflow: hidden;
+  }
+  .dock-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .dock a.active { color: var(--bos-accent-strong); }
   .more-sheet.open {
@@ -466,6 +489,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (max-width: 640px) {
   .grid-2, .grid-3, .grid-4, .launch-grid { grid-template-columns: 1fr; }
   .mode-row { flex-direction: column; }
+  .home-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .home-hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .publish-source-tabs button { font-size: 0.8rem; }
+  .dock { padding-left: 0.2rem; padding-right: 0.2rem; }
 }
 
 .drop {
@@ -650,13 +687,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .book-modal .panel { width: min(520px, 100%); max-height: 90vh; overflow: auto; }
 .asset-workspace details { position: relative; }
-.asset-workspace details .panel { min-width: 260px; }
+.asset-workspace details .panel { min-width: min(260px, 100%); }
 .asset-action-bar { flex-wrap: wrap; }
 
 @media (max-width: 980px) {
   .mobile-only { display: inline-flex; }
   .desktop-only { display: none !important; }
   .asset-workspace .workspace-tabs { margin-bottom: 0.4rem; }
+  .asset-workspace details .panel { min-width: 0; width: 100%; }
   .book-modal { align-items: end; place-items: end center; }
   .book-modal .panel { width: 100%; max-height: 78vh; border-radius: 20px 20px 8px 8px; }
   .book-layout { grid-template-columns: 1fr; }
@@ -1509,7 +1547,7 @@ button.linkish {
 }
 
 /* Publish Center */
-.publish-center { max-width: 560px; margin: 0 auto; }
+.publish-center { max-width: 36rem; width: min(36rem, 100%); margin: 0 auto; min-width: 0; }
 .publish-head {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
@@ -1559,6 +1597,7 @@ button.linkish {
   justify-content: space-between;
   gap: 0.75rem;
   width: 100%;
+  min-width: 0;
   text-align: left;
   padding: 0.95rem 1rem;
   border-radius: 16px;
@@ -1567,7 +1606,11 @@ button.linkish {
   color: var(--bos-text);
   cursor: pointer;
 }
-.publish-row span { display: flex; flex-direction: column; gap: 0.2rem; }
+.publish-row span { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.publish-row strong, .publish-filename {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .publish-row.selected, .publish-radio.on {
   border-color: rgba(212, 162, 76, 0.45);
   background: var(--bos-accent-soft);
@@ -1587,6 +1630,132 @@ button.linkish {
   cursor: pointer;
 }
 .publish-source-card.disabled { opacity: 0.55; cursor: not-allowed; }
+.publish-source-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: calc(100dvh - 12rem);
+  min-width: 0;
+}
+.publish-source-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.publish-source-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  background: linear-gradient(180deg, transparent, var(--bos-bg) 18%);
+}
+.publish-source-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 16px;
+  border: 1px solid var(--bos-border);
+  background: var(--bos-elevated);
+}
+.publish-source-tabs button {
+  min-height: 44px;
+  min-width: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bos-muted);
+  cursor: pointer;
+  font-weight: 650;
+}
+.publish-source-tabs button.active {
+  background: var(--bos-accent-soft);
+  color: var(--bos-accent-strong);
+}
+.publish-choose-file {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  padding: 1.5rem 1rem;
+  border-radius: 18px;
+  border: 1px dashed rgba(212, 162, 76, 0.35);
+  background: rgba(212, 162, 76, 0.04);
+}
+.publish-choose-file-btn { min-height: 44px; }
+.publish-media-preview {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.publish-media-preview img,
+.publish-media-preview video {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(52vh, 28rem);
+  object-fit: contain;
+  background: transparent;
+  border-radius: 12px;
+}
+.publish-upload-status { margin: 0; }
+.publish-upload-fail {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+.publish-setup, .publish-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.publish-writeup textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+}
+.publish-config-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--bos-border);
+  background: var(--bos-surface);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.publish-config-row span {
+  overflow-wrap: anywhere;
+  color: var(--bos-muted);
+}
+.publish-config-row strong {
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 14rem;
+}
+.publish-config-panel {
+  display: grid;
+  gap: 0.5rem;
+}
+.publish-review-writeup {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
 .publish-privacy-note { margin-top: 0.5rem; }
 .publish-radio, .publish-toggle {
   display: flex;
@@ -1604,13 +1773,14 @@ button.linkish {
 .publish-summary { margin: 0.75rem 0 0; }
 .publish-summary div {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: minmax(5.5rem, 7.5rem) minmax(0, 1fr);
   gap: 0.5rem;
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--bos-border);
+  min-width: 0;
 }
 .publish-summary dt { color: var(--bos-muted); }
-.publish-summary dd { margin: 0; }
+.publish-summary dd { margin: 0; overflow-wrap: anywhere; word-break: break-word; }
 .publish-success-mark {
   width: 84px;
   height: 84px;

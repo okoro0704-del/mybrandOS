@@ -261,7 +261,7 @@ export async function listPublishSources(
       detail: PUBLISH_SOURCE_DETAILS[id],
       available: true,
       connection: "AVAILABLE" as const,
-      reason: "Import a URL or use Import for external files.",
+      reason: "Choose a file from this device.",
     };
   });
 }

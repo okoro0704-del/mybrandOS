@@ -737,3 +737,33 @@ test("video publish requires presentation, preserves master rendition, projects 
   assert.equal(card!.mediaAvailable, true);
   assert.deepEqual(card!.presentationTypes, ["WATCH"]);
 });
+
+test("publish without a supplied title keeps the existing asset title", async () => {
+  const draft = await createAsset({
+    ownerId: OWNER,
+    title: "Internal Harbor File",
+    description: "",
+    assetType: "WRITING",
+    origin: "CREATED_INTERNAL",
+    status: "DRAFT",
+    visibility: "private",
+    metadata: { writing: { body: "Caption lives here.", form: "POST" } },
+  });
+  const published = await executePublish(
+    OWNER,
+    {
+      assetId: draft.id,
+      writeup: "Say something about this.",
+      visibility: "public",
+      rights: { allowEmbedding: true, allowSharing: true, allowReuse: false, allowDownload: false },
+      scheduleMode: "now",
+      category: "content",
+      contentFormat: "text",
+    },
+    primitives(),
+  );
+  assert.equal(published.status, "PUBLISHED");
+  const row = await prisma.asset.findUniqueOrThrow({ where: { id: draft.id } });
+  assert.equal(row.title, "Internal Harbor File");
+  assert.equal(row.description, "Say something about this.");
+});

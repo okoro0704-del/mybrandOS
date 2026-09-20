@@ -146,7 +146,7 @@ export function OsShell() {
               end={item.path === "/"}
             >
               <Icon size={18} />
-              {item.label}
+              <span className="dock-label">{item.label}</span>
             </NavLink>
           );
         })}
@@ -159,7 +159,7 @@ export function OsShell() {
           }}
         >
           <Icons.settings size={18} />
-          More
+          <span className="dock-label">More</span>
         </a>
       </nav>
 

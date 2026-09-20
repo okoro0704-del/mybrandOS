@@ -67,15 +67,15 @@ export const PUBLISH_SOURCES = ["drafts", "drive", "external"] as const;
 export type PublishSourceId = (typeof PUBLISH_SOURCES)[number];
 
 export const PUBLISH_SOURCE_LABELS: Record<PublishSourceId, string> = {
-  drafts: "From Drafts",
-  drive: "From Drive",
-  external: "From External",
+  drafts: "Draft",
+  drive: "Drive",
+  external: "External",
 };
 
 export const PUBLISH_SOURCE_DETAILS: Record<PublishSourceId, string> = {
   drafts: "Use a previously saved draft.",
   drive: "Choose from your DataZone Drive.",
-  external: "Import from a URL, YouTube, social media or another platform.",
+  external: "Choose a file from this device.",
 };
 
 export const PUBLISH_VISIBILITIES = ["public", "unlisted", "private"] as const;
