@@ -20,6 +20,10 @@ import {
   shouldReplayVideoBeforeAdvance,
   shouldSuspendGalleryAutoAdvance,
   resolveGalleryVideoTap,
+  resolveGalleryVideoAction,
+  getSoundEnabledByUser,
+  setSoundEnabledByUser,
+  getImmersiveSessionMuted,
   GALLERY_VIDEO_TAP_MS,
 } from "../../web/src/lib/immersiveFeedController.ts";
 
@@ -102,4 +106,29 @@ test("neutral video tap pauses; double-tap and interactive targets do not", () =
   assert.equal(resolveGalleryVideoTap({ interactive: false, moved: false, dt: 120 }), "double-tap");
   assert.equal(resolveGalleryVideoTap({ interactive: true, moved: false, dt: 0 }), "ignore");
   assert.equal(resolveGalleryVideoTap({ interactive: false, moved: true, dt: 0 }), "ignore");
+});
+
+test("first eligible tap unmutes; later taps pause and resume; sound preference survives", () => {
+  assert.equal(
+    resolveGalleryVideoAction({ gesture: "playback", muted: true, paused: false }),
+    "unmute",
+  );
+  assert.equal(
+    resolveGalleryVideoAction({ gesture: "playback", muted: false, paused: false }),
+    "pause",
+  );
+  assert.equal(
+    resolveGalleryVideoAction({ gesture: "playback", muted: false, paused: true }),
+    "resume",
+  );
+  assert.equal(
+    resolveGalleryVideoAction({ gesture: "double-tap", muted: true, paused: false }),
+    "ignore",
+  );
+  setSoundEnabledByUser(true);
+  assert.equal(getSoundEnabledByUser(), true);
+  assert.equal(getImmersiveSessionMuted(), false);
+  setSoundEnabledByUser(false);
+  assert.equal(getSoundEnabledByUser(), false);
+  assert.equal(getImmersiveSessionMuted(), true);
 });

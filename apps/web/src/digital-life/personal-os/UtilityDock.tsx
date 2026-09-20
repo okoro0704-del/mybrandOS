@@ -4,6 +4,37 @@ import { joinPublicPath } from "@mybrandos/shared";
 import { Icons } from "../../nav/icons";
 import { useRevealChrome } from "./RevealChromeContext";
 
+/** Canonical LIVE control (visible product name "Life" in immersive bottom bar). */
+export function LiveControl({
+  experience,
+  basePath,
+  className = "",
+  tabIndex,
+  onNavigate,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  className?: string;
+  tabIndex?: number;
+  onNavigate?: () => void;
+}) {
+  const live = experience.liveNow;
+  const livePath = joinPublicPath(basePath, "live");
+  return (
+    <Link
+      className={`os-dock__live ${live ? "os-dock__live--on" : "os-dock__live--off"}${className ? ` ${className}` : ""}`}
+      to={livePath}
+      aria-label={live ? `Life, live now: ${live.title}` : "Life"}
+      data-life-control="live"
+      tabIndex={tabIndex}
+      onClick={() => onNavigate?.()}
+    >
+      <span className="os-dock__live-dot" aria-hidden />
+      <span className="os-dock__live-label">LIVE</span>
+    </Link>
+  );
+}
+
 export function UtilityDock({
   experience,
   basePath,
@@ -11,6 +42,7 @@ export function UtilityDock({
   onMessages,
   immersiveDock = false,
   chromeHidden = false,
+  hideLive = false,
 }: {
   experience: PublicBrandExperience;
   basePath: string;
@@ -19,9 +51,9 @@ export function UtilityDock({
   /** Home IMMERSIVE_FEED: dock sits in the bottom-nav safe slot. */
   immersiveDock?: boolean;
   chromeHidden?: boolean;
+  /** When true, LIVE/Life lives in the immersive bottom section bar instead. */
+  hideLive?: boolean;
 }) {
-  const live = experience.liveNow;
-  const livePath = joinPublicPath(basePath, "live");
   const reveal = useRevealChrome();
 
   function act(fn: () => void) {
@@ -47,28 +79,13 @@ export function UtilityDock({
         <Icons.bell size={20} />
       </button>
 
-      {live ? (
-        <Link
-          className="os-dock__live os-dock__live--on"
-          to={livePath}
-          aria-label={`Live now: ${live.title}`}
+      {hideLive ? null : (
+        <LiveControl
+          experience={experience}
+          basePath={basePath}
           tabIndex={chromeHidden ? -1 : undefined}
-          onClick={() => reveal?.selectDestination()}
-        >
-          <span className="os-dock__live-dot" aria-hidden />
-          <span className="os-dock__live-label">LIVE</span>
-        </Link>
-      ) : (
-        <Link
-          className="os-dock__live os-dock__live--off"
-          to={livePath}
-          aria-label="Live is offline"
-          tabIndex={chromeHidden ? -1 : undefined}
-          onClick={() => reveal?.selectDestination()}
-        >
-          <span className="os-dock__live-dot" aria-hidden />
-          <span className="os-dock__live-label">LIVE</span>
-        </Link>
+          onNavigate={() => reveal?.selectDestination()}
+        />
       )}
 
       <button

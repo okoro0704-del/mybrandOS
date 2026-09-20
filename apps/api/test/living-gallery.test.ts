@@ -260,3 +260,34 @@ test("owner OS identity is a shell landmark; keyboard overlays instead of resizi
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
   assert.match(styles, /env\(safe-area-inset-top/);
 });
+
+test("comments toggle over video; Life moves into transparent bottom bar; no white hood", () => {
+  const dock = readFileSync(join(root, "apps/web/src/digital-life/personal-os/UtilityDock.tsx"), "utf8");
+  const media = readFileSync(join(root, "apps/api/src/services/brand-service.ts"), "utf8");
+  assert.match(feed, /commentsOpen=\{commentMode\}/);
+  assert.match(feed, /onComment=\{onToggleComments\}/);
+  assert.match(feed, /setCommentMode\(\(open\) => !open\)/);
+  assert.match(feed, /useState\(false\)/);
+  assert.match(feed, /<LiveControl/);
+  assert.match(feed, /living-gallery__bottom-bar/);
+  assert.match(feed, /data-section-bar="bottom"/);
+  assert.match(dock, /data-life-control="live"/);
+  assert.match(dock, /os-dock__live-label">LIVE</);
+  assert.equal((dock.match(/os-dock__live-label">LIVE</g) || []).length, 1);
+  assert.match(actions, /commentsOpen\?: boolean/);
+  assert.match(player, /resolveGalleryVideoAction/);
+  assert.match(player, /enableSoundFromGesture/);
+  assert.match(player, /setSoundEnabledByUser/);
+  assert.equal(player.includes("adaptive-video__controls"), false);
+  assert.equal(feed.includes("contenteditable"), false);
+  assert.equal(/custom keyboard|qwerty/i.test(feed), false);
+  assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-dock \.os-dock__live\s*\{[^}]*display:\s*none/s);
+  assert.match(styles, /\.personal-os:has\(\.os-home--immersive\)\s*\{[^}]*background:\s*transparent\s*!important/s);
+  assert.equal(/\.personal-os:has\(\.os-home--immersive\) \.os-dock--immersive[\s\S]{0,280}background:\s*rgba\(255,\s*255,\s*255,\s*0\.94\)/.test(styles), false);
+  assert.match(styles, /\.living-gallery__bottom-bar[\s\S]{0,180}background:\s*transparent/);
+  assert.match(styles, /\.living-comments-layer[\s\S]{0,400}background:\s*transparent/);
+  assert.match(styles, /env\(safe-area-inset-bottom/);
+  assert.match(media, /export async function getPublicAssetMedia/);
+  assert.match(media, /return readAssetCover\(asset\.dataZoneId, primitives\)/);
+  assert.equal(/ffmpeg|transcode/i.test(media), false);
+});

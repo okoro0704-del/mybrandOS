@@ -3,8 +3,11 @@ import type { PresentationType } from "@mybrandos/shared";
 import {
   GALLERY_VIDEO_TAP_MS,
   getImmersiveSessionMuted,
+  getSoundEnabledByUser,
+  resolveGalleryVideoAction,
   resolveGalleryVideoTap,
   setImmersiveSessionMuted,
+  setSoundEnabledByUser,
 } from "../lib/immersiveFeedController";
 
 export type AdaptiveLayoutMode = "portrait" | "landscape";
@@ -156,11 +159,16 @@ export function AdaptiveVideoPlayer({
     if (!autoPlayMuted) return;
     const wantSound = fillViewport ? !getImmersiveSessionMuted() : false;
     el.muted = !wantSound;
+    if (fillViewport && !(el.volume > 0)) el.volume = 1;
     setMuted(!wantSound);
     void playActiveVideo(el, wantSound).then((result) => {
       setMuted(result.muted);
       setPaused(!result.playing);
       setPlayBlocked(!result.playing);
+      if (fillViewport && wantSound && result.muted) {
+        setSoundEnabledByUser(false);
+        setImmersiveSessionMuted(true);
+      }
     });
   }, [autoPlayMuted, src, active, fillViewport]);
 
@@ -187,6 +195,27 @@ export function AdaptiveVideoPlayer({
   const reelLandscape = !fillViewport && presentation === "REEL" && layout === "landscape";
   const showMeta = Boolean(meta) && !landscapeImmersive && !fillViewport;
 
+  function applyPlayResult(result: PlayAttemptResult) {
+    setMuted(result.muted);
+    setPaused(!result.playing);
+    setPlayBlocked(!result.playing);
+    if (fillViewport) {
+      setSoundEnabledByUser(!result.muted);
+      setImmersiveSessionMuted(result.muted);
+    }
+  }
+
+  function enableSoundFromGesture() {
+    const el = videoRef.current;
+    if (!el) return;
+    el.volume = el.volume > 0 ? el.volume : 1;
+    setSoundEnabledByUser(true);
+    setImmersiveSessionMuted(false);
+    void playActiveVideo(el, true).then((result) => {
+      applyPlayResult(result);
+    });
+  }
+
   function toggleMute() {
     const el = videoRef.current;
     if (!el) return;
@@ -194,11 +223,10 @@ export function AdaptiveVideoPlayer({
     el.muted = next;
     setMuted(next);
     setImmersiveSessionMuted(next);
+    setSoundEnabledByUser(!next);
     if (!next && el.paused) {
       void playActiveVideo(el, true).then((result) => {
-        setMuted(result.muted);
-        setPaused(!result.playing);
-        setPlayBlocked(!result.playing);
+        applyPlayResult(result);
       });
     }
   }
@@ -207,10 +235,8 @@ export function AdaptiveVideoPlayer({
     const el = videoRef.current;
     if (!el) return;
     if (el.paused) {
-      void playActiveVideo(el, !el.muted).then((result) => {
-        setMuted(result.muted);
-        setPaused(!result.playing);
-        setPlayBlocked(!result.playing);
+      void playActiveVideo(el, fillViewport ? getSoundEnabledByUser() : !el.muted).then((result) => {
+        applyPlayResult(result);
       });
     } else {
       el.pause();
@@ -250,7 +276,14 @@ export function AdaptiveVideoPlayer({
     }
     tapTimerRef.current = window.setTimeout(() => {
       tapTimerRef.current = 0;
-      togglePlay();
+      const el = videoRef.current;
+      const action = resolveGalleryVideoAction({
+        gesture: "playback",
+        muted: Boolean(el?.muted ?? muted),
+        paused: Boolean(el?.paused ?? paused),
+      });
+      if (action === "unmute") enableSoundFromGesture();
+      else if (action === "pause" || action === "resume") togglePlay();
     }, GALLERY_VIDEO_TAP_MS);
   }
 
@@ -286,6 +319,8 @@ export function AdaptiveVideoPlayer({
           playsInline
           muted={Boolean(autoPlayMuted || fillViewport) ? muted : undefined}
           autoPlay={Boolean(autoPlayMuted && active)}
+          data-sound-enabled={fillViewport ? String(getSoundEnabledByUser() && !muted) : undefined}
+          data-session-muted={fillViewport ? String(getImmersiveSessionMuted()) : undefined}
           loop={loop}
           preload={preload}
           aria-label={fillViewport ? (paused ? "Video, paused. Activate to play." : "Video, playing. Activate to pause.") : undefined}

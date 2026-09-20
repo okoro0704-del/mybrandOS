@@ -30,6 +30,7 @@ export function ContentActionBar({
   creatorLabel,
   onComment,
   commentCount,
+  commentsOpen: commentsOpenProp,
   hideComposer = false,
   variant = "default",
 }: {
@@ -40,6 +41,7 @@ export function ContentActionBar({
   /** When set, Comment opens the shared conversation layer instead of a second UI. */
   onComment?: () => void;
   commentCount?: number;
+  commentsOpen?: boolean;
   hideComposer?: boolean;
   variant?: "default" | "compact" | "gallery";
 }) {
@@ -245,6 +247,7 @@ export function ContentActionBar({
 
   const commentsTotal = commentCount ?? social.comments.length;
   const galleryActions = variant === "gallery" || variant === "compact";
+  const commentSelected = Boolean(onComment ? commentsOpenProp : commentsOpen);
 
   return (
     <div className={`content-actions${galleryActions ? " content-actions--gallery content-actions--compact" : ""}`}>
@@ -264,6 +267,7 @@ export function ContentActionBar({
             count={commentsTotal}
             numeric
             iconOnly
+            active={commentSelected}
             onClick={() => {
               if (onComment) {
                 onComment();

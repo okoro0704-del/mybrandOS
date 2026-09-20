@@ -101,7 +101,12 @@ export function commentsSectionId(publicationId: string): string {
   return `post-comments-${publicationId}`;
 }
 
-/** Session mute for immersive autoplay — survives slide swaps, not remounts of the player. */
+/**
+ * Session mute for immersive autoplay.
+ * Starts muted because mobile browsers typically allow autoplay only while muted.
+ * Survives comments, composer focus, and slide swaps — not a player remount.
+ * Canonical preference name: soundEnabledByUser === !immersiveSessionMuted.
+ */
 let immersiveSessionMuted = true;
 
 export function getImmersiveSessionMuted(): boolean {
@@ -110,6 +115,14 @@ export function getImmersiveSessionMuted(): boolean {
 
 export function setImmersiveSessionMuted(muted: boolean): void {
   immersiveSessionMuted = muted;
+}
+
+export function getSoundEnabledByUser(): boolean {
+  return !immersiveSessionMuted;
+}
+
+export function setSoundEnabledByUser(enabled: boolean): void {
+  immersiveSessionMuted = !enabled;
 }
 
 export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto" | "metadata" | "none" {
@@ -134,6 +147,20 @@ export function resolveGalleryVideoTap(opts: {
   const windowMs = opts.doubleTapMs ?? GALLERY_VIDEO_DOUBLE_TAP_MS;
   if (opts.dt > 0 && opts.dt <= windowMs) return "double-tap";
   return "playback";
+}
+
+/**
+ * First eligible video tap enables sound (autoplay started muted).
+ * Later taps pause / resume. Comments never own this gesture.
+ */
+export function resolveGalleryVideoAction(opts: {
+  gesture: "playback" | "double-tap" | "ignore";
+  muted: boolean;
+  paused: boolean;
+}): "ignore" | "unmute" | "pause" | "resume" {
+  if (opts.gesture !== "playback") return "ignore";
+  if (opts.muted) return "unmute";
+  return opts.paused ? "resume" : "pause";
 }
 export type GalleryAdvanceReason = "photo-timeout" | "video-ended";
 

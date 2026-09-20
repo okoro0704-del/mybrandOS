@@ -12,6 +12,7 @@ import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
+import { LiveControl } from "../digital-life/personal-os/UtilityDock";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
 import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
@@ -131,6 +132,7 @@ function PostSlide({
   asset,
   experience,
   mediaBase,
+  basePath,
   active,
   adjacent,
   commentMode,
@@ -360,6 +362,19 @@ function PostSlide({
                 rows={1}
                 disabled={social.busy}
                 enterKeyHint="send"
+                autoComplete="off"
+                autoCorrect="on"
+                spellCheck
+                style={{ scrollMargin: 0 }}
+                onFocus={() => {
+                  const root = slideRef.current?.closest(".immersive-feed");
+                  if (root instanceof HTMLElement) {
+                    const locked = root.scrollTop;
+                    requestAnimationFrame(() => {
+                      root.scrollTop = locked;
+                    });
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -378,19 +393,28 @@ function PostSlide({
 
         <div
           ref={railRef}
-          className="living-gallery__rail"
+          className="living-gallery__rail living-gallery__bottom-bar"
+          data-section-bar="bottom"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <ContentActionBar
-            asset={asset}
-            slug={experience.slug}
-            mediaBase={mediaBase}
-            creatorLabel={author}
-            commentCount={commentCount}
-            hideComposer
-            variant="gallery"
-            onComment={onToggleComments}
-          />
+          <div className="living-gallery__section-bar">
+            <ContentActionBar
+              asset={asset}
+              slug={experience.slug}
+              mediaBase={mediaBase}
+              creatorLabel={author}
+              commentCount={commentCount}
+              commentsOpen={commentMode}
+              hideComposer
+              variant="gallery"
+              onComment={onToggleComments}
+            />
+            <LiveControl
+              experience={experience}
+              basePath={basePath}
+              className="living-gallery__life"
+            />
+          </div>
         </div>
       </div>
     </li>
