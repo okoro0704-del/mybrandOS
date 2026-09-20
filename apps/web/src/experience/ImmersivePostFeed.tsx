@@ -26,6 +26,7 @@ import {
 } from "../lib/commentKeyboard";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
 import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
+import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
   activeIndexFromScroll,
@@ -449,47 +450,58 @@ function PostSlide({
               </div>
             ) : null}
             <div className="living-gallery__composer living-gallery__composer--float post-comments__composer">
-              {inputMode === "system" ? (
-                <>
-                  <label className="sr-only" htmlFor={`${commentsId}-input`}>
-                    Write a comment
-                  </label>
-                  <textarea
-                    ref={composerRef}
-                    id={`${commentsId}-input`}
-                    className="post-comments__input"
-                    value={social.draft}
-                    onChange={(e) => social.setDraft(e.target.value)}
-                    placeholder="Write a comment…"
-                    maxLength={2000}
-                    rows={1}
+              <div className="comment-composer__type-in">
+                {inputMode === "system" ? (
+                  <div className="comment-composer__system">
+                    <label className="sr-only" htmlFor={`${commentsId}-input`}>
+                      Write a comment
+                    </label>
+                    <textarea
+                      ref={composerRef}
+                      id={`${commentsId}-input`}
+                      className="post-comments__input"
+                      value={social.draft}
+                      onChange={(e) => social.setDraft(e.target.value)}
+                      placeholder="Write a comment…"
+                      maxLength={2000}
+                      rows={1}
+                      disabled={social.busy}
+                      enterKeyHint="send"
+                      autoComplete="off"
+                      autoCorrect="on"
+                      spellCheck
+                      style={{ scrollMargin: 0 }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void sendComment();
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`comment-composer__field post-comments__input${social.draft ? "" : " is-empty"}`}
+                    data-comment-composer="internal"
+                    aria-label="Write a comment"
+                    aria-expanded={keyboardOpen}
                     disabled={social.busy}
-                    enterKeyHint="send"
-                    autoComplete="off"
-                    autoCorrect="on"
-                    spellCheck
-                    style={{ scrollMargin: 0 }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void sendComment();
-                      }
-                    }}
-                  />
-                </>
-              ) : (
+                    onClick={openInternalKeyboard}
+                  >
+                    {social.draft ? social.draft : "Write a comment…"}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className={`comment-composer__field post-comments__input${social.draft ? "" : " is-empty"}`}
-                  data-comment-composer="internal"
-                  aria-label="Write a comment"
-                  aria-expanded={keyboardOpen}
-                  disabled={social.busy}
-                  onClick={openInternalKeyboard}
+                  className="living-gallery__send"
+                  aria-label={social.busy ? "Posting" : "Send"}
+                  disabled={!canSendComment(social.draft) || social.busy}
+                  onClick={() => void sendComment()}
                 >
-                  {social.draft ? social.draft : "Write a comment…"}
+                  <Icons.send size={18} />
                 </button>
-              )}
+              </div>
               <button
                 type="button"
                 className="comment-composer__fallback"

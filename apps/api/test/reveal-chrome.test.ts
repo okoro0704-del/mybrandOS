@@ -61,6 +61,7 @@ test("public shell uses one reveal controller and overlays existing nav", () => 
 
 test("OS suffix is green; signature sits top-right; no black peel", () => {
   assert.match(styles, /\.os-wordmark__os\s*\{[^}]*color:\s*#16a34a/s);
+  assert.match(styles, /\.os-wordmark\s*\{[^}]*color:\s*#111/s);
   assert.match(styles, /\.os-wordmark--signature\s*\{[^}]*right:/s);
   assert.equal(/os-wordmark--signature[\s\S]{0,200}left:\s*50%/.test(styles), false);
   assert.match(styles, /data-reveal-shell[\s\S]*translateY\(-120%\)/);
@@ -69,6 +70,8 @@ test("OS suffix is green; signature sits top-right; no black peel", () => {
   assert.equal(shell.includes("os-reveal-scrim"), false);
   assert.equal(/background:\s*#000[\s\S]{0,80}reveal/.test(styles), false);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
+  assert.match(styles, /--reveal-chrome-top/);
+  assert.match(styles, /--reveal-chrome-bottom/);
 });
 
 test("interactive children are exempt from reveal double-tap", () => {

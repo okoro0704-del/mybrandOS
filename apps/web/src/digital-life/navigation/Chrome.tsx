@@ -33,7 +33,7 @@ export function DigitalLifeTopBar({
   menuOpen?: boolean;
   onToggleMenu?: () => void;
   chromeHidden?: boolean;
-  /** Immersive reveal: identity lives in OsWordmark overlay, not this bar. */
+  /** Immersive reveal: top bar carries the black brand name while chrome is visible. */
   reveal?: boolean;
 }) {
   const name = experience.identity.displayName || "Digital Life";
@@ -46,15 +46,11 @@ export function DigitalLifeTopBar({
       aria-hidden={hidden || undefined}
       data-chrome-hidden={hidden ? "true" : undefined}
       inert={hidden ? true : undefined}
-      aria-label={reveal ? "Creator top navigation" : undefined}
+      aria-label={reveal ? "Creator identity" : undefined}
     >
-      {reveal ? (
-        <div className="os-topbar__reveal-slot" />
-      ) : (
-        <div className="os-topbar__inner os-topbar__inner--wordmark-only">
-          <OsWordmark slug={experience.slug} displayName={name} to={home} hidden={hidden} />
-        </div>
-      )}
+      <div className="os-topbar__inner os-topbar__inner--wordmark-only">
+        <OsWordmark slug={experience.slug} displayName={name} to={home} hidden={hidden} identity={reveal} />
+      </div>
     </header>
   );
 }

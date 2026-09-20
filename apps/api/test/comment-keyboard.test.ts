@@ -79,7 +79,11 @@ test("immersive composer uses internal keyboard and does not focus custom-mode t
   assert.match(keyboardUi, /label="Space"/);
   assert.match(keyboardUi, /label="Numbers"/);
   assert.match(keyboardUi, /label=\{busy \? "Posting" : "Send"\}/);
+  assert.match(feed, /className="living-gallery__send"/);
+  assert.match(feed, /<Icons.send/);
+  assert.match(feed, /comment-composer__type-in/);
   assert.match(feed, /System keyboard/);
+  assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*font-size:\s*1\.22rem/s);
   assert.match(feed, /inputMode === "system"/);
   assert.match(feed, /composerRef\.current\?\.focus/);
   assert.equal(feed.includes("contenteditable"), false);
