@@ -250,7 +250,7 @@ export function ContentActionBar({
   const commentSelected = Boolean(onComment ? commentsOpenProp : commentsOpen);
 
   return (
-    <div className={`content-actions${galleryActions ? " content-actions--gallery content-actions--compact" : ""}`}>
+    <div className={`content-actions content-actions--hood${galleryActions ? " content-actions--gallery content-actions--compact" : ""}`}>
       {galleryActions ? (
         <div className="content-actions__row content-actions__row--gallery" role="toolbar" aria-label="Publication actions">
           <ActionBtn
@@ -334,8 +334,12 @@ export function ContentActionBar({
           title="Tap to save offline. Hold to download when allowed."
           icon={<Icons.save size={20} filled={saved} />}
         />
-        <ActionBtn label="Share" onClick={() => void onShare()} icon={<Icons.distribute size={20} />} />
-        <ActionBtn label="Reuse" onClick={onReuse} icon={<Icons.reuse size={20} />} />
+        <ActionBtn
+          label="Reuse"
+          onClick={onReuse}
+          icon={<Icons.reuse size={20} />}
+        />
+        <ActionBtn label="Share" onClick={() => void onShare()} icon={<Icons.share size={20} />} />
       </div>
       )}
 

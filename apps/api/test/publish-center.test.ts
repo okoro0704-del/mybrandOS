@@ -69,7 +69,7 @@ after(cleanup);
 test("dock navigation is Home / Create / Publish / Assets / More", () => {
   assert.deepEqual(
     DOCK_NAV.map((item) => item.id),
-    ["home", "create", "publish", "assets"],
+    ["home", "create", "camera", "publish"],
   );
   assert.equal(DOCK_NAV.find((item) => item.id === "publish")?.path, "/publish");
   assert.equal(MYBRANDOS_VERSION, "0.27.0");

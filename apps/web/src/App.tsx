@@ -53,6 +53,8 @@ function WorkstationRoutes() {
           <Route path={s("/twin")} element={<DigiTwinPage />} />
           <Route path={s("/create")} element={<CreatePage />} />
           <Route path={s("/create/:id")} element={<CreateProjectPage />} />
+          <Route path={s("/camera")} element={<CameraCapabilityPage />} />
+          <Route path={s("/system/camera")} element={<Navigate to={s("/camera")} replace />} />
           <Route path={s("/import")} element={<ImportPage />} />
           <Route path={s("/search")} element={<SearchPage />} />
           <Route path={s("/assets")} element={<AssetsPage />} />
@@ -83,7 +85,6 @@ function WorkstationRoutes() {
           <Route path={s("/distribution")} element={<DistributionPage />} />
           <Route path={s("/ai")} element={<AiPage />} />
           <Route path={s("/system")} element={<SettingsPage />} />
-          <Route path={s("/system/camera")} element={<CameraCapabilityPage />} />
           <Route path={s("/settings")} element={<Navigate to={s("/system")} replace />} />
           <Route path={s("/*")} element={<section className="page"><h1>Studio page not found</h1></section>} />
         </Route>

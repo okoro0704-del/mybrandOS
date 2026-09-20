@@ -192,6 +192,7 @@ export type DigitalLifeRoutePrimary =
   | "home"
   | "favorites"
   | "management"
+  | "contacts"
   | "communities"
   | "assets"
   | "website"
@@ -281,6 +282,9 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
   if (parts[0] === "management" || parts[0] === "manage") {
     return { surface: "app", section: "management", primary: "management" };
   }
+  if (parts[0] === "contacts" || parts[0] === "contact") {
+    return { surface: "app", section: "contacts", primary: "contacts" };
+  }
   if (parts[0] === "communities" || parts[0] === "community") {
     return { surface: "app", section: "communities", primary: "communities" };
   }
@@ -320,8 +324,16 @@ export function managementPath(basePath: string) {
   return joinPublicPath(basePath, "management");
 }
 
+export function contactsPath(basePath: string) {
+  return joinPublicPath(basePath, "contacts");
+}
+
 export function communitiesPath(basePath: string) {
   return joinPublicPath(basePath, "communities");
+}
+
+export function livePath(basePath: string) {
+  return joinPublicPath(basePath, "live");
 }
 
 export function profilePath(basePath: string) {

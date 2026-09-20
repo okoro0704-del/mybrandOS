@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DOCK_NAV,
   OWNER_SURFACE_NAV,
@@ -16,6 +16,14 @@ import { registerDigitalLifeServiceWorker } from "../digital-life/pwa/registerDi
 import { applyStudioDocument, clearStudioDocument } from "../studio/pwa/applyStudioDocument";
 import { StudioInstallPrompt } from "../studio/pwa/StudioInstallPrompt";
 import { DigiTwinPresence } from "../studio/DigiTwinPresence";
+import {
+  REVEAL_CHROME_MS,
+  isRevealKeyboardBlocked,
+  reduceRevealChrome,
+  revealNavVisible,
+  type RevealChromeState,
+} from "../digital-life/personal-os/revealChrome";
+import { useRevealDoubleTap } from "../digital-life/personal-os/useRevealDoubleTap";
 
 function Item({
   to,
@@ -39,6 +47,11 @@ function Item({
   );
 }
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function OsShell() {
   const { user, logout } = useIdentity();
   const studio = useStudio();
@@ -48,6 +61,51 @@ export function OsShell() {
   const s = (path: string) => studioPath(path, host);
   const studioHome = s("/");
   const publishBase = s("/publish");
+  const cameraBase = s("/camera");
+  const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  const revealStateRef = useRef(revealState);
+  revealStateRef.current = revealState;
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  function dispatch(action: Parameters<typeof reduceRevealChrome>[1]) {
+    setRevealState((prev) => reduceRevealChrome(prev, action, prefersReducedMotion()));
+  }
+
+  const navVisible = revealNavVisible(revealState);
+
+  useRevealDoubleTap(true, () => dispatch("TOGGLE"), ".os .stage");
+
+  useEffect(() => {
+    if (revealState !== "OPENING" && revealState !== "CLOSING") return;
+    const t = window.setTimeout(() => dispatch("ANIMATION_END"), REVEAL_CHROME_MS);
+    return () => window.clearTimeout(t);
+  }, [revealState]);
+
+  useEffect(() => {
+    dispatch("CLOSE");
+    setAssetsOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isRevealKeyboardBlocked(e.target)) return;
+      if (e.key === "Escape") {
+        if (assetsOpen) {
+          e.preventDefault();
+          setAssetsOpen(false);
+          return;
+        }
+        if (revealNavVisible(revealStateRef.current)) {
+          e.preventDefault();
+          dispatch("CLOSE");
+          toggleRef.current?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [assetsOpen]);
 
   useEffect(() => {
     applyStudioDocument({
@@ -58,8 +116,22 @@ export function OsShell() {
     return () => clearStudioDocument();
   }, [studio?.slug, user?.displayName]);
 
+  const assetLinks = useMemo(
+    () => [
+      { id: "published", label: "Published", to: `${s("/assets")}?view=published` },
+      { id: "draft", label: "Draft", to: `${s("/assets")}?view=draft` },
+      { id: "galaxy", label: "Galaxy", to: s("/assets/galaxy") },
+    ],
+    [host],
+  );
+
   return (
-    <div className="os os--twin-presence" data-surface="workstation">
+    <div
+      className="os os--twin-presence"
+      data-surface="workstation"
+      data-studio-nav={navVisible || moreOpen ? "visible" : "hidden"}
+      data-asset-rail={assetsOpen ? "open" : "closed"}
+    >
       <aside className="rail">
         <Link className="brand" to={studioHome}>
           <span className="brand-mark">m</span>
@@ -120,6 +192,19 @@ export function OsShell() {
         </div>
       </aside>
 
+      <aside className="asset-rail" aria-hidden={!assetsOpen} inert={!assetsOpen ? true : undefined}>
+        <div className="eyebrow">Assets</div>
+        <h2>Assets</h2>
+        {assetLinks.map((item) => (
+          <NavLink key={item.id} to={item.to} className="nav-link" onClick={() => setAssetsOpen(false)}>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </aside>
+      {assetsOpen ? (
+        <button type="button" className="asset-rail-scrim" aria-label="Close assets" onClick={() => setAssetsOpen(false)} />
+      ) : null}
+
       <main className="stage">
         <Outlet />
       </main>
@@ -128,7 +213,18 @@ export function OsShell() {
 
       <StudioInstallPrompt slug={studio?.slug} displayName={user?.displayName} />
 
-      <nav className="dock">
+      <button
+        ref={toggleRef}
+        type="button"
+        className="os-reveal-toggle sr-only"
+        aria-expanded={navVisible}
+        aria-controls="studio-dock"
+        onClick={() => dispatch("TOGGLE")}
+      >
+        {navVisible ? "Hide navigation" : "Show navigation"}
+      </button>
+
+      <nav id="studio-dock" className="dock" aria-hidden={!navVisible && !moreOpen ? true : undefined}>
         {DOCK_NAV.map((item) => {
           const Icon = Icons[item.icon as IconName];
           const to = s(item.path);
@@ -139,11 +235,14 @@ export function OsShell() {
               className={({ isActive }) =>
                 isActive ||
                 (item.id === "publish" &&
-                  (location.pathname === publishBase || location.pathname.startsWith(`${publishBase}/`)))
+                  (location.pathname === publishBase || location.pathname.startsWith(`${publishBase}/`))) ||
+                (item.id === "camera" &&
+                  (location.pathname === cameraBase || location.pathname.startsWith(`${cameraBase}/`)))
                   ? "active"
                   : ""
               }
               end={item.path === "/"}
+              onClick={() => dispatch("SELECT")}
             >
               <Icon size={18} />
               <span className="dock-label">{item.label}</span>
@@ -156,6 +255,7 @@ export function OsShell() {
           onClick={(e) => {
             e.preventDefault();
             setMoreOpen(true);
+            dispatch("OPEN");
           }}
         >
           <Icons.settings size={18} />
@@ -166,6 +266,10 @@ export function OsShell() {
       <div className={`more-sheet${moreOpen ? " open" : ""}`} onClick={() => setMoreOpen(false)}>
         <div className="more-panel" onClick={(e) => e.stopPropagation()}>
           <div className="eyebrow">More</div>
+          <button type="button" className="nav-link" onClick={() => { setMoreOpen(false); setAssetsOpen(true); dispatch("CLOSE"); }}>
+            <Icons.assets />
+            <span>Assets</span>
+          </button>
           <Item to={s("/search")} label="Search" icon="assets" onClick={() => setMoreOpen(false)} />
           <Item to={s("/import")} label="Import" icon="create" onClick={() => setMoreOpen(false)} />
           <Item to={s("/command-center")} label="Command Center" icon="activity" onClick={() => setMoreOpen(false)} />

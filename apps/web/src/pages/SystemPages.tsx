@@ -231,7 +231,7 @@ export function SettingsPage() {
         ))}
       </div>
       <div className="actions" style={{ marginTop: 16 }}>
-        <Link className="btn ghost" to="/system/camera">Camera capability</Link>
+        <Link className="btn ghost" to="/camera">Camera capability</Link>
         <a className="btn ghost" href={appPath("/elfcom")}>Messaging</a>
         <a className="btn ghost" href={appPath("/money")}>Payments</a>
         <a className="btn ghost" href={appPath("/distribution")}>Distribution</a>

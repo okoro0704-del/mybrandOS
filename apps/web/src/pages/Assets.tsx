@@ -1,5 +1,6 @@
 import { AppLink as Link } from "../lib/paths";
 import { useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   ASSET_LIBRARY_CATEGORIES,
@@ -45,6 +46,18 @@ export function AssetsPage() {
     setGroupBy,
     refresh,
   } = useAssets();
+  const [params] = useSearchParams();
+
+  useEffect(() => {
+    const view = params.get("view");
+    if (view === "published") {
+      setStatus("PUBLISHED");
+      setFlag("published", true);
+    } else if (view === "draft") {
+      setStatus("DRAFT");
+      setFlag("published");
+    }
+  }, [params, setStatus, setFlag]);
 
   useEffect(() => {
     void refresh();

@@ -2,6 +2,7 @@
 export const PRIMARY_NAV = [
   { id: "home", label: "Home", path: "/", icon: "home" },
   { id: "create", label: "Create", path: "/create", icon: "create" },
+  { id: "camera", label: "Camera", path: "/camera", icon: "recording" },
   { id: "publish", label: "Publish", path: "/publish", icon: "publish" },
   { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
   { id: "live", label: "Live", path: "/live", icon: "live" },
@@ -28,8 +29,8 @@ export const OWNER_SURFACE_NAV = [
 export const DOCK_NAV = [
   { id: "home", label: "Home", path: "/", icon: "home" },
   { id: "create", label: "Create", path: "/create", icon: "create" },
+  { id: "camera", label: "Camera", path: "/camera", icon: "recording" },
   { id: "publish", label: "Publish", path: "/publish", icon: "publish" },
-  { id: "assets", label: "Assets", path: "/assets", icon: "assets" },
 ] as const;
 
 export const COMMAND_CENTER_PATH = "/command-center";
@@ -38,6 +39,7 @@ export const PROCESSING_PATH = "/processing";
 export const LIVE_CENTER_PATH = "/live";
 export const PRODUCTION_PATH = "/production";
 export const RECORDING_PATH = "/recording";
+export const CAMERA_PATH = "/camera";
 
 export type PrimaryNavId = (typeof PRIMARY_NAV)[number]["id"];
 export type SecondaryNavId = (typeof SECONDARY_NAV)[number]["id"];

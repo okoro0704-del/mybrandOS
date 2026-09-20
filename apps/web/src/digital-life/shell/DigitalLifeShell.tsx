@@ -5,7 +5,6 @@ import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
-import { BottomSheet } from "../personal-os/BottomSheet";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
@@ -19,7 +18,6 @@ import {
   type RevealChromeState,
 } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
-import { communitiesPath } from "../routes";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -45,8 +43,6 @@ export function DigitalLifeShell({
   assetTitle?: string;
   children: ReactNode;
 }) {
-  const [notifyOpen, setNotifyOpen] = useState(false);
-  const [messagesOpen, setMessagesOpen] = useState(false);
   const theme = experience.theme;
   const revealEnabled = !preview;
   const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
@@ -87,9 +83,7 @@ export function DigitalLifeShell({
     if (!revealEnabled || !focusNavOnOpen.current) return;
     if (!revealNavVisible(revealState)) return;
     focusNavOnOpen.current = false;
-    const first = document.querySelector<HTMLElement>(
-      ".os-segments button, .os-bottom-nav a, .os-dock a, .os-dock button",
-    );
+    const first = document.querySelector<HTMLElement>(".os-bottom-nav a");
     first?.focus();
   }, [revealState, revealEnabled]);
 
@@ -100,8 +94,6 @@ export function DigitalLifeShell({
   }, [experience, assetTitle]);
 
   useEffect(() => {
-    setNotifyOpen(false);
-    setMessagesOpen(false);
     if (revealEnabled) dispatch("CLOSE");
   }, [primary]);
 
@@ -194,16 +186,9 @@ export function DigitalLifeShell({
         {!preview ? <InstallPrompt experience={experience} /> : null}
 
         <div id="os-reveal-nav">
-          <UtilityDock
-            experience={experience}
-            basePath={basePath}
-            onNotifications={() => setNotifyOpen(true)}
-            onMessages={() => setMessagesOpen(true)}
-            immersiveDock={revealEnabled}
-            chromeHidden={navHidden}
-          />
-
+          <UtilityDock immersiveDock={revealEnabled} chromeHidden={navHidden} />
           <DigitalLifeBottomNav
+            experience={experience}
             basePath={basePath}
             websiteBase={websiteBase}
             primary={primary}
@@ -211,28 +196,6 @@ export function DigitalLifeShell({
           />
         </div>
       </div>
-
-      <BottomSheet open={notifyOpen} title="Notifications" onClose={() => setNotifyOpen(false)}>
-        <p className="os-sheet__empty">
-          {/* TEMP_FALLBACK: public notification inbox API not exposed yet */}
-          No notifications yet. Activity from this Digital Life will appear here.
-        </p>
-      </BottomSheet>
-
-      <BottomSheet open={messagesOpen} title="Messages" onClose={() => setMessagesOpen(false)}>
-        {experience.messaging.available ? (
-          <div className="os-sheet__stack">
-            <p>Messaging is available for this Digital Life.</p>
-            <Link className="os-btn" to={communitiesPath(basePath)} onClick={() => setMessagesOpen(false)}>
-              Open community messaging
-            </Link>
-          </div>
-        ) : (
-          <p className="os-sheet__empty">
-            {experience.messaging.detail || "Messages open when messaging is enabled for this Digital Life."}
-          </p>
-        )}
-      </BottomSheet>
     </div>
     </RevealChromeContext.Provider>
     </HomeChromeContext.Provider>

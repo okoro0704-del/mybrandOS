@@ -261,19 +261,22 @@ test("owner OS identity is a shell landmark; keyboard overlays instead of resizi
   assert.match(styles, /env\(safe-area-inset-top/);
 });
 
-test("comments toggle over video; Life moves into transparent bottom bar; no white hood", () => {
+test("comments toggle over video; action hood stays five actions; comments stay transparent", () => {
   const dock = readFileSync(join(root, "apps/web/src/digital-life/personal-os/UtilityDock.tsx"), "utf8");
+  const chrome = readFileSync(join(root, "apps/web/src/digital-life/navigation/Chrome.tsx"), "utf8");
   const media = readFileSync(join(root, "apps/api/src/services/brand-service.ts"), "utf8");
   assert.match(feed, /commentsOpen=\{commentMode\}/);
   assert.match(feed, /onComment=\{onToggleComments\}/);
   assert.match(feed, /setCommentMode\(\(open\) => !open\)/);
-  assert.match(feed, /useState\(false\)/);
-  assert.match(feed, /<LiveControl/);
+  assert.equal(feed.includes("<LiveControl"), false);
   assert.match(feed, /living-gallery__bottom-bar/);
   assert.match(feed, /data-section-bar="bottom"/);
+  assert.match(chrome, /id: "live"/);
+  assert.match(chrome, /id: "contacts"/);
+  assert.match(chrome, /id: "communities"/);
   assert.match(dock, /data-life-control="live"/);
   assert.match(dock, /os-dock__live-label">LIVE</);
-  assert.equal((dock.match(/os-dock__live-label">LIVE</g) || []).length, 1);
+  assert.match(actions, /content-actions--hood/);
   assert.match(actions, /commentsOpen\?: boolean/);
   assert.match(player, /resolveGalleryVideoAction/);
   assert.match(player, /enableSoundFromGesture/);

@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { joinPublicPath } from "@mybrandos/shared";
-import { Icons } from "../../nav/icons";
 import { useRevealChrome } from "./RevealChromeContext";
 
-/** Canonical LIVE control (visible product name "Life" in immersive bottom bar). */
+/** Canonical LIVE control — public Live destination uses bottom-nav Live. */
 export function LiveControl({
   experience,
   basePath,
@@ -35,68 +34,32 @@ export function LiveControl({
   );
 }
 
+/**
+ * Utility dock remains a chrome hook for immersive layout.
+ * Messages and Notifications are no longer primary destinations.
+ */
 export function UtilityDock({
-  experience,
-  basePath,
-  onNotifications,
-  onMessages,
   immersiveDock = false,
   chromeHidden = false,
-  hideLive = false,
 }: {
-  experience: PublicBrandExperience;
-  basePath: string;
-  onNotifications: () => void;
-  onMessages: () => void;
-  /** Home IMMERSIVE_FEED: dock sits in the bottom-nav safe slot. */
+  experience?: PublicBrandExperience;
+  basePath?: string;
+  onNotifications?: () => void;
+  onMessages?: () => void;
   immersiveDock?: boolean;
   chromeHidden?: boolean;
-  /** When true, LIVE/Life lives in the immersive bottom section bar instead. */
   hideLive?: boolean;
 }) {
   const reveal = useRevealChrome();
-
-  function act(fn: () => void) {
-    reveal?.selectDestination();
-    fn();
-  }
-
+  void reveal;
   return (
     <div
       className={`os-dock${immersiveDock ? " os-dock--immersive" : ""}`}
-      aria-label="Quick actions"
-      aria-hidden={chromeHidden || undefined}
+      aria-hidden={true}
       data-chrome-dock={immersiveDock ? "immersive" : "stack"}
-      inert={chromeHidden ? true : undefined}
-    >
-      <button
-        type="button"
-        className="os-dock__btn os-dock__btn--notify"
-        onClick={() => act(onNotifications)}
-        aria-label="Notifications"
-        tabIndex={chromeHidden ? -1 : undefined}
-      >
-        <Icons.bell size={20} />
-      </button>
-
-      {hideLive ? null : (
-        <LiveControl
-          experience={experience}
-          basePath={basePath}
-          tabIndex={chromeHidden ? -1 : undefined}
-          onNavigate={() => reveal?.selectDestination()}
-        />
-      )}
-
-      <button
-        type="button"
-        className="os-dock__btn os-dock__btn--msg"
-        onClick={() => act(onMessages)}
-        aria-label="Messages"
-        tabIndex={chromeHidden ? -1 : undefined}
-      >
-        <Icons.messages size={20} />
-      </button>
-    </div>
+      data-utility-empty="true"
+      inert={true}
+      hidden={chromeHidden || undefined}
+    />
   );
 }

@@ -62,7 +62,8 @@ test("background Twin observation is explicitly unsupported", () => {
 
 test("hero Digi Twin button is gone; Eye is the persistent Studio presence", () => {
   assert.equal(home.includes('to="/twin"'), false);
-  assert.equal(home.includes("Digi Twin"), false);
+  assert.equal(home.includes("home-hero-actions"), false);
+  assert.match(home, /\/twin\/brief/);
   assert.match(home, /View public app/);
   assert.match(home, /Preview/);
   assert.match(shell, /DigiTwinPresence/);

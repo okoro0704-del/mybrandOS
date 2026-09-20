@@ -130,7 +130,7 @@ test("Studio shell is overflow-safe and dock labels wrap at phone width", () => 
   assert.match(styles, /\.dock-label/);
   assert.match(styles, /object-fit: contain/);
   assert.match(home, /home-greeting/);
-  assert.match(home, /home-hero-actions/);
+  assert.match(home, /home-page--twin/);
   assert.match(home, /View public app/);
   assert.match(home, /Preview/);
   assert.match(shell, /dock-label/);

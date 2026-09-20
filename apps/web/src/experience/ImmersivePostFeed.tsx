@@ -14,7 +14,6 @@ import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
-import { LiveControl } from "../digital-life/personal-os/UtilityDock";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
 import {
   applyCommentInsert,
@@ -194,6 +193,7 @@ function PostSlide({
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
+  void basePath;
   const author = experience.identity.displayName || experience.slug;
   const body =
     (typeof asset.presentation?.body === "string" && asset.presentation.body) ||
@@ -576,11 +576,6 @@ function PostSlide({
               hideComposer
               variant="gallery"
               onComment={onToggleComments}
-            />
-            <LiveControl
-              experience={experience}
-              basePath={basePath}
-              className="living-gallery__life"
             />
           </div>
         </div>

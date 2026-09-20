@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import type { HomeGateway } from "@mybrandos/shared";
+import type { HomeGateway, TwinBrief } from "@mybrandos/shared";
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, publicExperiencePath, type ProjectStatus, type ProjectType } from "@mybrandos/shared";
 import { api } from "../lib/api";
-import { AssetCard } from "../components/AssetCard";
 import { AppLink } from "../lib/paths";
 import { SoftwareInvitations } from "../software/SoftwareInvitations";
 import { useStudio } from "../components/RequireAuth";
@@ -10,12 +9,17 @@ import { useStudio } from "../components/RequireAuth";
 export function HomePage() {
   const brand = useStudio();
   const [home, setHome] = useState<HomeGateway | null>(null);
+  const [brief, setBrief] = useState<TwinBrief | null>(null);
+  const [briefError, setBriefError] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     void api<HomeGateway>("/home")
       .then(setHome)
       .catch(() => setError("Your Digital Life could not be loaded."));
+    void api<TwinBrief>("/twin/brief", { method: "POST", body: JSON.stringify({}) })
+      .then(setBrief)
+      .catch((err) => setBriefError(err instanceof Error ? err.message : "Twin briefing is unavailable."));
   }, []);
 
   if (error) {
@@ -35,67 +39,73 @@ export function HomePage() {
   }
 
   const life = home.digitalLife;
-  const empty = (life?.owned ?? home.assets.total) === 0;
   const processingHot = (home.workstation?.processing ?? []).filter(
     (item) => item.status === "FAILED" || item.status === "PROCESSING",
   );
   const attention = life?.attention ?? [];
   const replayReady = home.workstation?.replayReady ?? [];
   const projects = life?.projects ?? [];
-  const recentAssets = life?.recentlyUpdated?.length
-    ? life.recentlyUpdated
-    : life?.topAssets ?? [];
   const recentActivity = home.recentActivity.slice(0, 4);
   const hasAttention =
     attention.length > 0 || replayReady.length > 0 || processingHot.length > 0;
+  const live = home.workstation?.live;
+  const twinTake = brief?.take;
+  const twinHeadline = brief?.headline || brief?.greeting;
 
   return (
-    <section className="page home-page">
+    <section className="page home-page home-page--twin">
       <header className="page-head">
-        <div className="eyebrow">Studio</div>
-        <h1 className="home-greeting">{home.greeting}</h1>
-        <p>Operate your Digital Life. Publish when ready.</p>
-        <div className="actions home-hero-actions">
-          {brand?.slug ? (
-            <AppLink className="btn" to={publicExperiencePath(brand.slug)}>
-              View public app
-            </AppLink>
-          ) : (
-            <AppLink className="btn" to="/brand">
-              Set up Brand
-            </AppLink>
-          )}
-          <AppLink className="btn ghost" to="/brand/preview">
-            Preview
-          </AppLink>
-        </div>
+        <div className="eyebrow">Today</div>
+        <h1 className="home-greeting">{brief?.greeting || home.greeting}</h1>
+        <p>{twinHeadline && twinHeadline !== brief?.greeting ? twinHeadline : "Here's your Digital Life today."}</p>
+        {brand?.slug ? (
+          <p className="small muted home-public-link">
+            <AppLink to={publicExperiencePath(brand.slug)}>View public app</AppLink>
+            {" · "}
+            <AppLink to="/brand/preview">Preview</AppLink>
+          </p>
+        ) : (
+          <p className="small muted home-public-link">
+            <AppLink to="/brand">Set up Brand</AppLink>
+          </p>
+        )}
       </header>
 
-      <section className="home-section" aria-labelledby="home-overview">
+      <section className="home-section" aria-labelledby="home-twin">
         <div className="home-section-head">
-          <h2 id="home-overview">Overview</h2>
+          <h2 id="home-twin">Twin</h2>
         </div>
-        <div className="grid grid-3">
-          <article className="panel stat">
-            <div className="eyebrow">Assets</div>
-            <b>{life?.owned ?? home.assets.total}</b>
-            <p className="small muted">
-              {home.assets.created} created · {home.assets.imported} imported
-            </p>
+        {briefError ? <p className="placeholder-note">{briefError}</p> : null}
+        {!brief && !briefError ? <p className="muted">Gathering what's happening…</p> : null}
+        {brief?.quiet ? (
+          <article className="panel">
+            <p>Your Digital Life is still quiet. I don't have enough activity to identify a pattern yet.</p>
           </article>
-          <article className="panel stat">
-            <div className="eyebrow">Published</div>
-            <b>{life?.published ?? home.assets.published}</b>
-            <p className="small muted">
-              {home.workstation?.assetCounts.drafts ?? home.assets.draft} drafts private
-            </p>
+        ) : null}
+        {twinTake ? (
+          <article className="panel">
+            <div className="eyebrow">Here's what deserves your attention</div>
+            <p>{twinTake}</p>
           </article>
-          <article className="panel stat">
-            <div className="eyebrow">Public app</div>
-            <b>{home.workstation?.brand.visibilityLabel ?? "PRIVATE"}</b>
-            <p className="small muted">{home.workstation?.brand.detail ?? "Brand visibility"}</p>
-          </article>
-        </div>
+        ) : brief && !brief.interpretationAvailable ? (
+          <p className="placeholder-note">{brief.providerStatus.detail}</p>
+        ) : null}
+        {brief?.sections
+          .filter((section) => section.items.length)
+          .slice(0, 3)
+          .map((section) => (
+            <article className="panel" key={section.type}>
+              <div className="eyebrow">{section.title}</div>
+              {section.items.slice(0, 3).map((item) => (
+                <div className="list-row" key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    {item.detail ? <div className="small muted">{item.detail}</div> : null}
+                  </div>
+                </div>
+              ))}
+            </article>
+          ))}
       </section>
 
       {hasAttention ? (
@@ -150,33 +160,23 @@ export function HomePage() {
         <SoftwareInvitations />
       )}
 
-      <section className="home-section" aria-labelledby="home-work">
-        <div className="home-section-head">
-          <h2 id="home-work">Work in progress</h2>
-          {!empty ? <AppLink className="small" to="/create">All projects</AppLink> : null}
-        </div>
-        {empty ? (
+      {live?.capabilityAvailable ? (
+        <section className="home-section" aria-labelledby="home-live">
+          <div className="home-section-head">
+            <h2 id="home-live">Live</h2>
+          </div>
           <article className="panel">
-            <p>Nothing here yet. Create something new, or import work you already have.</p>
-            <div className="actions">
-              <AppLink className="btn" to="/create">
-                Create
-              </AppLink>
-              <AppLink className="btn ghost" to="/import">
-                Import
-              </AppLink>
-            </div>
+            <strong>{live.capabilityAvailable ? "Live capability available" : "Live unavailable"}</strong>
+            <p className="small muted">{live.capabilityDetail}</p>
           </article>
-        ) : projects.length === 0 ? (
-          <article className="panel">
-            <p className="muted">No active projects.</p>
-            <div className="actions">
-              <AppLink className="btn" to="/create">
-                Start creating
-              </AppLink>
-            </div>
-          </article>
-        ) : (
+        </section>
+      ) : null}
+
+      {projects.length ? (
+        <section className="home-section" aria-labelledby="home-work">
+          <div className="home-section-head">
+            <h2 id="home-work">Coming next</h2>
+          </div>
           <div className="grid grid-2">
             {projects.slice(0, 4).map((project) => (
               <AppLink className="panel" key={project.id} to={`/create/${project.id}`}>
@@ -190,26 +190,14 @@ export function HomePage() {
               </AppLink>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="home-section" aria-labelledby="home-recent">
-        <div className="home-section-head">
-          <h2 id="home-recent">Recent</h2>
-          <AppLink className="small" to="/activity">
-            Activity
-          </AppLink>
-        </div>
-        {recentAssets.length ? (
-          <div className="grid grid-2" style={{ marginBottom: recentActivity.length ? 12 : 0 }}>
-            {recentAssets.slice(0, 4).map((asset) => (
-              <AssetCard key={asset.id} asset={asset} />
-            ))}
+      {recentActivity.length ? (
+        <section className="home-section" aria-labelledby="home-recent">
+          <div className="home-section-head">
+            <h2 id="home-recent">Worth knowing</h2>
           </div>
-        ) : (
-          <p className="muted">No recent assets yet.</p>
-        )}
-        {recentActivity.length ? (
           <article className="panel">
             {recentActivity.map((item) => (
               <div className="list-row" key={item.id}>
@@ -221,8 +209,8 @@ export function HomePage() {
               </div>
             ))}
           </article>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
     </section>
   );
 }

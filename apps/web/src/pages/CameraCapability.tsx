@@ -70,13 +70,13 @@ export function CameraCapabilityPage() {
   }
 
   return (
-    <section className="page">
+    <section className="page studio-camera">
       <header className="page-head">
-        <div className="eyebrow">Camera Capability</div>
-        <h1>Camera Capability</h1>
+        <div className="eyebrow">Camera</div>
+        <h1>Camera</h1>
         <p>
-          The Shell mediates permission. mybrandOS performs the browser camera operation and owns the stream.
-          This is not recording, Device Bridge, Production, or Live.
+          First-class Studio camera. The Shell mediates permission. mybrandOS owns the stream.
+          This is the foundation of Digiconomy production camera — not a fake livestream, Device Bridge, or Live destination.
         </p>
       </header>
       <article className="panel">
@@ -89,6 +89,9 @@ export function CameraCapabilityPage() {
           <button className="btn ghost" type="button" onClick={() => { stopStream(); setBrowserResult("released"); }}>
             Stop camera
           </button>
+          <Link className="btn ghost" to="/recording">
+            Recording Studio
+          </Link>
           <Link className="btn ghost" to="/system">
             System
           </Link>
@@ -110,7 +113,7 @@ export function CameraCapabilityPage() {
       </div>
       <article className="panel" style={{ marginTop: 12 }}>
         <div className="eyebrow">Application-owned preview</div>
-        <video ref={videoRef} playsInline muted style={{ width: "100%", maxWidth: 480, background: "#111", borderRadius: 8, marginTop: 8 }} />
+        <video ref={videoRef} className="studio-camera__preview" playsInline muted />
         <p className="small muted" style={{ marginTop: 8 }}>
           The Shell does not retain this MediaStream. Closing or backgrounding this page releases tracks here.
         </p>

@@ -185,6 +185,9 @@ test("branded app routes parse Home Assets Website Profile", () => {
   assert.equal(parseDigitalLifePath("favorites").primary, "favorites");
   assert.equal(parseDigitalLifePath("management").primary, "management");
   assert.equal(parseDigitalLifePath("communities").primary, "communities");
+  assert.equal(parseDigitalLifePath("contacts").primary, "contacts");
+  assert.equal(parseDigitalLifePath("live").primary, "live");
+  assert.equal(parseDigitalLifePath("spotlight").primary, "spotlight");
 });
 
 test("favorites rank by engagement and specialty chips adapt", () => {

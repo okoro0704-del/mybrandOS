@@ -9,13 +9,13 @@ import {
  * Shell-level double-tap on a neutral surface toggles reveal chrome.
  * Interactive children, swipes, and focused inputs are exempt.
  */
-export function useRevealDoubleTap(enabled: boolean, onToggle: () => void) {
+export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootSelector = ".os-phone-frame") {
   const onToggleRef = useRef(onToggle);
   onToggleRef.current = onToggle;
 
   useEffect(() => {
     if (!enabled) return;
-    const root = document.querySelector(".os-phone-frame");
+    const root = document.querySelector(rootSelector);
     if (!root) return;
 
     let lastTs = 0;
@@ -84,5 +84,5 @@ export function useRevealDoubleTap(enabled: boolean, onToggle: () => void) {
       root.removeEventListener("pointerup", onUp);
       root.removeEventListener("pointercancel", onCancel);
     };
-  }, [enabled]);
+  }, [enabled, rootSelector]);
 }

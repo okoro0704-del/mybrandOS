@@ -14,7 +14,7 @@ import {
 } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { DigitalLifeShell } from "../digital-life/shell/DigitalLifeShell";
-import { assetDetailPath, assetsPath, infoPath, digipediaPath, newsPath } from "../digital-life/routes";
+import { assetDetailPath, assetsPath, infoPath, managementPath, digipediaPath, newsPath } from "../digital-life/routes";
 import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
@@ -70,12 +70,14 @@ export function ExperienceView({
       ? "info"
       : primary === "favorites" ||
           primary === "management" ||
+          primary === "contacts" ||
           primary === "communities" ||
           primary === "profile" ||
           primary === "home" ||
           primary === "info" ||
           primary === "vip" ||
-          primary === "spotlight"
+          primary === "spotlight" ||
+          primary === "live"
         ? primary
         : primary === "assets" || primary === "asset" || primary === "collection" || primary === "feed"
           ? "home"
@@ -122,6 +124,8 @@ export function ExperienceView({
         />
       ) : primary === "favorites" || section === "favorites" ? (
         <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+      ) : primary === "contacts" || section === "contacts" ? (
+        <ContactsBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
       ) : primary === "management" || section === "management" ? (
         <ManagementBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
       ) : primary === "communities" || section === "communities" ? (
@@ -134,7 +138,7 @@ export function ExperienceView({
         <FeedBody experience={experience} mediaBase={mediaBase} />
       ) : activeIs(section, "store") ? (
         <StoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
-      ) : activeIs(section, "live") ? (
+      ) : primary === "live" || activeIs(section, "live") ? (
         <LiveBody experience={experience} />
       ) : (collection && section) || section === "podcasts" ? (
         <WorkGrid
@@ -253,37 +257,122 @@ function ManagementBody({
   );
 }
 
-function CommunitiesBody({ experience }: { experience: PublicBrandExperience }) {
+function ContactsBody({
+  experience,
+  basePath,
+  websiteBase,
+  preview,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  websiteBase: string;
+  preview?: boolean;
+}) {
   return (
-    <section>
+    <section className="dl-contacts">
+      <header className="dl-section-head">
+        <div>
+          <p className="eyebrow">Contacts</p>
+          <h1>People and direct communication</h1>
+          <p className="be-lead">Direct messaging stays here. Communities are a different space.</p>
+        </div>
+      </header>
+
+      <article className="panel">
+        <div className="eyebrow">People / contacts</div>
+        <p className="small muted">
+          Relationships stay here. Followers, contacts, and community members are not treated as the same list.
+        </p>
+      </article>
+
+      <article className="panel" style={{ marginTop: 16 }}>
+        <div className="eyebrow">Direct messenger</div>
+        {experience.messaging.available ? (
+          <p>ElfCom messaging is available for this Digital Life. No second inbox is created here.</p>
+        ) : (
+          <p className="placeholder-note">
+            {experience.messaging.detail || "Direct messaging is unavailable. No conversations are fabricated."}
+          </p>
+        )}
+        {preview ? (
+          <p style={{ marginTop: 12 }}>
+            <Link className="os-btn" to={studioPath("/elfcom", window.location.hostname)}>
+              Open ElfCom
+            </Link>
+          </p>
+        ) : null}
+      </article>
+
+      <article className="panel" style={{ marginTop: 16 }}>
+        <div className="eyebrow">Management communication</div>
+        <p className="small muted">Official creator/business surfaces — not personal DMs.</p>
+        <Link className="os-btn" to={managementPath(basePath)}>
+          Open management
+        </Link>
+      </article>
+
+      {preview ? (
+        <div className="panel" style={{ marginTop: 20 }}>
+          <div className="eyebrow">Owner</div>
+          <p>Management controls remain on the public Management surface.</p>
+          <Link className="be-btn" to={studioPath("/", window.location.hostname)}>
+            Open Workstation
+          </Link>
+        </div>
+      ) : null}
+      <span className="sr-only">{websiteBase}</span>
+    </section>
+  );
+}
+
+function CommunitiesBody({
+  experience,
+}: {
+  experience: PublicBrandExperience;
+}) {
+  const creatorName = experience.identity.displayName || "this Digital Life";
+  const byType = new Map<string, PublicAssetCard[]>();
+  for (const asset of experience.publishedAssets) {
+    const key = ASSET_TYPE_LABELS[asset.assetType] || asset.assetType;
+    byType.set(key, [...(byType.get(key) ?? []), asset]);
+  }
+
+  return (
+    <section className="dl-communities">
       <header className="dl-section-head">
         <div>
           <p className="eyebrow">Communities</p>
-          <h1>Around {experience.identity.displayName || "this Digital Life"}</h1>
-          <p className="be-lead">Channels and messaging when available — not a separate social network.</p>
+          <h1>{creatorName}</h1>
+          <p className="be-lead">Persistent spaces around this Digital Life, its work, and specific publications. Not comments. Not DMs.</p>
         </div>
       </header>
-      {experience.messaging.available ? (
-        <article className="panel">
-          <div className="eyebrow">Messaging</div>
-          <p>ElfCom messaging is available for this Digital Life.</p>
-        </article>
+
+      <article className="panel">
+        <div className="eyebrow">Creator community</div>
+        <strong>{creatorName}</strong>
+        <p className="small muted">A general community around this Digital Life. Membership is not inferred from followers or contacts.</p>
+      </article>
+
+      {byType.size ? (
+        [...byType.entries()].map(([label, assets]) => (
+          <article className="panel" key={label} style={{ marginTop: 12 }}>
+            <div className="eyebrow">Project community</div>
+            <strong>{label}</strong>
+            <p className="small muted">Work in this collection. Comments on a publication stay on that publication.</p>
+            <ul className="dl-community-assets">
+              {assets.map((asset) => (
+                <li key={asset.id}>
+                  <span>Asset sub-community</span>
+                  <strong>{asset.title || asset.id}</strong>
+                  <p className="small muted">Persistent space around this work — not the publication comments.</p>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))
       ) : (
-        <p className="placeholder-note">{experience.messaging.detail || "Communities open when this Digital Life enables them."}</p>
+        <p className="placeholder-note">No published work to host a project or asset community yet.</p>
       )}
-      {experience.publicLinks.length ? (
-        <>
-          <h2>Channels & links</h2>
-          {experience.publicLinks.map((link) => (
-            <div className="list-row" key={link.id}>
-              <span>{link.label}</span>
-              <a href={link.url} target="_blank" rel="noreferrer">
-                Open
-              </a>
-            </div>
-          ))}
-        </>
-      ) : null}
     </section>
   );
 }
@@ -499,17 +588,19 @@ function StoreBody({
 function LiveBody({ experience }: { experience: PublicBrandExperience }) {
   if (!experience.liveNow) {
     return (
-      <section>
-        <h2>Live</h2>
-        <p className="placeholder-note">live_provider_unavailable — no public live session is active.</p>
+      <section className="dl-live">
+        <p className="eyebrow">Live</p>
+        <h1>Live</h1>
+        <p className="placeholder-note">No public live session is active.</p>
       </section>
     );
   }
   return (
-    <section>
-      <h2>Live</h2>
-      <div className="panel">
-        <div className="eyebrow">LIVE</div>
+    <section className="dl-live dl-live--on">
+      <p className="eyebrow">Live</p>
+      <h1>Live</h1>
+      <div className="panel dl-live-card">
+        <div className="eyebrow">LIVE NOW</div>
         <h3>{experience.liveNow.title}</h3>
         <p>{experience.liveNow.watchLabel}</p>
       </div>

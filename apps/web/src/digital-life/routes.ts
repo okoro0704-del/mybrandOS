@@ -9,6 +9,8 @@ export {
   vipPath,
   spotlightPath,
   infoPath,
+  livePath,
+  contactsPath,
   digipediaPath,
   newsPath,
   specialtyChipsFor,
