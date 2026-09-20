@@ -14,8 +14,13 @@ try {
   const names = Array.isArray(cols)
     ? cols.map((c) => String(c && typeof c === "object" && "name" in c ? c.name : ""))
     : [];
+  const draftIdem = await prisma.$queryRawUnsafe(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='DigiAiDraftIdempotency' LIMIT 1",
+  );
   await prisma.$disconnect();
-  process.exit(names.includes("presentationConfig") ? 0 : 2);
+  if (!names.includes("presentationConfig")) process.exit(2);
+  if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
+  process.exit(0);
 } catch {
   try {
     await prisma.$disconnect();
