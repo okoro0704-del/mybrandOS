@@ -163,6 +163,7 @@ function PostSlide({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
+  const touchStartEdge = useRef({ top: false, bottom: false });
   const [srcW, setSrcW] = useState<number | null>(null);
   const [srcH, setSrcH] = useState<number | null>(null);
   const [viewport, setViewport] = useState({ w: 390, h: 844 });
@@ -231,6 +232,13 @@ function PostSlide({
   function onConversationTouchStart(e: PointerEvent | TouchEvent) {
     const y = "touches" in e ? e.touches[0]?.clientY ?? 0 : e.clientY;
     touchStartY.current = y;
+    const root = conversationRef.current;
+    if (root) {
+      touchStartEdge.current = {
+        top: root.scrollTop <= 1,
+        bottom: root.scrollTop + root.clientHeight >= root.scrollHeight - 1,
+      };
+    }
   }
 
   function onConversationTouchEnd(e: PointerEvent | TouchEvent) {
@@ -243,6 +251,8 @@ function PostSlide({
       deltaY: y - touchStartY.current,
       atTop,
       atBottom,
+      startedAtTop: touchStartEdge.current.top,
+      startedAtBottom: touchStartEdge.current.bottom,
       threshold: LIVING_GALLERY_BOUNDARY_HANDOFF_PX,
     });
     if (dir) onPublicationHandoff(dir);

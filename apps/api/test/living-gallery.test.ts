@@ -71,6 +71,27 @@ test("conversation boundary handoff uses a deliberate threshold", () => {
   assert.equal(conversationHandoff({ deltaY: 80, atTop: true, atBottom: false }), "previous");
   assert.equal(conversationHandoff({ deltaY: -80, atTop: false, atBottom: true }), "next");
   assert.equal(conversationHandoff({ deltaY: 20, atTop: true, atBottom: false }), null);
+  assert.equal(
+    conversationHandoff({
+      deltaY: -120,
+      atTop: false,
+      atBottom: true,
+      startedAtTop: false,
+      startedAtBottom: false,
+    }),
+    null,
+    "scrolling comments to the bottom must not switch publications",
+  );
+  assert.equal(
+    conversationHandoff({
+      deltaY: -120,
+      atTop: false,
+      atBottom: true,
+      startedAtTop: false,
+      startedAtBottom: true,
+    }),
+    "next",
+  );
   assert.ok(LIVING_GALLERY_BOUNDARY_HANDOFF_PX >= 48);
 });
 
@@ -98,6 +119,8 @@ test("shell double-tap exempts conversation, composer, and lane", () => {
   assert.match(reveal, /living-gallery__conversation/);
   assert.match(reveal, /living-gallery__composer/);
   assert.match(reveal, /living-comment-lane/);
+  assert.match(live, /Pause conversation/);
+  assert.match(feed, /startedAtTop/);
   assert.match(feed, /stopPropagation/);
   assert.match(player, /fillViewport/);
   assert.match(player, /onIntrinsic/);

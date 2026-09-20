@@ -1908,6 +1908,18 @@ button.linkish {
   font-size: 0.9rem;
 }
 .living-gallery__status--error { color: #b42318; }
+.living-gallery__pause {
+  border: 0;
+  background: transparent;
+  color: var(--os-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 0;
+  min-height: 32px;
+  cursor: pointer;
+  justify-self: start;
+}
 .living-comment {
   display: grid;
   grid-template-columns: auto 1fr;

@@ -164,6 +164,24 @@ export function LiveConversationStream({
       onWheel={pause}
       onTouchStart={pause}
     >
+      {comments.length > 1 && !reduced ? (
+        <button
+          type="button"
+          className="living-gallery__pause"
+          aria-pressed={paused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (paused) {
+              userRef.current = false;
+              setPaused(false);
+            } else {
+              pause();
+            }
+          }}
+        >
+          {paused ? "Resume conversation" : "Pause conversation"}
+        </button>
+      ) : null}
       {loading ? <p className="living-gallery__status">Loading conversation…</p> : null}
       {error ? (
         <p className="living-gallery__status living-gallery__status--error">

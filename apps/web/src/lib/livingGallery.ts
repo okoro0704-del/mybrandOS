@@ -129,11 +129,15 @@ export function conversationHandoff(opts: {
   deltaY: number;
   atTop: boolean;
   atBottom: boolean;
+  startedAtTop?: boolean;
+  startedAtBottom?: boolean;
   threshold?: number;
 }): "previous" | "next" | null {
   const threshold = opts.threshold ?? LIVING_GALLERY_BOUNDARY_HANDOFF_PX;
-  if (opts.atTop && opts.deltaY > threshold) return "previous";
-  if (opts.atBottom && opts.deltaY < -threshold) return "next";
+  const startedTop = opts.startedAtTop ?? opts.atTop;
+  const startedBottom = opts.startedAtBottom ?? opts.atBottom;
+  if (startedTop && opts.atTop && opts.deltaY > threshold) return "previous";
+  if (startedBottom && opts.atBottom && opts.deltaY < -threshold) return "next";
   return null;
 }
 
