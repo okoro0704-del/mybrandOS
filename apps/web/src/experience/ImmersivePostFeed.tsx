@@ -216,6 +216,7 @@ function PostSlide({
   const [vvBottom, setVvBottom] = useState(0);
   const [keyboard, setKeyboard] = useState<CommentKeyboardState>("CLOSED");
   const [inputMode, setInputMode] = useState<CommentComposerInputMode>("internal");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active,
@@ -391,7 +392,11 @@ function PostSlide({
         <PostDetails
           title={humanTitle}
           body={body}
-          hideMeta
+          publishedAt={asset.publishedAt}
+          kind={asset.assetType}
+          hideMeta={!detailsOpen}
+          expanded={detailsOpen}
+          onExpandedChange={setDetailsOpen}
           moreLabel="See more"
           lessLabel="See less"
         />
@@ -588,6 +593,8 @@ function PostSlide({
               hideComposer
               variant="gallery"
               onComment={onToggleComments}
+              onDetails={() => setDetailsOpen((open) => !open)}
+              detailsOpen={detailsOpen}
             />
           </div>
         </div>

@@ -12,6 +12,8 @@ export function PostDetails({
   moreLabel = "See more",
   lessLabel = "See less",
   hideMeta = false,
+  expanded: expandedProp,
+  onExpandedChange,
 }: {
   title?: string | null;
   body?: string | null;
@@ -23,12 +25,15 @@ export function PostDetails({
   moreLabel?: string;
   lessLabel?: string;
   hideMeta?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (next: boolean) => void;
 }) {
   const copy = (body ?? "").trim();
   const heading = (title ?? "").trim();
   const showHeading = Boolean(heading) && heading !== copy;
   const textRef = useRef<HTMLParagraphElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const expanded = expandedProp ?? internalExpanded;
   const [overflows, setOverflows] = useState(false);
   const clampLines = Math.max(1, lines);
 
@@ -49,6 +54,11 @@ export function PostDetails({
     return () => ro.disconnect();
   }, [copy, heading, expanded, clampLines]);
 
+  function toggleExpanded() {
+    if (onExpandedChange) onExpandedChange(!expanded);
+    else setInternalExpanded((v) => !v);
+  }
+
   if (!showHeading && !copy && (hideMeta || (!publishedLabel && !kind))) return null;
 
   return (
@@ -68,14 +78,20 @@ export function PostDetails({
           type="button"
           className="living-gallery__more"
           aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={toggleExpanded}
         >
           {expanded ? lessLabel : moreLabel}
         </button>
       ) : null}
       {hideMeta ? null : (
         <p className="living-gallery__meta">
-          {publishedAt ? <time dateTime={publishedAt}>{publishedLabel}</time> : publishedLabel ? <span>{publishedLabel}</span> : null}
+          {publishedAt ? (
+            <time dateTime={publishedAt}>
+              {publishedLabel || new Date(publishedAt).toLocaleDateString()}
+            </time>
+          ) : publishedLabel ? (
+            <span>{publishedLabel}</span>
+          ) : null}
           {kind ? <span>{kind}</span> : null}
           {visibility ? <span>{visibility}</span> : null}
         </p>

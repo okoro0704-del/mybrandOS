@@ -31,6 +31,8 @@ export function ContentActionBar({
   onComment,
   commentCount,
   commentsOpen: commentsOpenProp,
+  onDetails,
+  detailsOpen = false,
   hideComposer = false,
   variant = "default",
 }: {
@@ -42,6 +44,8 @@ export function ContentActionBar({
   onComment?: () => void;
   commentCount?: number;
   commentsOpen?: boolean;
+  onDetails?: () => void;
+  detailsOpen?: boolean;
   hideComposer?: boolean;
   variant?: "default" | "compact" | "gallery";
 }) {
@@ -278,16 +282,11 @@ export function ContentActionBar({
             icon={<Icons.messages size={22} />}
           />
           <ActionBtn
-            label={saved ? "Saved" : "Save"}
-            active={saved}
+            label="Details"
+            active={detailsOpen}
             iconOnly
-            onPointerDown={onSavePointerDown}
-            onPointerUp={onSavePointerUp}
-            onPointerLeave={onSavePointerLeave}
-            onContextMenu={onSaveContextMenu}
-            onClick={(e) => e.preventDefault()}
-            title="Tap to save offline. Hold to download when allowed."
-            icon={<Icons.save size={22} filled={saved} />}
+            onClick={() => onDetails?.()}
+            icon={<Icons.details size={22} />}
           />
           <ActionBtn
             label="Reuse"

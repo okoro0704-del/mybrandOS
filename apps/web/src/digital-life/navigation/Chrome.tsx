@@ -1,10 +1,11 @@
-import type { PublicBrandExperience } from "@mybrandos/shared";
+import type { PublicBrandExperience, PublicLiveNow } from "@mybrandos/shared";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
 import { communitiesPath, contactsPath, livePath, spotlightPath } from "../routes";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { useRevealChrome } from "../personal-os/RevealChromeContext";
+import { isBrandLive } from "../personal-os/usePublicLiveNow";
 
 type Primary =
   | "home"
@@ -18,6 +19,30 @@ type Primary =
   | "profile"
   | "vip"
   | string;
+
+export function BrandLiveBadge({
+  liveNow,
+  to,
+  hidden = false,
+}: {
+  liveNow: PublicLiveNow | null | undefined;
+  to: string;
+  hidden?: boolean;
+}) {
+  if (!isBrandLive(liveNow) || !liveNow) return null;
+  return (
+    <Link
+      className="os-live-badge"
+      to={to}
+      hidden={hidden || undefined}
+      tabIndex={hidden ? -1 : undefined}
+      aria-label={`Brand is live now: ${liveNow.title}`}
+    >
+      <span className="os-live-dot" aria-hidden />
+      LIVE
+    </Link>
+  );
+}
 
 export function DigitalLifeTopBar({
   experience,
@@ -33,23 +58,24 @@ export function DigitalLifeTopBar({
   menuOpen?: boolean;
   onToggleMenu?: () => void;
   chromeHidden?: boolean;
-  /** Immersive reveal: top bar carries the black brand name while chrome is visible. */
   reveal?: boolean;
 }) {
   const name = experience.identity.displayName || "Digital Life";
   const home = publicHomePath(basePath);
   const hidden = chromeHidden;
+  const liveHref = livePath(basePath);
 
   return (
     <header
-      className={`os-topbar${reveal ? " os-topbar--reveal" : ""}`}
+      className={`os-topbar${reveal ? " os-topbar--reveal os-topbar--hud" : ""}`}
       aria-hidden={hidden || undefined}
       data-chrome-hidden={hidden ? "true" : undefined}
       inert={hidden ? true : undefined}
       aria-label={reveal ? "Creator identity" : undefined}
     >
-      <div className="os-topbar__inner os-topbar__inner--wordmark-only">
+      <div className="os-topbar__inner os-topbar__inner--wordmark-only os-topbar__inner--hud">
         <OsWordmark slug={experience.slug} displayName={name} to={home} hidden={hidden} identity={reveal} />
+        <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} hidden={hidden} />
       </div>
     </header>
   );
@@ -68,7 +94,7 @@ export function DigitalLifeBottomNav({
   chromeHidden?: boolean;
 }) {
   const reveal = useRevealChrome();
-  const live = experience.liveNow;
+  const live = isBrandLive(experience.liveNow) ? experience.liveNow : null;
   const items = [
     { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
     { id: "spotlight", label: "Spotlight", short: "Spotlight", to: spotlightPath(basePath), icon: Icons.favorites },
@@ -79,10 +105,11 @@ export function DigitalLifeBottomNav({
 
   return (
     <nav
-      className="os-bottom-nav"
+      className="os-bottom-nav os-bottom-nav--hud"
       aria-label="Digital Life"
       aria-hidden={chromeHidden || undefined}
       data-chrome-hidden={chromeHidden ? "true" : undefined}
+      data-brand-live={live ? "true" : "false"}
       inert={chromeHidden ? true : undefined}
     >
       {items.map((item) => {
@@ -99,13 +126,27 @@ export function DigitalLifeBottomNav({
             key={item.id}
             className={`${active ? "active" : ""}${item.id === "live" ? " os-bottom-nav__live" : ""}${liveOn ? " os-bottom-nav__live--on" : ""}`}
             to={item.to}
-            aria-label={liveOn && live ? `Live, live now: ${live.title}` : item.label}
+            aria-label={
+              item.id === "live"
+                ? liveOn && live
+                  ? `Brand is live now: ${live.title}`
+                  : "Live"
+                : item.label
+            }
             aria-current={active ? "page" : undefined}
             data-life-control={item.id === "live" ? "live" : undefined}
+            data-brand-live={item.id === "live" ? (liveOn ? "true" : "false") : undefined}
             tabIndex={chromeHidden ? -1 : undefined}
             onClick={() => reveal?.selectDestination()}
           >
-            <Icon size={20} />
+            {item.id === "live" ? (
+              <span className="os-bottom-nav__live-icon">
+                <Icon size={20} />
+                {liveOn ? <span className="os-live-dot" aria-hidden /> : null}
+              </span>
+            ) : (
+              <Icon size={20} />
+            )}
             <span className="os-bottom-nav__label" data-short={item.short}>
               {item.short}
             </span>

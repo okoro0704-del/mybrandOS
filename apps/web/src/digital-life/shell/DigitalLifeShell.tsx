@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { publicHomePath, studioPath, type PublicBrandExperience } from "@mybrandos/shared";
+import { publicHomePath, studioPath, livePath, type PublicBrandExperience } from "@mybrandos/shared";
+import { isBrandLive } from "../personal-os/usePublicLiveNow";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
-import { DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
+import { DigitalLifeBottomNav, DigitalLifeTopBar, BrandLiveBadge } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { UtilityDock } from "../personal-os/UtilityDock";
 import {
   REVEAL_CHROME_MS,
+  REVEAL_IDLE_MS,
   isRevealKeyboardBlocked,
   reduceRevealChrome,
   revealNavVisible,
@@ -46,6 +48,7 @@ export function DigitalLifeShell({
   const theme = experience.theme;
   const revealEnabled = !preview;
   const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
+  const [idleGen, setIdleGen] = useState(0);
   const revealStateRef = useRef(revealState);
   revealStateRef.current = revealState;
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -71,6 +74,40 @@ export function DigitalLifeShell({
   );
 
   useRevealDoubleTap(revealEnabled, () => dispatch("TOGGLE"));
+
+  useEffect(() => {
+    if (!revealEnabled) return;
+    if (revealState !== "NAVIGATION_VISIBLE") return;
+    const t = window.setTimeout(() => {
+      if (document.querySelector(".is-comment-mode, .comment-keyboard, [data-keyboard='open']")) {
+        setIdleGen((n) => n + 1);
+        return;
+      }
+      dispatch("CLOSE");
+    }, REVEAL_IDLE_MS);
+    return () => window.clearTimeout(t);
+  }, [revealState, revealEnabled, idleGen]);
+
+  useEffect(() => {
+    if (!revealEnabled) return;
+    const root = document.querySelector(".os-phone-frame");
+    if (!root) return;
+    const onHud = (e: Event) => {
+      const el = e.target;
+      if (!(el instanceof Element)) return;
+      if (
+        !el.closest(
+          ".os-topbar, .os-bottom-nav, .os-dock, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions",
+        )
+      ) {
+        return;
+      }
+      if (!revealNavVisible(revealStateRef.current)) return;
+      setIdleGen((n) => n + 1);
+    };
+    root.addEventListener("pointerdown", onHud);
+    return () => root.removeEventListener("pointerdown", onHud);
+  }, [revealEnabled]);
 
   useEffect(() => {
     if (!revealEnabled) return;
@@ -119,7 +156,7 @@ export function DigitalLifeShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [revealEnabled]);
 
-  const navHidden = revealEnabled && !revealApi.navVisible;
+  const navHidden = revealEnabled && revealState === "CLEAN";
   const name = experience.identity.displayName || "Digital Life";
   const home = publicHomePath(basePath);
 
@@ -135,6 +172,7 @@ export function DigitalLifeShell({
       data-density={theme.density}
       data-reveal-shell={revealEnabled ? "true" : undefined}
       data-reveal={revealEnabled ? revealState : undefined}
+      data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
     >
       {preview ? (
@@ -153,7 +191,7 @@ export function DigitalLifeShell({
             ref={toggleRef}
             type="button"
             className="os-reveal-toggle sr-only"
-            aria-expanded={revealApi.navVisible}
+            aria-expanded={revealEnabled && revealState !== "CLEAN"}
             aria-controls="os-reveal-nav"
             onClick={() => dispatch("TOGGLE", { focus: !revealApi.navVisible })}
           >
@@ -162,13 +200,16 @@ export function DigitalLifeShell({
         ) : null}
 
         {revealEnabled ? (
-          <OsWordmark
-            slug={experience.slug}
-            displayName={name}
-            to={home}
-            className="os-wordmark--signature os-wordmark--owner"
-            identity
-          />
+          <div className="os-identity-hud">
+            <OsWordmark
+              slug={experience.slug}
+              displayName={name}
+              to={home}
+              className="os-wordmark--signature os-wordmark--owner"
+              identity
+            />
+            <BrandLiveBadge liveNow={experience.liveNow} to={livePath(basePath)} />
+          </div>
         ) : null}
 
         <DigitalLifeTopBar

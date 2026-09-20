@@ -45,16 +45,19 @@ test("messages and notifications are not primary public destinations", () => {
   assert.match(experience, /Not comments/);
 });
 
-test("publication action hood is Love Comment Save Reuse Share", () => {
+test("publication action hood is Love Comment Details Reuse Share", () => {
   const gallery = actions.slice(actions.indexOf("galleryActions"));
   const love = gallery.indexOf('label="Love"');
   const comment = gallery.indexOf('label="Comment"');
-  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
+  const details = gallery.indexOf('label="Details"');
   const reuse = gallery.indexOf('label="Reuse"');
   const share = gallery.indexOf('label="Share"');
-  assert.ok(love >= 0 && comment > love && save > comment && reuse > save && share > reuse);
+  assert.ok(love >= 0 && comment > love && details > comment && reuse > details && share > reuse);
+  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
+  assert.ok(save === -1 || save > share);
   assert.match(actions, /content-actions--hood/);
   assert.equal(feed.includes("<LiveControl"), false);
+  assert.match(feed, /onDetails=/);
   assert.match(styles, /content-actions--gallery[\s\S]*backdrop-filter:\s*blur/);
   assert.match(styles, /\.living-comments-layer[\s\S]{0,400}background:\s*transparent/);
 });

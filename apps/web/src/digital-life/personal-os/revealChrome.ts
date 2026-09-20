@@ -8,7 +8,8 @@ export type RevealChromeState = "CLEAN" | "OPENING" | "NAVIGATION_VISIBLE" | "CL
 
 export type RevealChromeAction = "TOGGLE" | "OPEN" | "CLOSE" | "SELECT" | "ANIMATION_END";
 
-export const REVEAL_CHROME_MS = 280;
+export const REVEAL_CHROME_MS = 240;
+export const REVEAL_IDLE_MS = 3800;
 export const REVEAL_DOUBLE_TAP_MS = 280;
 export const REVEAL_MOVE_CANCEL_PX = 12;
 
@@ -87,6 +88,8 @@ const INTERACTIVE_SELECTOR = [
   ".os-segments",
   ".os-segments-wrap",
   ".os-topbar",
+  ".os-identity-hud",
+  ".os-live-badge",
   ".os-reveal-toggle",
   ".os-sheet",
   ".os-search",

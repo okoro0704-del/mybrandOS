@@ -18,6 +18,7 @@ import { assetDetailPath, assetsPath, infoPath, managementPath, digipediaPath, n
 import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
+import { usePublicLiveNow } from "../digital-life/personal-os/usePublicLiveNow";
 
 export function ExperienceView({
   experience,
@@ -40,7 +41,12 @@ export function ExperienceView({
   websitePageSlug?: string;
   primary?: string;
 }) {
-  const appNav = experience.appNavigation?.length ? experience.appNavigation : experience.navigation;
+  const liveNow = usePublicLiveNow(experience.slug, experience.liveNow, !preview);
+  const liveExperience = useMemo(
+    () => (liveNow === experience.liveNow ? experience : { ...experience, liveNow }),
+    [experience, liveNow],
+  );
+  const appNav = liveExperience.appNavigation?.length ? liveExperience.appNavigation : liveExperience.navigation;
   const appBase = basePath;
   const websiteBase = joinPublicPath(basePath, "website");
   const collection = appNav.find((item) => item.id === section && item.kind === "collection");
@@ -85,7 +91,7 @@ export function ExperienceView({
 
   return (
     <DigitalLifeShell
-      experience={experience}
+      experience={liveExperience}
       basePath={appBase}
       mediaBase={mediaBase}
       websiteBase={websiteBase}
@@ -139,7 +145,7 @@ export function ExperienceView({
       ) : activeIs(section, "store") ? (
         <StoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
       ) : primary === "live" || activeIs(section, "live") ? (
-        <LiveBody experience={experience} />
+        <LiveBody experience={liveExperience} />
       ) : (collection && section) || section === "podcasts" ? (
         <WorkGrid
           title={collection?.label || (section === "podcasts" ? "Podcasts" : "Work")}

@@ -94,6 +94,12 @@ export const Icons = {
       <path d="M9 14h6" />
     </Svg>
   ),
+  details: (p: IconProps) => (
+    <Svg {...p}>
+      <rect x="5" y="4" width="14" height="16" rx="2" />
+      <path d="M8 9h8M8 13h8M8 17h5" />
+    </Svg>
+  ),
   reuse: (p: IconProps) => (
     <Svg {...p}>
       <path d="M7 7h8a3 3 0 0 1 3 3v2" />

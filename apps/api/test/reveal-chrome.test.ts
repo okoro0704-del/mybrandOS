@@ -4,10 +4,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
+  REVEAL_IDLE_MS,
   reduceRevealChrome,
   revealNavVisible,
   revealWordmarkVisible,
 } from "../../web/src/digital-life/personal-os/revealChrome.ts";
+import { isBrandLive, PUBLIC_LIVE_POLL_MS } from "../../web/src/digital-life/personal-os/usePublicLiveNow.ts";
 import { personalOsName } from "../../web/src/digital-life/personal-os/osIdentity.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -16,6 +18,7 @@ const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLi
 const chrome = readFileSync(join(root, "apps/web/src/digital-life/navigation/Chrome.tsx"), "utf8");
 const wordmark = readFileSync(join(root, "apps/web/src/digital-life/personal-os/OsWordmark.tsx"), "utf8");
 const home = readFileSync(join(root, "apps/web/src/digital-life/personal-os/PersonalOsHome.tsx"), "utf8");
+const experience = readFileSync(join(root, "apps/web/src/experience/ExperienceView.tsx"), "utf8");
 
 test("reveal chrome toggles CLEAN ↔ OPENING ↔ VISIBLE ↔ CLOSING", () => {
   assert.equal(reduceRevealChrome("CLEAN", "TOGGLE"), "OPENING");
@@ -57,6 +60,8 @@ test("public shell uses one reveal controller and overlays existing nav", () => 
   assert.equal((shell.match(/<UtilityDock/g) || []).length, 1);
   assert.match(chrome, /selectDestination/);
   assert.match(home, /selectDestination/);
+  assert.match(shell, /REVEAL_IDLE_MS/);
+  assert.equal(REVEAL_IDLE_MS, 3800);
 });
 
 test("OS suffix is green; signature sits top-right; no black peel", () => {
@@ -70,8 +75,10 @@ test("OS suffix is green; signature sits top-right; no black peel", () => {
   assert.equal(shell.includes("os-reveal-scrim"), false);
   assert.equal(/background:\s*#000[\s\S]{0,80}reveal/.test(styles), false);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
-  assert.match(styles, /--reveal-chrome-top/);
-  assert.match(styles, /--reveal-chrome-bottom/);
+  assert.equal(styles.includes("top: var(--reveal-chrome-top)"), false);
+  assert.equal(styles.includes("bottom: var(--reveal-chrome-bottom)"), false);
+  assert.match(chrome, /os-bottom-nav--hud/);
+  assert.match(styles, /os-live-pulse/);
 });
 
 test("interactive children are exempt from reveal double-tap", () => {
@@ -86,4 +93,20 @@ test("interactive children are exempt from reveal double-tap", () => {
   assert.match(tap, /isRevealExemptTarget/);
   assert.equal(tap.includes("document.ondblclick"), false);
   assert.equal(shell.includes("ondblclick"), false);
+});
+
+test("Live red pulse is gated on real liveNow, not the Live tab existing", () => {
+  assert.equal(isBrandLive(null), false);
+  assert.equal(isBrandLive({ sessionId: "s1", title: "Set", creatorName: "Ada", startedAt: "2026-01-01", watchLabel: "Watch Live" }), true);
+  assert.equal(isBrandLive({ sessionId: "", title: "Set", creatorName: "Ada", startedAt: "2026-01-01", watchLabel: "Watch Live" }), false);
+  assert.match(chrome, /isBrandLive/);
+  assert.match(chrome, /os-bottom-nav__live--on/);
+  assert.match(chrome, /Brand is live now/);
+  assert.match(chrome, /BrandLiveBadge/);
+  assert.match(shell, /data-brand-live/);
+  assert.match(experience, /usePublicLiveNow/);
+  assert.match(experience, /liveExperience/);
+  assert.equal(PUBLIC_LIVE_POLL_MS, 12_000);
+  assert.match(styles, /os-bottom-nav__live--on/);
+  assert.equal(/os-bottom-nav__live[^-][\s\S]{0,80}#ef4444/.test(styles), false);
 });

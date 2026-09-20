@@ -238,14 +238,16 @@ test("keyboard visualViewport must not flip gallery orientation", () => {
   );
 });
 
-test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {
+test("five gallery actions are Love Comment Details Reuse Share; status bar is translucent", () => {
   const gallery = actions.slice(actions.indexOf('galleryActions'));
   const love = gallery.indexOf('label="Love"');
   const comment = gallery.indexOf('label="Comment"');
-  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
+  const details = gallery.indexOf('label="Details"');
   const reuse = gallery.indexOf('label="Reuse"');
   const share = gallery.indexOf('label="Share"');
-  assert.ok(love >= 0 && comment > love && save > comment && reuse > save && share > reuse);
+  assert.ok(love >= 0 && comment > love && details > comment && reuse > details && share > reuse);
+  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
+  assert.ok(save === -1 || save > share);
   assert.match(branding, /theme-color", "transparent"/);
   assert.match(branding, /black-translucent/);
   assert.match(player, /wantSound/);
