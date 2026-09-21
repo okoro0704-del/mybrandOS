@@ -98,6 +98,9 @@ export function ExperienceView({
       primary={shellPrimary}
       preview={preview}
       assetTitle={asset?.title}
+      initialSurface={
+        section === "news" ? "DIGINEWS" : section === "digipedia" ? "DIGIPEDIA" : "APP"
+      }
     >
       {surface === "website" ? (
         <InfoBody experience={experience} section="website" page={selectedWebsitePage} basePath={appBase} websiteBase={websiteBase} />
@@ -111,16 +114,20 @@ export function ExperienceView({
         <SpotlightBody experience={experience} mediaBase={mediaBase} basePath={appBase} />
       ) : primary === "vip" || section === "vip" ? (
         <VipBody experience={experience} />
+      ) : section === "news" || section === "digipedia" ? (
+        <AppHomeBody
+          experience={experience}
+          basePath={appBase}
+          mediaBase={mediaBase}
+        />
       ) : primary === "info" ||
         section === "info" ||
-        section === "digipedia" ||
-        section === "news" ||
         section === "blog" ||
         section === "website" ? (
         <InfoBody
           experience={experience}
           section={
-            section === "digipedia" || section === "news" || section === "blog" || section === "website"
+            section === "blog" || section === "website"
               ? section
               : "hub"
           }

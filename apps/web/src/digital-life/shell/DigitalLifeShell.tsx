@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { publicHomePath, studioPath, livePath, type PublicBrandExperience } from "@mybrandos/shared";
+import { publicHomePath, studioPath, livePath, type CreatorSpaceSurface, type PublicBrandExperience } from "@mybrandos/shared";
 import { isBrandLive } from "../personal-os/usePublicLiveNow";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
-import { DigitalLifeBottomNav, DigitalLifeTopBar, BrandLiveBadge } from "../navigation/Chrome";
+import { DigitalLifeTopBar, BrandLiveBadge } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
-import { UtilityDock } from "../personal-os/UtilityDock";
-import { StationModeProvider, useStationMode } from "../station/StationModeContext";
-import { StationSwitcher } from "../station/StationSwitcher";
+import { CreatorSpaceProvider, useCreatorSpace } from "../space/CreatorSpaceContext";
+import { SpaceEdgeRails } from "../space/SpaceEdgeRails";
+import { SpaceRouterPanel } from "../space/SpaceRouterPanel";
+import { DigiNewsSurface, DigiPediaSurface } from "../space/KnowledgeSurfaces";
 import { StationSurface } from "../station/StationSurface";
 import {
   REVEAL_CHROME_MS,
@@ -37,12 +38,13 @@ export function DigitalLifeShell(props: {
   primary: string;
   preview?: boolean;
   assetTitle?: string;
+  initialSurface?: CreatorSpaceSurface;
   children: ReactNode;
 }) {
   return (
-    <StationModeProvider slug={props.experience.slug}>
+    <CreatorSpaceProvider slug={props.experience.slug} initialSurface={props.initialSurface}>
       <DigitalLifeShellFrame {...props} />
-    </StationModeProvider>
+    </CreatorSpaceProvider>
   );
 }
 
@@ -65,7 +67,7 @@ function DigitalLifeShellFrame({
   assetTitle?: string;
   children: ReactNode;
 }) {
-  const stationMode = useStationMode();
+  const space = useCreatorSpace();
   const theme = experience.theme;
   const revealEnabled = !preview;
   const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
@@ -100,7 +102,7 @@ function DigitalLifeShellFrame({
     if (!revealEnabled) return;
     if (revealState !== "NAVIGATION_VISIBLE") return;
     const t = window.setTimeout(() => {
-      if (document.querySelector(".is-comment-mode, .comment-keyboard, [data-keyboard='open']")) {
+      if (document.querySelector(".is-comment-mode, .comment-keyboard, [data-keyboard='open'], .space-router")) {
         setIdleGen((n) => n + 1);
         return;
       }
@@ -118,7 +120,7 @@ function DigitalLifeShellFrame({
       if (!(el instanceof Element)) return;
       if (
         !el.closest(
-          ".os-topbar, .os-bottom-nav, .os-dock, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions, .station-switcher",
+          ".os-topbar, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions, .space-rail, .space-router, .space-launcher",
         )
       ) {
         return;
@@ -141,7 +143,7 @@ function DigitalLifeShellFrame({
     if (!revealEnabled || !focusNavOnOpen.current) return;
     if (!revealNavVisible(revealState)) return;
     focusNavOnOpen.current = false;
-    const first = document.querySelector<HTMLElement>(".os-bottom-nav a");
+    const first = document.querySelector<HTMLElement>(".space-launcher");
     first?.focus();
   }, [revealState, revealEnabled]);
 
@@ -193,7 +195,8 @@ function DigitalLifeShellFrame({
       data-density={theme.density}
       data-reveal-shell={revealEnabled ? "true" : undefined}
       data-reveal={revealEnabled ? revealState : undefined}
-      data-station-mode={stationMode.mode}
+      data-space-surface={space.surface}
+      data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
     >
@@ -214,7 +217,7 @@ function DigitalLifeShellFrame({
             type="button"
             className="os-reveal-toggle sr-only"
             aria-expanded={revealEnabled && revealState !== "CLEAN"}
-            aria-controls="os-reveal-nav"
+            aria-controls="os-space-rails"
             onClick={() => dispatch("TOGGLE", { focus: !revealApi.navVisible })}
           >
             {revealApi.navVisible ? "Hide navigation" : "Show navigation"}
@@ -246,21 +249,47 @@ function DigitalLifeShellFrame({
           reveal={revealEnabled}
         />
 
-        <main className="dl-main be-main os-main">
+        <main className="dl-main be-main os-main" data-space-host="true">
           <div
-            className="station-layer station-layer--app"
-            data-lifecycle={stationMode.lifecycle("APP")}
-            hidden={stationMode.mode !== "APP" || undefined}
-            inert={stationMode.mode !== "APP" ? true : undefined}
+            className="space-surface space-surface--app"
+            data-space-surface="APP"
+            data-runtime={space.lifecycle("APP")}
+            data-edge="center"
+            hidden={space.surface !== "APP" || undefined}
+            inert={space.surface !== "APP" ? true : undefined}
           >
             {children}
           </div>
           {primary === "info" || primary === "website" ? null : (
             <>
-              {stationMode.lifecycle("TV") !== "SUSPENDED" ? (
+              {space.lifecycle("DIGINEWS") !== "SUSPENDED" ? (
+                <section
+                  className="space-surface space-surface--news"
+                  data-space-surface="DIGINEWS"
+                  data-runtime={space.lifecycle("DIGINEWS")}
+                  data-edge="left"
+                  hidden={space.surface !== "DIGINEWS" || undefined}
+                  inert={space.surface !== "DIGINEWS" ? true : undefined}
+                >
+                  <DigiNewsSurface experience={experience} />
+                </section>
+              ) : null}
+              {space.lifecycle("DIGIPEDIA") !== "SUSPENDED" ? (
+                <section
+                  className="space-surface space-surface--pedia"
+                  data-space-surface="DIGIPEDIA"
+                  data-runtime={space.lifecycle("DIGIPEDIA")}
+                  data-edge="left"
+                  hidden={space.surface !== "DIGIPEDIA" || undefined}
+                  inert={space.surface !== "DIGIPEDIA" ? true : undefined}
+                >
+                  <DigiPediaSurface experience={experience} />
+                </section>
+              ) : null}
+              {space.lifecycle("TV") !== "SUSPENDED" ? (
                 <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
               ) : null}
-              {stationMode.lifecycle("RADIO") !== "SUSPENDED" ? (
+              {space.lifecycle("RADIO") !== "SUSPENDED" ? (
                 <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
               ) : null}
             </>
@@ -269,16 +298,9 @@ function DigitalLifeShellFrame({
 
         {!preview ? <InstallPrompt experience={experience} /> : null}
 
-        <div id="os-reveal-nav">
-          <StationSwitcher hidden={navHidden} />
-          <UtilityDock immersiveDock={revealEnabled} chromeHidden={navHidden} />
-          <DigitalLifeBottomNav
-            experience={experience}
-            basePath={basePath}
-            websiteBase={websiteBase}
-            primary={primary}
-            chromeHidden={navHidden}
-          />
+        <div id="os-space-rails">
+          <SpaceEdgeRails subtle={navHidden} />
+          <SpaceRouterPanel experience={experience} open={space.routerOpen} />
         </div>
       </div>
     </div>

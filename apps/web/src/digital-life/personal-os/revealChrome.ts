@@ -98,6 +98,9 @@ const INTERACTIVE_SELECTOR = [
   ".os-search",
   ".station-switcher",
   ".station-surface",
+  ".space-rail",
+  ".space-launcher",
+  ".space-router",
   ".media-launcher",
 ].join(", ");
 

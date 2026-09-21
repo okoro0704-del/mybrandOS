@@ -29,7 +29,7 @@ import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery
 import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
-import { useStationMode } from "../digital-life/station/StationModeContext";
+import { useCreatorSpace } from "../digital-life/space/CreatorSpaceContext";
 import {
   activeIndexFromScroll,
   commentsSectionId,
@@ -701,8 +701,8 @@ export function ImmersivePostFeed({
   author?: string;
 }) {
   void slug;
-  const station = useStationMode();
-  const galleryLive = station.mode === "APP";
+  const space = useCreatorSpace();
+  const galleryLive = space.surface === "APP";
   const galleryLiveRef = useRef(galleryLive);
   galleryLiveRef.current = galleryLive;
   const items = useMemo(() => filterForCategory(assets, category), [assets, category]);

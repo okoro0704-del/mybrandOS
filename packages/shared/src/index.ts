@@ -28,6 +28,7 @@ export * from "./recording.js";
 export * from "./camera-hardware.js";
 export * from "./digital-life.js";
 export * from "./station.js";
+export * from "./creator-space.js";
 export * from "./publish-center.js";
 export * from "./twin.js";
 

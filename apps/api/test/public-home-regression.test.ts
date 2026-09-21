@@ -82,11 +82,10 @@ test("Immersive Home Chrome state machine: FULL_HOME → IMMERSIVE_FEED → NAVI
   assert.equal(top.state, "FULL_HOME");
 });
 
-test("UtilityDock immersive class is transform-only (no second dock markup required)", () => {
+test("UtilityDock is not a public Space chrome surface", () => {
   const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
   const dock = readFileSync(join(root, "apps/web/src/digital-life/personal-os/UtilityDock.tsx"), "utf8");
-  assert.equal((shell.match(/<UtilityDock/g) || []).length, 1);
-  assert.match(styles, /data-home-chrome="IMMERSIVE_FEED"\]\s*\.os-dock/);
+  assert.equal((shell.match(/<UtilityDock/g) || []).length, 0);
   assert.ok(dock.includes("os-dock"));
 });
 

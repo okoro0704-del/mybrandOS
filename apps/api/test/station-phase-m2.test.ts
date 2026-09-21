@@ -8,7 +8,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const station = readFileSync(join(root, "packages/shared/src/station.ts"), "utf8");
 const digitalLife = readFileSync(join(root, "packages/shared/src/digital-life.ts"), "utf8");
 const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
-const switcher = readFileSync(join(root, "apps/web/src/digital-life/station/StationSwitcher.tsx"), "utf8");
 const surface = readFileSync(join(root, "apps/web/src/digital-life/station/StationSurface.tsx"), "utf8");
 const mode = readFileSync(join(root, "apps/web/src/digital-life/station/StationModeContext.tsx"), "utf8");
 const kernel = readFileSync(join(root, "apps/web/src/digital-life/offline/offlineKernel.ts"), "utf8");
@@ -23,30 +22,27 @@ test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(station, /tvEnabled/);
   assert.match(station, /radioEnabled/);
   assert.match(digitalLife, /station\?: StationOwnerConfig/);
-  assert.match(mode, /PublicStationMode/);
+  assert.match(mode, /CreatorSpaceProvider/);
   assert.match(shell, /data-station-mode/);
-  assert.match(shell, /<StationSwitcher/);
+  assert.match(shell, /SpaceEdgeRails/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
 });
 
-test("switcher is hidden by default and summoned by the existing reveal gesture", () => {
-  assert.match(switcher, /hidden=\{hidden/);
-  assert.match(shell, /StationSwitcher hidden=\{navHidden\}/);
+test("surface launchers are subtle by default and summoned by the existing reveal gesture", () => {
+  assert.match(shell, /SpaceEdgeRails subtle=\{navHidden\}/);
   assert.match(shell, /useRevealDoubleTap/);
-  assert.match(reveal, /\.station-switcher/);
-  assert.match(switcher, /reveal\?\.selectDestination/);
-  assert.match(styles, /\.station-switcher\[hidden\]/);
-  assert.equal(switcher.includes("onDoubleClick"), false);
+  assert.match(reveal, /\.space-launcher/);
+  assert.equal(shell.includes("<StationSwitcher"), false);
 });
 
 test("App mode keeps gallery-first launchers and the shared feed", () => {
   assert.match(feed, /media-launcher--top/);
   assert.match(feed, /media-launcher--bottom/);
   assert.match(feed, /galleryLive/);
-  assert.match(feed, /useStationMode/);
+  assert.match(feed, /useCreatorSpace/);
   assert.match(feed, /active=\{active && galleryLive\}/);
-  assert.match(shell, /station-layer--app/);
+  assert.match(shell, /space-surface--app/);
 });
 
 test("TV and Radio share one scheduling engine and live override", () => {
@@ -77,8 +73,7 @@ test("TV and Radio consume the shared Offline Kernel; no second DB", () => {
 });
 
 test("mode switching preserves identity and does not remount the gallery key", () => {
-  assert.match(mode, /sessionStorage/);
-  assert.match(mode, /previous/);
+  assert.match(shell, /CreatorSpaceProvider/);
   assert.match(station, /stationLifecycle/);
   assert.match(feed, /key=\{asset\.id\}/);
   assert.match(shell, /experience\.slug/);

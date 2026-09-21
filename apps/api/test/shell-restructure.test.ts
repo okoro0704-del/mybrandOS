@@ -17,13 +17,9 @@ const camera = readFileSync(join(root, "apps/web/src/pages/CameraCapability.tsx"
 const app = readFileSync(join(root, "apps/web/src/App.tsx"), "utf8");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 
-test("public bottom nav is Home Spotlight Live Contacts Communities", () => {
-  const homeI = chrome.indexOf('id: "home"');
-  const spot = chrome.indexOf('id: "spotlight"');
-  const live = chrome.indexOf('id: "live"');
-  const contacts = chrome.indexOf('id: "contacts"');
-  const communities = chrome.indexOf('id: "communities"');
-  assert.ok(homeI >= 0 && spot > homeI && live > spot && contacts > live && communities > contacts);
+test("public creator space uses edge launchers, not a destination bar", () => {
+  assert.match(shell, /SpaceEdgeRails/);
+  assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
   assert.equal(chrome.includes('label: "Management"'), false);
   assert.equal(chrome.includes('label: "Info"'), false);
   assert.equal(parseDigitalLifePath("contacts").primary, "contacts");

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildChannelProgramming,
+  radioShouldPlay,
   reconcileStationNow,
   type PublicBrandExperience,
   type StationChannel,
@@ -18,6 +19,7 @@ import {
   listLocallyAvailableAssetIds,
   saveStationPlaybackState,
 } from "../offline/offlineKernel";
+import { useCreatorSpace } from "../space/CreatorSpaceContext";
 import { useStationMode } from "./StationModeContext";
 
 function mediaSrc(mediaBase: string, assetId: string) {
@@ -38,11 +40,12 @@ export function StationSurface({
   mediaBase: string;
 }) {
   const station = useStationMode();
+  const space = useCreatorSpace();
   const mode = channel === "TV" ? "TV" : "RADIO";
   const lifecycle: StationRuntimeLifecycle = station.lifecycle(mode);
   const active = lifecycle === "ACTIVE";
   const warm = lifecycle === "WARM";
-  const keepAudio = channel === "RADIO" && (active || warm);
+  const keepAudio = channel === "RADIO" && radioShouldPlay(space.surface);
   const playing = channel === "TV" ? active : keepAudio;
 
   const liveProgramming = useMemo(
@@ -146,7 +149,7 @@ export function StationSurface({
     void saveStationPlaybackState(experience.slug, channel, cursor).catch(() => undefined);
   }, [channel, experience.slug, playing, resolved.item]);
 
-  const hidden = channel === "RADIO" ? lifecycle === "SUSPENDED" : !active;
+  const hidden = !active;
   const minimized = channel === "RADIO" && warm;
   const item = resolved.item;
   const assetId = item?.assetId;
@@ -157,9 +160,12 @@ export function StationSurface({
 
   return (
     <section
-      className={`station-surface station-surface--${channel.toLowerCase()}${minimized ? " is-minimized" : ""}`}
+      className={`station-surface station-surface--${channel.toLowerCase()}${minimized ? " is-minimized" : ""} space-surface`}
+      data-space-surface={channel}
+      data-edge="right"
       data-station-channel={channel}
       data-lifecycle={lifecycle}
+      data-runtime={lifecycle}
       data-reason={resolved.reason}
       hidden={hidden || undefined}
       inert={hidden && !keepAudio ? true : undefined}

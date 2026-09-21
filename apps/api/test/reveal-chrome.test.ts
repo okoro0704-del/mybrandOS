@@ -52,16 +52,14 @@ test("OS identity is data-driven from slug, not hard-coded mrfundzman", () => {
   assert.match(shell, /identity/);
 });
 
-test("public shell uses one reveal controller and overlays existing nav", () => {
+test("public shell uses one reveal controller over edge launchers", () => {
   assert.match(shell, /data-reveal-shell/);
   assert.match(shell, /reduceRevealChrome/);
   assert.match(shell, /useRevealDoubleTap/);
   assert.match(shell, /OsWordmark/);
   assert.match(shell, /os-wordmark--signature/);
   assert.match(shell, /Show navigation/);
-  assert.equal((shell.match(/<UtilityDock/g) || []).length, 1);
-  assert.match(chrome, /selectDestination/);
-  assert.match(home, /selectDestination/);
+  assert.match(shell, /SpaceEdgeRails/);
   assert.match(shell, /REVEAL_IDLE_MS/);
   assert.equal(REVEAL_IDLE_MS, 3800);
 });
