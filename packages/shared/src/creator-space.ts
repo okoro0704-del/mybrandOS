@@ -48,7 +48,7 @@ export type SpaceEdge = (typeof SPACE_EDGES)[number];
 /** Radio does not keep playing under another surface unless this is flipped later. */
 export const RADIO_BACKGROUND_ENABLED = false;
 
-export const LEFT_EDGE_SURFACES: CreatorSpaceSurface[] = ["DIGIPEDIA", "NEWS", "BRAND"];
+export const LEFT_EDGE_SURFACES: CreatorSpaceSurface[] = ["SPACE", "NEWS", "DIGIPEDIA"];
 export const RIGHT_EDGE_SURFACES: CreatorSpaceSurface[] = ["TV", "RADIO"];
 
 export type HomeNavSnapshot = {
@@ -265,10 +265,10 @@ export type CreatorMediaSurface = (typeof CREATOR_MEDIA_SURFACES)[number];
 export const EDGE_LAUNCHER_SIDES = ["left", "right", "space"] as const;
 export type EdgeLauncherSide = (typeof EDGE_LAUNCHER_SIDES)[number];
 
-export const LEFT_LAUNCH_ITEMS = ["APP", "DIGIPEDIA", "NEWS"] as const;
-export const RIGHT_LAUNCH_ITEMS = ["INTERACTIONS", "RADIO", "TV"] as const;
+export const LEFT_LAUNCH_ITEMS = ["SPACE", "NEWS", "DIGIPEDIA"] as const;
+export const RIGHT_LAUNCH_ITEMS = ["TV", "RADIO"] as const;
 
-export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "SPACE";
+export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "INTERACTIONS";
 
 export const LAUNCHER_IDLE_MS = 4000;
 export const LAUNCHER_REVEAL_MS = 240;
@@ -277,10 +277,10 @@ export function firstTouchReveals(open: EdgeLauncherSide | null, side: EdgeLaunc
   return open !== side;
 }
 
-export function launchTargetIsOverlay(target: LaunchTarget): boolean {
+export function launchTargetIsOverlay(target: string): boolean {
   return target === "INTERACTIONS" || target === "SPACE";
 }
 
-export function launchTargetIsSurface(target: LaunchTarget): target is CreatorMediaSurface {
+export function launchTargetIsSurface(target: string): target is CreatorMediaSurface {
   return CREATOR_MEDIA_SURFACES.includes(target as CreatorMediaSurface);
 }
