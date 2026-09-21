@@ -96,6 +96,7 @@ const INTERACTIVE_SELECTOR = [
   ".os-reveal-toggle",
   ".os-sheet",
   ".os-search",
+  ".media-launcher",
 ].join(", ");
 
 export function isRevealExemptTarget(target: EventTarget | null): boolean {

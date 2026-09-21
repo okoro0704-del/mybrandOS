@@ -16,7 +16,6 @@ import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
-import { useRevealChrome } from "../digital-life/personal-os/RevealChromeContext";
 import {
   applyCommentInsert,
   canSendComment,
@@ -27,21 +26,24 @@ import {
   type CommentKeyboardState,
 } from "../lib/commentKeyboard";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
-import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
+import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import {
   activeIndexFromScroll,
   commentsSectionId,
+  GALLERY_END_HOLD_MS,
   GALLERY_PHOTO_DWELL_MS,
   GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
-  galleryMediaKind,
+  galleryContentState,
+  galleryUsesEndedHold,
+  galleryUsesPhotoDwell,
+  galleryViewState,
   immersiveScrollBehavior,
   isEditableKeyboardTarget,
   nextFeedIndex,
   previousFeedIndex,
   resolveInitialIndex,
-  shouldAdvanceAfterCommentsClose,
   shouldLockFeedSwipe,
   shouldMountSlide,
   shouldSuspendGalleryAutoAdvance,
@@ -134,11 +136,13 @@ const PersistentGalleryVideo = memo(function PersistentGalleryVideo({
 const PersistentCover = memo(function PersistentCover({
   src,
   active,
+  adjacent,
   aspectRatio,
   onIntrinsic,
 }: {
   src: string;
   active: boolean;
+  adjacent?: boolean;
   aspectRatio?: string | null;
   onIntrinsic?: (width: number, height: number) => void;
 }) {
@@ -154,7 +158,7 @@ const PersistentCover = memo(function PersistentCover({
       className="immersive-feed__asset"
       src={src}
       alt=""
-      loading={active ? "eager" : "lazy"}
+      loading={active || adjacent ? "eager" : "lazy"}
       decoding="async"
       data-gallery-fit="contain"
       style={aspectRatio ? { aspectRatio: aspectRatio.replace(":", " / ") } : undefined}
@@ -181,7 +185,9 @@ function PostSlide({
   basePath,
   active,
   adjacent,
+  topOpen,
   commentMode,
+  onToggleTop,
   onToggleComments,
   onVideoEnded,
 }: {
@@ -191,22 +197,23 @@ function PostSlide({
   basePath: string;
   active: boolean;
   adjacent: boolean;
+  topOpen: boolean;
   commentMode: boolean;
+  onToggleTop: () => void;
   onToggleComments: () => void;
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
   void basePath;
-  const reveal = useRevealChrome();
-  /** Interaction Mode: summoned shell, or comments actively open. Pure Media otherwise. */
-  const interactionOpen = Boolean(reveal?.navVisible || commentMode);
+  const view = galleryViewState(topOpen, commentMode);
+  const content = galleryContentState(asset, experience.liveNow);
   const author = experience.identity.displayName || experience.slug;
   const body =
     (typeof asset.presentation?.body === "string" && asset.presentation.body) ||
     asset.description ||
     "";
   const writing = isWritingSlide(asset);
-  const isVideo = asset.assetType === "VIDEO" && asset.mediaAvailable;
+  const playMedia = galleryUsesEndedHold(content);
   const coverUrl = asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : undefined;
   const [commentCount, setCommentCount] = useState<number | undefined>(undefined);
   const commentsId = commentsSectionId(asset.id);
@@ -229,9 +236,9 @@ function PostSlide({
     onCountChange: setCommentCount,
   });
 
-  const collaborators = useMemo(
+  const brands = useMemo(
     () =>
-      publicationCollaboratorMarks(
+      publicationBrandMarks(
         { slug: experience.slug, displayName: experience.identity.displayName },
         asset.presentation?.collaborators,
       ),
@@ -376,21 +383,47 @@ function PostSlide({
       data-gallery-fit="contain"
       data-comment-mode={commentMode ? "open" : undefined}
       data-comments-open={commentMode ? "true" : "false"}
-      data-ui-mode={interactionOpen ? "interaction" : "pure"}
+      data-top-open={topOpen ? "true" : "false"}
+      data-view-state={view}
+      data-content-state={content}
+      data-ui-mode={view === "IMMERSIVE" ? "pure" : "interaction"}
       aria-hidden={!active}
     >
-      {interactionOpen ? (
-      <div ref={contextRef} className="living-gallery__context living-gallery__context--summoned">
-        {collaborators.length ? (
+      {active ? (
+        <button
+          type="button"
+          className="media-launcher media-launcher--top"
+          aria-label={topOpen ? "Hide post details" : "Show post details"}
+          aria-expanded={topOpen}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleTop();
+          }}
+        >
+          <span className="media-launcher__mark" aria-hidden>
+            {topOpen ? "⌃" : "⌄"}
+          </span>
+        </button>
+      ) : null}
+
+      <div
+        ref={contextRef}
+        className="living-gallery__context living-gallery__context--summoned"
+        hidden={!topOpen}
+        aria-hidden={!topOpen}
+        inert={!topOpen ? true : undefined}
+      >
+        {brands.length ? (
           <div className="living-gallery__brand-row">
-            <div className="living-gallery__brands" data-count={String(collaborators.length)} data-role="collaborator">
-              {collaborators.map((brand) => (
+            <div className="living-gallery__brands" data-count={String(brands.length)} data-role="creator">
+              {brands.map((brand) => (
                 <OsWordmark
                   key={brand.slug}
                   slug={brand.slug}
                   displayName={brand.displayName}
                   to=""
-                  className="living-gallery__brand living-gallery__brand--collaborator"
+                  className={`living-gallery__brand${brand.slug === experience.slug ? " living-gallery__brand--host" : " living-gallery__brand--collaborator"}`}
                   identity
                 />
               ))}
@@ -402,23 +435,20 @@ function PostSlide({
           body={body}
           publishedAt={asset.publishedAt}
           kind={asset.assetType}
-          hideMeta={!detailsOpen}
+          hideMeta={false}
           expanded={detailsOpen}
           onExpandedChange={setDetailsOpen}
           moreLabel="See more"
           lessLabel="See less"
         />
       </div>
-      ) : (
-        <div ref={contextRef} className="living-gallery__context living-gallery__context--pure" hidden aria-hidden />
-      )}
 
       <div className="living-gallery__media immersive-feed__media" data-gallery-fit="contain">
         {writing ? (
           <div className="immersive-feed__writing" aria-hidden={!active}>
             <p>{body || humanTitle}</p>
           </div>
-        ) : isVideo ? (
+        ) : playMedia ? (
           <PersistentGalleryVideo
             src={`${mediaBase}/assets/${asset.id}/media`}
             presentation={presentation}
@@ -429,7 +459,7 @@ function PostSlide({
             onEnded={onGalleryEnded}
           />
         ) : coverUrl ? (
-          <PersistentCover src={coverUrl} active={active} aspectRatio={asset.aspectRatio} onIntrinsic={onIntrinsic} />
+          <PersistentCover src={coverUrl} active={active} adjacent={adjacent} aspectRatio={asset.aspectRatio} onIntrinsic={onIntrinsic} />
         ) : (
           <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
         )}
@@ -594,7 +624,7 @@ function PostSlide({
           </div>
         ) : null}
 
-        {interactionOpen ? (
+        {commentMode ? (
         <div
           ref={railRef}
           className="living-gallery__rail living-gallery__bottom-bar living-gallery__rail--summoned"
@@ -621,6 +651,24 @@ function PostSlide({
         ) : (
           <div ref={railRef} className="living-gallery__rail living-gallery__rail--pure" hidden aria-hidden />
         )}
+
+        {active ? (
+          <button
+            type="button"
+            className="media-launcher media-launcher--bottom"
+            aria-label={commentMode ? "Hide comments" : "Show comments"}
+            aria-expanded={commentMode}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleComments();
+            }}
+          >
+            <span className="media-launcher__mark" aria-hidden>
+              {commentMode ? "⌄" : "⌃"}
+            </span>
+          </button>
+        ) : null}
       </div>
     </li>
   );
@@ -664,9 +712,16 @@ export function ImmersivePostFeed({
   const [commentMode, setCommentMode] = useState(false);
   const commentModeRef = useRef(false);
   commentModeRef.current = commentMode;
+  const [topOpen, setTopOpen] = useState(false);
+  const topOpenRef = useRef(false);
+  topOpenRef.current = topOpen;
   const pendingEndedRef = useRef(false);
   const draggingRef = useRef(false);
   const advanceGenRef = useRef(0);
+  const photoRemainingRef = useRef(GALLERY_PHOTO_DWELL_MS);
+  const holdRemainingRef = useRef(GALLERY_END_HOLD_MS);
+  const holdStartedAtRef = useRef(0);
+  const holdTimerRef = useRef(0);
   const [documentHidden, setDocumentHidden] = useState(false);
   const [interactionNonce, setInteractionNonce] = useState(0);
 
@@ -681,49 +736,89 @@ export function ImmersivePostFeed({
     root.scrollTo({ top: target.offsetTop, behavior: immersiveScrollBehavior() });
   }, []);
 
+  const clearHoldTimer = useCallback(() => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = 0;
+    }
+  }, []);
+
+  const suspendGate = useCallback(
+    () =>
+      shouldSuspendGalleryAutoAdvance({
+        commentsOpen: commentModeRef.current,
+        topOpen: topOpenRef.current,
+        dragging: draggingRef.current,
+        documentHidden: typeof document !== "undefined" && document.hidden,
+      }),
+    [],
+  );
+
   const advanceToNextPublication = useCallback(
     (reason: "photo-timeout" | "video-ended") => {
-      if (
-        shouldSuspendGalleryAutoAdvance({
-          commentsOpen: commentModeRef.current,
-          dragging: draggingRef.current,
-          documentHidden: typeof document !== "undefined" && document.hidden,
-        })
-      ) {
+      if (suspendGate()) {
         if (reason === "video-ended") pendingEndedRef.current = true;
         return;
       }
       const next = nextFeedIndex(activeIndexRef.current, items.length);
       if (next === activeIndexRef.current) return;
       pendingEndedRef.current = false;
+      holdRemainingRef.current = GALLERY_END_HOLD_MS;
+      photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
       advanceGenRef.current += 1;
       setCommentMode(false);
+      setTopOpen(false);
       setActiveIndex(next);
       snapToIndex(next);
     },
-    [items.length, snapToIndex],
+    [items.length, snapToIndex, suspendGate],
   );
+
+  const scheduleEndHold = useCallback(() => {
+    clearHoldTimer();
+    if (suspendGate()) {
+      pendingEndedRef.current = true;
+      return;
+    }
+    holdStartedAtRef.current = Date.now();
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = 0;
+      holdRemainingRef.current = GALLERY_END_HOLD_MS;
+      advanceToNextPublication("video-ended");
+    }, Math.max(0, holdRemainingRef.current));
+  }, [advanceToNextPublication, clearHoldTimer, suspendGate]);
 
   const toggleComments = useCallback(() => {
     setCommentMode((open) => !open);
   }, []);
 
+  const toggleTop = useCallback(() => {
+    setTopOpen((open) => !open);
+  }, []);
+
   const onVideoEnded = useCallback(() => {
-    advanceToNextPublication("video-ended");
-  }, [advanceToNextPublication]);
+    holdRemainingRef.current = GALLERY_END_HOLD_MS;
+    pendingEndedRef.current = true;
+    scheduleEndHold();
+  }, [scheduleEndHold]);
 
   const handoffPublication = useCallback(
     (dir: "previous" | "next") => {
       advanceGenRef.current += 1;
       pendingEndedRef.current = false;
+      holdRemainingRef.current = GALLERY_END_HOLD_MS;
+      photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
+      clearHoldTimer();
       const next =
         dir === "next"
           ? nextFeedIndex(activeIndexRef.current, items.length)
           : previousFeedIndex(activeIndexRef.current, items.length);
+      setCommentMode(false);
+      setTopOpen(false);
       setActiveIndex(next);
       snapToIndex(next);
     },
-    [items.length, snapToIndex],
+    [items.length, snapToIndex, clearHoldTimer],
   );
 
   useLayoutEffect(() => {
@@ -762,33 +857,55 @@ export function ImmersivePostFeed({
   }, [commentMode]);
 
   useEffect(() => {
-    if (commentMode) return;
-    if (!shouldAdvanceAfterCommentsClose(pendingEndedRef.current, false)) return;
+    photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
+    holdRemainingRef.current = GALLERY_END_HOLD_MS;
     pendingEndedRef.current = false;
-    advanceToNextPublication("video-ended");
-  }, [commentMode, advanceToNextPublication]);
+    clearHoldTimer();
+  }, [activeIndex, clearHoldTimer]);
 
   useEffect(() => {
-    advanceGenRef.current += 1;
-    const gen = advanceGenRef.current;
-    const asset = items[activeIndex];
-    if (!asset) return;
-    if (galleryMediaKind(asset) !== "photo") return;
+    if (!pendingEndedRef.current) return;
     if (
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentMode,
+        topOpen,
+        dragging: draggingRef.current,
+        documentHidden,
+      })
+    ) {
+      if (holdTimerRef.current) {
+        holdRemainingRef.current = Math.max(0, holdRemainingRef.current - (Date.now() - holdStartedAtRef.current));
+        clearHoldTimer();
+      }
+      return;
+    }
+    scheduleEndHold();
+  }, [commentMode, topOpen, documentHidden, interactionNonce, scheduleEndHold, clearHoldTimer]);
+
+  useEffect(() => {
+    const asset = items[activeIndex];
+    if (!asset) return;
+    const state = galleryContentState(asset, experience.liveNow);
+    if (!galleryUsesPhotoDwell(state)) return;
+    if (
+      shouldSuspendGalleryAutoAdvance({
+        commentsOpen: commentMode,
+        topOpen,
         dragging: draggingRef.current,
         documentHidden,
       })
     ) {
       return;
     }
+    const started = Date.now();
     const t = window.setTimeout(() => {
-      if (gen !== advanceGenRef.current) return;
       advanceToNextPublication("photo-timeout");
-    }, GALLERY_PHOTO_DWELL_MS);
-    return () => window.clearTimeout(t);
-  }, [activeIndex, commentMode, documentHidden, interactionNonce, items, advanceToNextPublication]);
+    }, photoRemainingRef.current);
+    return () => {
+      window.clearTimeout(t);
+      photoRemainingRef.current = Math.max(0, photoRemainingRef.current - (Date.now() - started));
+    };
+  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;
@@ -810,6 +927,7 @@ export function ImmersivePostFeed({
           pendingEndedRef.current = false;
           setActiveIndex(next);
           setCommentMode(false);
+          setTopOpen(false);
         }
       });
     };
@@ -831,7 +949,8 @@ export function ImmersivePostFeed({
         root.matches(":focus-within");
       if (!focusOk) return;
       if (e.key === "Escape") {
-        setCommentMode(false);
+        if (commentModeRef.current) setCommentMode(false);
+        else if (topOpenRef.current) setTopOpen(false);
         (document.activeElement as HTMLElement | null)?.blur?.();
         return;
       }
@@ -840,6 +959,8 @@ export function ImmersivePostFeed({
         advanceGenRef.current += 1;
         pendingEndedRef.current = false;
         const next = nextFeedIndex(activeIndexRef.current, items.length);
+        setCommentMode(false);
+        setTopOpen(false);
         setActiveIndex(next);
         snapToIndex(next);
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
@@ -847,6 +968,8 @@ export function ImmersivePostFeed({
         advanceGenRef.current += 1;
         pendingEndedRef.current = false;
         const prev = previousFeedIndex(activeIndexRef.current, items.length);
+        setCommentMode(false);
+        setTopOpen(false);
         setActiveIndex(prev);
         snapToIndex(prev);
       }
@@ -871,10 +994,10 @@ export function ImmersivePostFeed({
       tabIndex={0}
       data-active-asset-id={activeAssetId ?? undefined}
       data-active-index={String(activeIndex)}
+      data-view-state={galleryViewState(topOpen, commentMode)}
       data-auto-advance-owner="gallery"
       onPointerDown={() => {
         draggingRef.current = true;
-        advanceGenRef.current += 1;
       }}
       onPointerUp={() => {
         draggingRef.current = false;
@@ -909,7 +1032,9 @@ export function ImmersivePostFeed({
             basePath={basePath}
             active={active}
             adjacent={Math.abs(index - activeIndex) === 1}
+            topOpen={topOpen && active}
             commentMode={commentMode && active}
+            onToggleTop={toggleTop}
             onToggleComments={toggleComments}
             onPublicationHandoff={handoffPublication}
             onVideoEnded={onVideoEnded}

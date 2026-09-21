@@ -2060,6 +2060,48 @@ button.linkish {
 .living-gallery__context > * {
   pointer-events: auto;
 }
+.media-launcher {
+  position: absolute;
+  left: 50%;
+  z-index: 12;
+  width: 2.4rem;
+  min-height: 1.15rem;
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+.media-launcher__mark {
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55), 0 0 1px rgba(0, 0, 0, 0.8);
+}
+.media-launcher--top {
+  top: calc(0.28rem + env(safe-area-inset-top, 0px));
+}
+.media-launcher--bottom {
+  bottom: calc(0.28rem + env(safe-area-inset-bottom, 0px));
+}
+.media-launcher:focus-visible {
+  outline: 2px solid rgba(15, 23, 42, 0.35);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .living-gallery__context--summoned,
+  .living-gallery__rail--summoned {
+    animation: none;
+  }
+}
 .living-gallery__brand-row {
   flex: 0 0 auto;
   min-width: 0;

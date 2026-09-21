@@ -158,6 +158,7 @@ export function isLivingGalleryInteractiveTarget(target: EventTarget | null): bo
         ".living-comment-lane",
         ".floating-comments",
         ".living-gallery__rail",
+        ".media-launcher",
         ".media-outcome",
         ".post-comments",
         ".adaptive-video__ctrl",

@@ -13,7 +13,13 @@ import {
   shouldRequestNextPage,
   videoPreloadForSlide,
   galleryMediaKind,
+  galleryContentState,
+  galleryViewState,
+  galleryUsesEndedHold,
+  galleryUsesPhotoDwell,
+  galleryAutoAdvanceDisabled,
   GALLERY_PHOTO_DWELL_MS,
+  GALLERY_END_HOLD_MS,
   GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
   galleryStopsAtEnd,
   shouldAdvanceAfterCommentsClose,
@@ -82,17 +88,32 @@ test("preload is bounded: active auto, adjacent metadata, far none", () => {
   assert.equal(videoPreloadForSlide(false, false), "none");
 });
 
-test("gallery auto-advance owner: photos dwell 5s, comments suspend navigation, gallery stops at end", () => {
-  assert.equal(GALLERY_PHOTO_DWELL_MS, 5000);
-  assert.equal(GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE, 2);
-  assert.equal(shouldReplayVideoBeforeAdvance(1), true);
-  assert.equal(shouldReplayVideoBeforeAdvance(2), false);
+test("gallery auto-advance: photos 3s, video ended+2s, live holds, overlays pause", () => {
+  assert.equal(GALLERY_PHOTO_DWELL_MS, 3000);
+  assert.equal(GALLERY_END_HOLD_MS, 2000);
+  assert.equal(GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE, 1);
+  assert.equal(shouldReplayVideoBeforeAdvance(1), false);
+  assert.equal(galleryViewState(false, false), "IMMERSIVE");
+  assert.equal(galleryViewState(true, false), "TOP_OPEN");
+  assert.equal(galleryViewState(false, true), "COMMENTS_OPEN");
+  assert.equal(galleryViewState(true, true), "BOTH_OPEN");
+  assert.equal(galleryContentState({ id: "a", assetType: "VIDEO", mediaAvailable: true }), "VIDEO");
+  assert.equal(galleryContentState({ id: "a", assetType: "MUSIC", mediaAvailable: true }), "AUDIO");
+  assert.equal(
+    galleryContentState({ id: "live-1", assetType: "VIDEO", mediaAvailable: true, isLiveReplay: false }, { sessionId: "live-1" }),
+    "LIVE",
+  );
+  assert.equal(galleryAutoAdvanceDisabled("LIVE"), true);
+  assert.equal(galleryUsesEndedHold("VIDEO"), true);
+  assert.equal(galleryUsesEndedHold("AUDIO"), true);
+  assert.equal(galleryUsesPhotoDwell("PHOTO"), true);
   assert.equal(galleryMediaKind({ assetType: "VIDEO", mediaAvailable: true }), "video");
   assert.equal(galleryMediaKind({ assetType: "PHOTO", coverAvailable: true }), "photo");
   assert.equal(galleryMediaKind({ assetType: "WRITING" }), "other");
   assert.equal(galleryStopsAtEnd(3, 4), true);
   assert.equal(galleryStopsAtEnd(2, 4), false);
   assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: true, dragging: false, documentHidden: false }), true);
+  assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, topOpen: true, dragging: false, documentHidden: false }), true);
   assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: true, documentHidden: false }), true);
   assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: false, documentHidden: true }), true);
   assert.equal(shouldSuspendGalleryAutoAdvance({ commentsOpen: false, dragging: false, documentHidden: false }), false);

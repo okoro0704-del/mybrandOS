@@ -173,7 +173,7 @@ test("UUID and asset-id titles are not human post details", () => {
 });
 
 test("comments overlay the video only when commentsOpen; Pause and Muted pills are gone", () => {
-  assert.match(feed, /publicationCollaboratorMarks/);
+  assert.match(feed, /publicationBrandMarks/);
   assert.match(feed, /living-comments-layer/);
   assert.match(feed, /CommentRow/);
   assert.match(feed, /commentMode \?/);
@@ -182,7 +182,7 @@ test("comments overlay the video only when commentsOpen; Pause and Muted pills a
   assert.match(feed, /variant="gallery"/);
   assert.match(feed, /humanPublicationTitle/);
   assert.match(feed, /advanceToNextPublication/);
-  assert.match(feed, /GALLERY_PHOTO_DWELL_MS/);
+  assert.match(feed, /GALLERY_END_HOLD_MS/);
   assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
   assert.equal(feed.includes("composerRef.current?.focus"), true);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
@@ -271,7 +271,7 @@ test("love hearts and action writing fly through media without a toast panel", (
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
   assert.match(shell, /os-wordmark--owner/);
   assert.equal(feed.includes("os-wordmark--signature"), false);
-  assert.match(feed, /data-role="collaborator"/);
+  assert.match(feed, /data-role="creator"/);
   assert.match(html, /interactive-widget=overlays-content/);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
   assert.match(styles, /env\(safe-area-inset-top/);
@@ -311,3 +311,19 @@ test("comments toggle over video; action hood stays five actions; comments stay 
   assert.match(media, /return readAssetCover\(asset\.dataZoneId, primitives\)/);
   assert.equal(/ffmpeg|transcode/i.test(media), false);
 });
+
+test("tiny top and bottom launchers hide details and comments by default", () => {
+  assert.match(feed, /media-launcher--top/);
+  assert.match(feed, /media-launcher--bottom/);
+  assert.match(feed, /Show post details/);
+  assert.match(feed, /Show comments/);
+  assert.match(feed, /galleryViewState/);
+  assert.match(feed, /GALLERY_END_HOLD_MS/);
+  assert.match(feed, /topOpen=\{topOpen && active\}/);
+  assert.match(styles, /\.media-launcher--top/);
+  assert.match(styles, /\.media-launcher--bottom/);
+  assert.match(styles, /env\(safe-area-inset-bottom/);
+  assert.equal(feed.includes("OPEN DETAILS"), false);
+  assert.equal(feed.includes(">Comments<"), false);
+});
+

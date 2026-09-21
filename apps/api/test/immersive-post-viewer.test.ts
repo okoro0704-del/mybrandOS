@@ -30,7 +30,7 @@ test("photo and video posts share canonical comments bound to publication id", (
   assert.equal(actions.includes("content-actions__comment-form"), false);
 });
 
-test("gallery video replays once then advances on the second ended", () => {
+test("gallery video plays once, then holds 2s after ended", () => {
   assert.match(player, /playsInline/);
   assert.match(player, /el\.pause\(\)/);
   assert.match(player, /playActiveVideo/);
@@ -40,6 +40,8 @@ test("gallery video replays once then advances on the second ended", () => {
   assert.match(player, /maxPlays/);
   assert.match(player, /playCountRef/);
   assert.match(feed, /maxPlays=\{GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE\}/);
+  assert.match(feed, /GALLERY_END_HOLD_MS/);
+  assert.match(feed, /scheduleEndHold/);
   assert.match(feed, /autoPlayMuted/);
   assert.match(feed, /fillViewport/);
   assert.match(feed, /active=\{active\}/);
@@ -54,12 +56,13 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details sit under collaborator marks; owner identity lives in the shell", () => {
+test("post details sit under creator marks; owner identity lives in the overlay", () => {
   assert.match(feed, /living-gallery__context/);
-  assert.match(feed, /publicationCollaboratorMarks/);
+  assert.match(feed, /publicationBrandMarks/);
   assert.match(feed, /<PostDetails/);
   assert.match(feed, /<OsWordmark/);
   assert.match(feed, /living-gallery__brand--collaborator/);
+  assert.match(feed, /living-gallery__brand--host/);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);

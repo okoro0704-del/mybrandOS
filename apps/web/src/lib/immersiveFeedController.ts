@@ -131,11 +131,24 @@ export function videoPreloadForSlide(active: boolean, adjacent: boolean): "auto"
   return "none";
 }
 
-export const GALLERY_PHOTO_DWELL_MS = 5000;
-export const GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE = 2;
+export const GALLERY_PHOTO_DWELL_MS = 3000;
+/** After video/audio `ended`, wait before next. Not a fixed clip duration. */
+export const GALLERY_END_HOLD_MS = 2000;
+/** Play through once unless the publication itself loops. */
+export const GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE = 1;
 /** Wait past shell double-tap so a single video tap pauses without fighting navigation. */
 export const GALLERY_VIDEO_TAP_MS = 300;
 export const GALLERY_VIDEO_DOUBLE_TAP_MS = 280;
+
+export type GalleryViewState = "IMMERSIVE" | "TOP_OPEN" | "COMMENTS_OPEN" | "BOTH_OPEN";
+export type GalleryContentState = "PHOTO" | "VIDEO" | "AUDIO" | "LIVE" | "OTHER";
+
+export function galleryViewState(topOpen: boolean, commentsOpen: boolean): GalleryViewState {
+  if (topOpen && commentsOpen) return "BOTH_OPEN";
+  if (topOpen) return "TOP_OPEN";
+  if (commentsOpen) return "COMMENTS_OPEN";
+  return "IMMERSIVE";
+}
 
 export function resolveGalleryVideoTap(opts: {
   interactive: boolean;
@@ -164,7 +177,7 @@ export function resolveGalleryVideoAction(opts: {
 }
 export type GalleryAdvanceReason = "photo-timeout" | "video-ended";
 
-/** First ended → replay same video. Second ended → advance. */
+/** Play through once unless a loop flag is set on the player. */
 export function shouldReplayVideoBeforeAdvance(
   playsCompleted: number,
   maxPlays = GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE,
@@ -174,24 +187,66 @@ export function shouldReplayVideoBeforeAdvance(
 
 export type GalleryAutoAdvanceGate = {
   commentsOpen: boolean;
+  topOpen?: boolean;
   dragging: boolean;
   documentHidden: boolean;
   actionSurfaceOpen?: boolean;
 };
 
-/** One owner: auto-navigation is suspended while the human is in comments, dragging, or backgrounded. Playback may continue. */
+/** One owner: auto-navigation is suspended while the human is reading/commenting, dragging, or backgrounded. Playback may continue. */
 export function shouldSuspendGalleryAutoAdvance(gate: GalleryAutoAdvanceGate): boolean {
-  return gate.commentsOpen || gate.dragging || gate.documentHidden || Boolean(gate.actionSurfaceOpen);
+  return (
+    gate.commentsOpen ||
+    Boolean(gate.topOpen) ||
+    gate.dragging ||
+    gate.documentHidden ||
+    Boolean(gate.actionSurfaceOpen)
+  );
 }
 
 export function galleryMediaKind(asset: {
   assetType: string;
   mediaAvailable?: boolean;
   coverAvailable?: boolean;
-}): "video" | "photo" | "other" {
+  isPodcast?: boolean;
+}): "video" | "photo" | "audio" | "other" {
   if (asset.assetType === "VIDEO" && asset.mediaAvailable) return "video";
+  if ((asset.assetType === "MUSIC" || asset.assetType === "PODCAST" || asset.isPodcast) && asset.mediaAvailable) {
+    return "audio";
+  }
   if (asset.coverAvailable) return "photo";
   return "other";
+}
+
+export function galleryContentState(
+  asset: {
+    id: string;
+    assetType: string;
+    mediaAvailable?: boolean;
+    coverAvailable?: boolean;
+    isPodcast?: boolean;
+    isLiveReplay?: boolean;
+  },
+  liveNow?: { sessionId: string } | null,
+): GalleryContentState {
+  if (liveNow?.sessionId && !asset.isLiveReplay && asset.id === liveNow.sessionId) return "LIVE";
+  const kind = galleryMediaKind(asset);
+  if (kind === "video") return "VIDEO";
+  if (kind === "audio") return "AUDIO";
+  if (kind === "photo") return "PHOTO";
+  return "OTHER";
+}
+
+export function galleryUsesEndedHold(state: GalleryContentState): boolean {
+  return state === "VIDEO" || state === "AUDIO" || state === "LIVE";
+}
+
+export function galleryUsesPhotoDwell(state: GalleryContentState): boolean {
+  return state === "PHOTO" || state === "OTHER";
+}
+
+export function galleryAutoAdvanceDisabled(state: GalleryContentState): boolean {
+  return state === "LIVE";
 }
 
 /** Existing feed semantics: last item stays. No invented infinite loop. */
