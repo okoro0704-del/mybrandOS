@@ -24,21 +24,20 @@ test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(digitalLife, /station\?: StationOwnerConfig/);
   assert.match(mode, /CreatorSpaceProvider/);
   assert.match(shell, /data-station-mode/);
-  assert.match(shell, /SpaceEdgeRails/);
+  assert.match(shell, /HomeEdgeNav/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
 });
 
 test("surface launchers are subtle by default and summoned by the existing reveal gesture", () => {
-  assert.match(shell, /SpaceEdgeRails subtle=\{navHidden\}/);
+  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /controlsHidden/);
   assert.match(shell, /useRevealDoubleTap/);
-  assert.match(reveal, /\.space-launcher/);
+  assert.match(reveal, /\.home-slot/);
   assert.equal(shell.includes("<StationSwitcher"), false);
 });
 
 test("App mode keeps gallery-first launchers and the shared feed", () => {
-  assert.match(feed, /media-launcher--top/);
-  assert.match(feed, /media-launcher--bottom/);
   assert.match(feed, /galleryLive/);
   assert.match(feed, /useCreatorSpace/);
   assert.match(feed, /active=\{active && galleryLive\}/);
@@ -77,7 +76,7 @@ test("mode switching preserves identity and does not remount the gallery key", (
   assert.match(station, /stationLifecycle/);
   assert.match(feed, /key=\{asset\.id\}/);
   assert.match(shell, /experience\.slug/);
-  assert.match(shell, /lifecycle\("TV"\) !== "SUSPENDED"/);
-  assert.match(shell, /lifecycle\("RADIO"\) !== "SUSPENDED"/);
+  assert.match(shell, /channel="TV"/);
+  assert.match(shell, /channel="RADIO"/);
   assert.match(surface, /data-lifecycle/);
 });

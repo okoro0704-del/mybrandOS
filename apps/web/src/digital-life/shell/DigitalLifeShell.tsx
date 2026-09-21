@@ -1,28 +1,22 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { publicHomePath, studioPath, livePath, type CreatorSpaceSurface, type PublicBrandExperience } from "@mybrandos/shared";
+import { studioPath, livePath, type CreatorSpaceSurface, type PublicBrandExperience } from "@mybrandos/shared";
 import { isBrandLive } from "../personal-os/usePublicLiveNow";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
-import { DigitalLifeTopBar, BrandLiveBadge } from "../navigation/Chrome";
+import { BrandLiveBadge } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
-import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { CreatorSpaceProvider, useCreatorSpace } from "../space/CreatorSpaceContext";
-import { SpaceEdgeRails } from "../space/SpaceEdgeRails";
+import { HomeExperienceProvider } from "../space/HomeExperienceContext";
+import { HomeEdgeNav } from "../space/HomeEdgeNav";
 import { SpaceRouterPanel } from "../space/SpaceRouterPanel";
 import { DigiNewsSurface, DigiPediaSurface } from "../space/KnowledgeSurfaces";
+import { BrandSurface } from "../space/BrandSurface";
+import { InteractionsPanel } from "../space/InteractionsPanel";
 import { StationSurface } from "../station/StationSurface";
-import {
-  REVEAL_CHROME_MS,
-  REVEAL_IDLE_MS,
-  isRevealKeyboardBlocked,
-  reduceRevealChrome,
-  revealNavVisible,
-  revealWordmarkVisible,
-  type RevealChromeState,
-} from "../personal-os/revealChrome";
+import { isRevealKeyboardBlocked } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
 
 function prefersReducedMotion(): boolean {
@@ -43,7 +37,9 @@ export function DigitalLifeShell(props: {
 }) {
   return (
     <CreatorSpaceProvider slug={props.experience.slug} initialSurface={props.initialSurface}>
-      <DigitalLifeShellFrame {...props} />
+      <HomeExperienceProvider>
+        <DigitalLifeShellFrame {...props} />
+      </HomeExperienceProvider>
     </CreatorSpaceProvider>
   );
 }
@@ -67,85 +63,31 @@ function DigitalLifeShellFrame({
   assetTitle?: string;
   children: ReactNode;
 }) {
+  void websiteBase;
   const space = useCreatorSpace();
   const theme = experience.theme;
   const revealEnabled = !preview;
-  const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
-  const [idleGen, setIdleGen] = useState(0);
-  const revealStateRef = useRef(revealState);
-  revealStateRef.current = revealState;
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const focusNavOnOpen = useRef(false);
   const reduced = prefersReducedMotion();
-
-  function dispatch(action: Parameters<typeof reduceRevealChrome>[1], opts?: { focus?: boolean }) {
-    if (opts?.focus) focusNavOnOpen.current = true;
-    setRevealState((prev) => reduceRevealChrome(prev, action, prefersReducedMotion()));
-  }
+  const liveHref = livePath(basePath);
 
   const revealApi = useMemo<RevealChromeApi>(
     () => ({
-      state: revealState,
-      navVisible: revealNavVisible(revealState),
-      wordmarkVisible: revealWordmarkVisible(revealState),
-      toggle: () => dispatch("TOGGLE"),
-      open: () => dispatch("OPEN"),
-      close: () => dispatch("CLOSE"),
-      selectDestination: () => dispatch("SELECT"),
+      state: space.controlsHidden ? "CLEAN" : "NAVIGATION_VISIBLE",
+      navVisible: !space.controlsHidden,
+      wordmarkVisible: false,
+      toggle: () => space.toggleControls(),
+      open: () => {
+        if (space.controlsHidden) space.toggleControls();
+      },
+      close: () => {
+        if (!space.controlsHidden) space.toggleControls();
+      },
+      selectDestination: () => undefined,
     }),
-    [revealState],
+    [space],
   );
 
-  useRevealDoubleTap(revealEnabled, () => dispatch("TOGGLE"));
-
-  useEffect(() => {
-    if (!revealEnabled) return;
-    if (revealState !== "NAVIGATION_VISIBLE") return;
-    const t = window.setTimeout(() => {
-      if (document.querySelector(".is-comment-mode, .comment-keyboard, [data-keyboard='open'], .space-router")) {
-        setIdleGen((n) => n + 1);
-        return;
-      }
-      dispatch("CLOSE");
-    }, REVEAL_IDLE_MS);
-    return () => window.clearTimeout(t);
-  }, [revealState, revealEnabled, idleGen]);
-
-  useEffect(() => {
-    if (!revealEnabled) return;
-    const root = document.querySelector(".os-phone-frame");
-    if (!root) return;
-    const onHud = (e: Event) => {
-      const el = e.target;
-      if (!(el instanceof Element)) return;
-      if (
-        !el.closest(
-          ".os-topbar, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions, .space-rail, .space-router, .space-launcher",
-        )
-      ) {
-        return;
-      }
-      if (!revealNavVisible(revealStateRef.current)) return;
-      setIdleGen((n) => n + 1);
-    };
-    root.addEventListener("pointerdown", onHud);
-    return () => root.removeEventListener("pointerdown", onHud);
-  }, [revealEnabled]);
-
-  useEffect(() => {
-    if (!revealEnabled) return;
-    if (revealState !== "OPENING" && revealState !== "CLOSING") return;
-    const t = window.setTimeout(() => dispatch("ANIMATION_END"), REVEAL_CHROME_MS);
-    return () => window.clearTimeout(t);
-  }, [revealState, revealEnabled]);
-
-  useEffect(() => {
-    if (!revealEnabled || !focusNavOnOpen.current) return;
-    if (!revealNavVisible(revealState)) return;
-    focusNavOnOpen.current = false;
-    const first = document.querySelector<HTMLElement>(".space-launcher");
-    first?.focus();
-  }, [revealState, revealEnabled]);
+  useRevealDoubleTap(revealEnabled, () => space.toggleControls());
 
   useEffect(() => {
     applyBrandDocument(experience, { assetTitle });
@@ -154,51 +96,47 @@ function DigitalLifeShellFrame({
   }, [experience, assetTitle]);
 
   useEffect(() => {
-    if (revealEnabled) dispatch("CLOSE");
-  }, [primary]);
-
-  useEffect(() => {
     if (!revealEnabled) return;
     const onKey = (e: KeyboardEvent) => {
       if (isRevealKeyboardBlocked(e.target)) return;
-      if (e.key === "Escape") {
-        if (revealNavVisible(revealStateRef.current)) {
-          e.preventDefault();
-          dispatch("CLOSE");
-          toggleRef.current?.focus();
-        }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (space.interactionsOpen) {
+        space.closeInteractions();
         return;
       }
-      if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        const opening = !revealNavVisible(revealStateRef.current);
-        dispatch("TOGGLE", { focus: opening });
+      if (space.surface === "SPACE") {
+        space.closeSpace();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [revealEnabled]);
+  }, [revealEnabled, space]);
 
-  const navHidden = revealEnabled && revealState === "CLEAN";
-  const name = experience.identity.displayName || "Digital Life";
-  const home = publicHomePath(basePath);
+  const websiteMode = primary === "info" || primary === "website";
+  const appHidden = space.surface !== "APP";
+  const brandHidden = space.surface !== "BRAND";
+  const newsHidden = space.surface !== "NEWS";
+  const pediaHidden = space.surface !== "DIGIPEDIA";
+  const spaceHidden = space.surface !== "SPACE";
 
   return (
     <HomeChromeContext.Provider value={null}>
     <RevealChromeContext.Provider value={revealEnabled ? revealApi : null}>
     <div
-      className={`brand-exp digital-life-app digital-life-surface personal-os surface-${primary === "info" || primary === "website" ? "website" : "app"}`}
+      className={`brand-exp digital-life-app digital-life-surface personal-os surface-${websiteMode ? "website" : "app"}`}
       data-bg={theme.background}
-      data-surface={preview ? "studio-preview" : primary === "info" || primary === "website" ? "website" : "public_app"}
+      data-surface={preview ? "studio-preview" : websiteMode ? "website" : "public_app"}
       data-accent={theme.accent}
       data-type={theme.typography}
       data-density={theme.density}
       data-reveal-shell={revealEnabled ? "true" : undefined}
-      data-reveal={revealEnabled ? revealState : undefined}
+      data-reveal={revealEnabled ? revealApi.state : undefined}
       data-space-surface={space.surface}
       data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
+      data-home-nav={space.controlsHidden ? "hidden" : "visible"}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -211,43 +149,11 @@ function DigitalLifeShellFrame({
       ) : null}
 
       <div className="os-phone-frame">
-        {revealEnabled ? (
-          <button
-            ref={toggleRef}
-            type="button"
-            className="os-reveal-toggle sr-only"
-            aria-expanded={revealEnabled && revealState !== "CLEAN"}
-            aria-controls="os-space-rails"
-            onClick={() => dispatch("TOGGLE", { focus: !revealApi.navVisible })}
-          >
-            {revealApi.navVisible ? "Hide navigation" : "Show navigation"}
-          </button>
-        ) : null}
-
-        {revealEnabled ? (
-          <div className="os-identity-hud" data-ui-mode={revealApi.navVisible ? "interaction" : "pure"}>
-            {revealApi.wordmarkVisible ? (
-              <OsWordmark
-                slug={experience.slug}
-                displayName={name}
-                to={home}
-                className="os-wordmark--signature os-wordmark--owner"
-                identity
-              />
-            ) : null}
-            <BrandLiveBadge liveNow={experience.liveNow} to={livePath(basePath)} />
+        {isBrandLive(experience.liveNow) ? (
+          <div className="os-identity-hud" data-ui-mode="pure">
+            <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} />
           </div>
         ) : null}
-
-        <DigitalLifeTopBar
-          experience={experience}
-          basePath={basePath}
-          mediaBase={mediaBase}
-          websiteBase={websiteBase}
-          primary={primary}
-          chromeHidden={navHidden}
-          reveal={revealEnabled}
-        />
 
         <main className="dl-main be-main os-main" data-space-host="true">
           <div
@@ -255,53 +161,65 @@ function DigitalLifeShellFrame({
             data-space-surface="APP"
             data-runtime={space.lifecycle("APP")}
             data-edge="center"
-            hidden={space.surface !== "APP" || undefined}
-            inert={space.surface !== "APP" ? true : undefined}
+            hidden={appHidden || undefined}
+            inert={appHidden ? true : undefined}
           >
             {children}
           </div>
-          {primary === "info" || primary === "website" ? null : (
+          {websiteMode ? null : (
             <>
-              {space.lifecycle("DIGINEWS") !== "SUSPENDED" ? (
-                <section
-                  className="space-surface space-surface--news"
-                  data-space-surface="DIGINEWS"
-                  data-runtime={space.lifecycle("DIGINEWS")}
-                  data-edge="left"
-                  hidden={space.surface !== "DIGINEWS" || undefined}
-                  inert={space.surface !== "DIGINEWS" ? true : undefined}
-                >
-                  <DigiNewsSurface experience={experience} />
-                </section>
-              ) : null}
-              {space.lifecycle("DIGIPEDIA") !== "SUSPENDED" ? (
-                <section
-                  className="space-surface space-surface--pedia"
-                  data-space-surface="DIGIPEDIA"
-                  data-runtime={space.lifecycle("DIGIPEDIA")}
-                  data-edge="left"
-                  hidden={space.surface !== "DIGIPEDIA" || undefined}
-                  inert={space.surface !== "DIGIPEDIA" ? true : undefined}
-                >
-                  <DigiPediaSurface experience={experience} />
-                </section>
-              ) : null}
-              {space.lifecycle("TV") !== "SUSPENDED" ? (
-                <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
-              ) : null}
-              {space.lifecycle("RADIO") !== "SUSPENDED" ? (
-                <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
-              ) : null}
+              <section
+                className="space-surface space-surface--brand space-surface--inset"
+                data-space-surface="BRAND"
+                data-runtime={space.lifecycle("BRAND")}
+                hidden={brandHidden || undefined}
+                inert={brandHidden ? true : undefined}
+              >
+                <BrandSurface experience={experience} mediaBase={mediaBase} />
+              </section>
+              <section
+                className="space-surface space-surface--news space-surface--inset"
+                data-space-surface="NEWS"
+                data-runtime={space.lifecycle("NEWS")}
+                data-edge="left"
+                hidden={newsHidden || undefined}
+                inert={newsHidden ? true : undefined}
+              >
+                <DigiNewsSurface experience={experience} />
+              </section>
+              <section
+                className="space-surface space-surface--pedia space-surface--inset"
+                data-space-surface="DIGIPEDIA"
+                data-runtime={space.lifecycle("DIGIPEDIA")}
+                data-edge="left"
+                hidden={pediaHidden || undefined}
+                inert={pediaHidden ? true : undefined}
+              >
+                <DigiPediaSurface experience={experience} />
+              </section>
+              <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
+              <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
+              <section
+                className="space-surface space-surface--space space-surface--inset"
+                data-space-surface="SPACE"
+                data-runtime={space.lifecycle("SPACE")}
+                hidden={spaceHidden || undefined}
+                inert={spaceHidden ? true : undefined}
+              >
+                <SpaceRouterPanel experience={experience} />
+              </section>
             </>
           )}
         </main>
 
         {!preview ? <InstallPrompt experience={experience} /> : null}
 
-        <div id="os-space-rails">
-          <SpaceEdgeRails subtle={navHidden} />
-          <SpaceRouterPanel experience={experience} open={space.routerOpen} />
-        </div>
+        {websiteMode ? null : (
+          <>
+            <HomeEdgeNav experience={experience} hidden={space.controlsHidden} />
+            {space.interactionsOpen ? <InteractionsPanel experience={experience} mediaBase={mediaBase} /> : null}
+          </>
+        )}
       </div>
     </div>
     </RevealChromeContext.Provider>

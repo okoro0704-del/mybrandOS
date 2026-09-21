@@ -99,7 +99,7 @@ export function ExperienceView({
       preview={preview}
       assetTitle={asset?.title}
       initialSurface={
-        section === "news" ? "DIGINEWS" : section === "digipedia" ? "DIGIPEDIA" : "APP"
+        section === "news" ? "NEWS" : section === "digipedia" ? "DIGIPEDIA" : "APP"
       }
     >
       {surface === "website" ? (

@@ -81,7 +81,7 @@ test("edge-marker fixture is fully visible under contain and cropped under cover
 });
 
 test("creator mark and reveal nav do not restyle gallery object-fit", () => {
-  assert.match(shell, /os-wordmark--signature/);
+  assert.match(shell, /HomeEdgeNav/);
   assert.match(styles, /os-wordmark--signature[\s\S]{0,180}position:\s*absolute/);
   assert.equal(/data-reveal[\s\S]{0,400}object-fit:\s*cover/.test(styles), false);
   assert.match(player, /fillViewport \? " adaptive-video--fill"/);

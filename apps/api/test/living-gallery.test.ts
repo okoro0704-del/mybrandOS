@@ -269,7 +269,8 @@ test("love hearts and action writing fly through media without a toast panel", (
 });
 
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
-  assert.match(shell, /os-wordmark--owner/);
+  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /BrandSurface/);
   assert.equal(feed.includes("os-wordmark--signature"), false);
   assert.match(feed, /data-role="creator"/);
   assert.match(html, /interactive-widget=overlays-content/);
@@ -313,17 +314,13 @@ test("comments toggle over video; action hood stays five actions; comments stay 
 });
 
 test("tiny top and bottom launchers hide details and comments by default", () => {
-  assert.match(feed, /media-launcher--top/);
-  assert.match(feed, /media-launcher--bottom/);
-  assert.match(feed, /Show post details/);
-  assert.match(feed, /Show comments/);
   assert.match(feed, /galleryViewState/);
   assert.match(feed, /GALLERY_END_HOLD_MS/);
   assert.match(feed, /topOpen=\{topOpen && active\}/);
-  assert.match(styles, /\.media-launcher--top/);
-  assert.match(styles, /\.media-launcher--bottom/);
   assert.match(styles, /env\(safe-area-inset-bottom/);
   assert.equal(feed.includes("OPEN DETAILS"), false);
   assert.equal(feed.includes(">Comments<"), false);
+  assert.equal(feed.includes("media-launcher--top"), false);
+  assert.equal(feed.includes("media-launcher--bottom"), false);
 });
 

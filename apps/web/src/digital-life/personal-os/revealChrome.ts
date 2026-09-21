@@ -101,6 +101,10 @@ const INTERACTIVE_SELECTOR = [
   ".space-rail",
   ".space-launcher",
   ".space-router",
+  ".home-nav",
+  ".home-slot",
+  ".home-space",
+  ".home-interactions",
   ".media-launcher",
 ].join(", ");
 

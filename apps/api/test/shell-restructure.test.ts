@@ -18,7 +18,7 @@ const app = readFileSync(join(root, "apps/web/src/App.tsx"), "utf8");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 
 test("public creator space uses edge launchers, not a destination bar", () => {
-  assert.match(shell, /SpaceEdgeRails/);
+  assert.match(shell, /HomeEdgeNav/);
   assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
   assert.equal(chrome.includes('label: "Management"'), false);
   assert.equal(chrome.includes('label: "Info"'), false);

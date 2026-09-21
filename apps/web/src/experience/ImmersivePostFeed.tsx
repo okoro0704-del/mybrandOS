@@ -30,6 +30,7 @@ import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import { useCreatorSpace } from "../digital-life/space/CreatorSpaceContext";
+import { useHomeExperience } from "../digital-life/space/HomeExperienceContext";
 import {
   activeIndexFromScroll,
   commentsSectionId,
@@ -206,6 +207,7 @@ function PostSlide({
   onVideoEnded: () => void;
 }) {
   void basePath;
+  void onToggleTop;
   const view = galleryViewState(topOpen, commentMode);
   const content = galleryContentState(asset, experience.liveNow);
   const author = experience.identity.displayName || experience.slug;
@@ -390,24 +392,6 @@ function PostSlide({
       data-ui-mode={view === "IMMERSIVE" ? "pure" : "interaction"}
       aria-hidden={!active}
     >
-      {active ? (
-        <button
-          type="button"
-          className="media-launcher media-launcher--top"
-          aria-label={topOpen ? "Hide post details" : "Show post details"}
-          aria-expanded={topOpen}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleTop();
-          }}
-        >
-          <span className="media-launcher__mark" aria-hidden>
-            {topOpen ? "⌃" : "⌄"}
-          </span>
-        </button>
-      ) : null}
-
       <div
         ref={contextRef}
         className="living-gallery__context living-gallery__context--summoned"
@@ -652,24 +636,6 @@ function PostSlide({
         ) : (
           <div ref={railRef} className="living-gallery__rail living-gallery__rail--pure" hidden aria-hidden />
         )}
-
-        {active ? (
-          <button
-            type="button"
-            className="media-launcher media-launcher--bottom"
-            aria-label={commentMode ? "Hide comments" : "Show comments"}
-            aria-expanded={commentMode}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleComments();
-            }}
-          >
-            <span className="media-launcher__mark" aria-hidden>
-              {commentMode ? "⌄" : "⌃"}
-            </span>
-          </button>
-        ) : null}
       </div>
     </li>
   );
@@ -702,9 +668,12 @@ export function ImmersivePostFeed({
 }) {
   void slug;
   const space = useCreatorSpace();
+  const home = useHomeExperience();
   const galleryLive = space.surface === "APP";
   const galleryLiveRef = useRef(galleryLive);
   galleryLiveRef.current = galleryLive;
+  const interactionsRef = useRef(space.interactionsOpen);
+  interactionsRef.current = space.interactionsOpen;
   const items = useMemo(() => filterForCategory(assets, category), [assets, category]);
   const ids = useMemo(() => items.map((a) => a.id), [items]);
   const initialIndex = resolveInitialIndex(ids, initialAssetId);
@@ -731,6 +700,11 @@ export function ImmersivePostFeed({
   const [interactionNonce, setInteractionNonce] = useState(0);
 
   const activeAssetId = items[activeIndex]?.id ?? null;
+  const setHomeAsset = home.setAsset;
+
+  useEffect(() => {
+    setHomeAsset(items[activeIndex] ?? null);
+  }, [setHomeAsset, items, activeIndex]);
 
   const snapToIndex = useCallback((index: number) => {
     const root = listRef.current;
@@ -754,7 +728,8 @@ export function ImmersivePostFeed({
         commentsOpen: commentModeRef.current,
         topOpen: topOpenRef.current,
         dragging: draggingRef.current,
-        documentHidden: typeof document !== "undefined" && (document.hidden || !galleryLiveRef.current),
+        documentHidden:
+          typeof document !== "undefined" && (document.hidden || !galleryLiveRef.current || interactionsRef.current),
       }),
     [],
   );

@@ -4,13 +4,13 @@ import { useCreatorSpace } from "./CreatorSpaceContext";
 import { listRouterSpaces, rememberCreatorSpace } from "./spaceRecents";
 
 const SURFACE_KEY = (slug: string) => `mybrandos-space-surface:${slug}`;
+const SLOTS_KEY = (slug: string) => `mybrandos-home-slots:${slug}`;
 
 export function SpaceRouterPanel({
   experience,
-  open,
 }: {
   experience: PublicBrandExperience;
-  open: boolean;
+  open?: boolean;
 }) {
   const space = useCreatorSpace();
   const current = useMemo(
@@ -23,19 +23,23 @@ export function SpaceRouterPanel({
     rememberCreatorSpace(current);
   }, [current]);
 
-  function preserveSurface(slug: string) {
+  function preserveArrangement(slug: string) {
     try {
-      sessionStorage.setItem(SURFACE_KEY(slug), space.surface);
+      const storedActive = space.surface === "SPACE" ? space.previous || "APP" : space.surface;
+      sessionStorage.setItem(SURFACE_KEY(slug), storedActive === "SPACE" ? "APP" : storedActive);
+      sessionStorage.setItem(SLOTS_KEY(slug), JSON.stringify(space.slots));
     } catch {
       /* private mode */
     }
   }
 
-  if (!open) return null;
-
   return (
-    <aside className="space-router" data-space-router="true" aria-label="Creator Spaces">
-      <p className="space-router__kicker">Spaces</p>
+    <section className="home-space-app" data-space-router="true" aria-label="Creator Spaces">
+      <header className="home-space-app__head">
+        <p className="eyebrow">Space</p>
+        <h2>Creator Spaces</h2>
+        <p className="be-lead">Move between Digital Lives without leaving this arrangement.</p>
+      </header>
       <ul>
         {spaces.map((item) => {
           const here = item.slug === experience.slug;
@@ -51,7 +55,7 @@ export function SpaceRouterPanel({
                   href={publicApplicationUrl(item.slug)}
                   onClick={() => {
                     rememberCreatorSpace(item);
-                    preserveSurface(item.slug);
+                    preserveArrangement(item.slug);
                   }}
                 >
                   {item.displayName}
@@ -61,6 +65,7 @@ export function SpaceRouterPanel({
           );
         })}
       </ul>
-    </aside>
+      {!spaces.length ? <p className="muted">No other Spaces are linked from this Digital Life yet.</p> : null}
+    </section>
   );
 }
