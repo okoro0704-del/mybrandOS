@@ -593,7 +593,7 @@ export async function executePublish(
   const isAudio =
     asset.assetType === "MUSIC" ||
     asset.assetType === "PODCAST" ||
-    input.contentFormat === "audio";
+    input.category === "audio";
   const isPodcast =
     Boolean(existingMeta.podcast) ||
     String(existingMeta.recordingMode ?? "").toUpperCase() === "PODCAST" ||
