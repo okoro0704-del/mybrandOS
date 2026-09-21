@@ -190,14 +190,14 @@ function DigitalLifeShellFrame({
                 <DigiNewsSurface experience={experience} />
               </section>
               <section
-                className="space-surface space-surface--pedia space-surface--inset"
+                className="space-surface space-surface--pedia"
                 data-space-surface="DIGIPEDIA"
                 data-runtime={space.lifecycle("DIGIPEDIA")}
                 data-edge="left"
                 hidden={pediaHidden || undefined}
                 inert={pediaHidden ? true : undefined}
               >
-                <DigiPediaSurface experience={experience} />
+                <DigiPediaSurface experience={experience} mediaBase={mediaBase} basePath={basePath} />
               </section>
               <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
               <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />

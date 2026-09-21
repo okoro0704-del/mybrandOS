@@ -135,6 +135,56 @@ export const Icons = {
       <path d="M16.5 16.5 20 20" strokeLinecap="round" />
     </Svg>
   ),
+  menu: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M5 7h14M5 12h14M5 17h10" strokeLinecap="round" />
+    </Svg>
+  ),
+  chevron: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M9 5.5 16 12 9 18.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  ),
+  book: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v16H7.5A2.5 2.5 0 0 0 5 21.5Z" />
+      <path d="M5 5.5v16" />
+    </Svg>
+  ),
+  spark: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M12 3.5 13.6 9l5.4.4-4.2 3.4 1.4 5.2L12 15.2 7.8 18l1.4-5.2-4.2-3.4 5.4-.4L12 3.5Z" />
+    </Svg>
+  ),
+  wrench: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M14.5 5.2a3.6 3.6 0 0 0-4.8 4.8L4.5 15.2 8.8 19.5l5.2-5.2a3.6 3.6 0 0 0 4.8-4.8L16 12l-4-4 2.5-2.8Z" />
+    </Svg>
+  ),
+  compass: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="m14.8 9.2-1.2 4.4-4.4 1.2 1.2-4.4z" />
+    </Svg>
+  ),
+  brain: (p: IconProps) => (
+    <Svg {...p}>
+      <path d="M9 8.2A2.6 2.6 0 0 1 12 6a2.6 2.6 0 0 1 3 2.2c1.4.3 2.4 1.5 2.4 3S16.4 14 15 14.4V18H9v-3.6C7.6 14 6.6 12.6 6.6 11.2S7.6 8.5 9 8.2Z" />
+    </Svg>
+  ),
+  orbit: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="2.2" />
+      <ellipse cx="12" cy="12" rx="9" ry="4.2" />
+      <ellipse cx="12" cy="12" rx="4.2" ry="9" />
+    </Svg>
+  ),
+  person: (p: IconProps) => (
+    <Svg {...p}>
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 19c.8-3.4 3-5.2 6.5-5.2S17.7 15.6 18.5 19" />
+    </Svg>
+  ),
   more: (p: IconProps) => (
     <Svg {...p}>
       <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none" />

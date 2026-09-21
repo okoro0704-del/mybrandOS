@@ -1,64 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { PublicBrandExperience } from "@mybrandos/shared";
-import { api } from "../../lib/api";
+import { DigipediaScreen } from "../digipedia/DigipediaScreen";
 import { personalOsName } from "../personal-os/osIdentity";
 
-export function DigiPediaSurface({ experience }: { experience: PublicBrandExperience }) {
-  const osName = personalOsName(experience.slug, experience.identity.displayName);
-  const [query, setQuery] = useState("");
-  const [state, setState] = useState<{
-    available: boolean;
-    digipedia: null | {
-      title: string;
-      summary: string;
-      sections: Array<{ id: string; heading: string; body: string }>;
-      updatedAt: string;
-    };
-  } | null>(null);
-
-  useEffect(() => {
-    void api<NonNullable<typeof state>>(`/public/${experience.slug}/digipedia`)
-      .then(setState)
-      .catch(() => setState({ available: false, digipedia: null }));
-  }, [experience.slug]);
-
-  if (!state) return <p className="muted">Opening DigiPedia…</p>;
-  if (!state.available || !state.digipedia) {
-    return <p className="muted">DigiPedia has not been published for this Digital Life yet.</p>;
-  }
-  const d = state.digipedia;
-  const needle = query.trim().toLowerCase();
-  const sections = needle
-    ? d.sections.filter(
-        (sec) =>
-          sec.heading.toLowerCase().includes(needle) || sec.body.toLowerCase().includes(needle),
-      )
-    : d.sections;
-  return (
-    <article className="space-knowledge website-article">
-      <div className="eyebrow">{osName.stem} Digipedia</div>
-      <h2>{d.title}</h2>
-      {d.summary ? <p className="be-lead">{d.summary}</p> : null}
-      <label className="space-knowledge__search">
-        <span className="sr-only">Search DigiPedia</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search this knowledge space"
-        />
-      </label>
-      <p className="small muted">Updated {new Date(d.updatedAt).toLocaleDateString()}</p>
-      {sections.map((sec) => (
-        <section key={sec.id}>
-          <h3>{sec.heading}</h3>
-          <div className="website-body" style={{ whiteSpace: "pre-wrap" }}>
-            {sec.body}
-          </div>
-        </section>
-      ))}
-    </article>
-  );
+export function DigiPediaSurface({
+  experience,
+  mediaBase,
+  basePath,
+}: {
+  experience: PublicBrandExperience;
+  mediaBase: string;
+  basePath: string;
+}) {
+  return <DigipediaScreen experience={experience} mediaBase={mediaBase} basePath={basePath} />;
 }
 
 export function DigiNewsSurface({
