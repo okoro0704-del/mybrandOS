@@ -735,7 +735,7 @@ export function PublishCenterPage() {
                   (audioOnly &&
                     selected.assetType !== "MUSIC" &&
                     selected.assetType !== "PODCAST" &&
-                    format !== "audio");
+                    category !== "audio");
                 return (
                   <label
                     key={id}
