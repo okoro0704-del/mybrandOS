@@ -22,6 +22,36 @@ export type PresentationProfileId = (typeof PRESENTATION_PROFILE_IDS)[number];
 export const DISTRIBUTION_DESTINATIONS = ["LIFEOS", "INSTAGRAM", "FACEBOOK", "YOUTUBE"] as const;
 export type DistributionDestination = (typeof DISTRIBUTION_DESTINATIONS)[number];
 
+/**
+ * Creator publish targets inside Digiconomy (multi-select).
+ * Distinct from PRESENTATION_TYPES (POST/REEL/WATCH/CINEMA formats)
+ * and from external DISTRIBUTION_DESTINATIONS (Instagram/etc.).
+ */
+export const PUBLIC_SURFACE_DESTINATIONS = ["PUBLIC_APP", "TV", "RADIO"] as const;
+export type PublicSurfaceDestination = (typeof PUBLIC_SURFACE_DESTINATIONS)[number];
+
+export const PUBLIC_SURFACE_DESTINATION_LABELS: Record<PublicSurfaceDestination, string> = {
+  PUBLIC_APP: "Public App",
+  TV: "TV",
+  RADIO: "Radio",
+};
+
+export function isPublicSurfaceDestination(value: unknown): value is PublicSurfaceDestination {
+  return (
+    typeof value === "string" &&
+    (PUBLIC_SURFACE_DESTINATIONS as readonly string[]).includes(value)
+  );
+}
+
+export function parsePublicSurfaceDestinations(raw: unknown): PublicSurfaceDestination[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PublicSurfaceDestination[] = [];
+  for (const item of raw) {
+    if (isPublicSurfaceDestination(item) && !out.includes(item)) out.push(item);
+  }
+  return out;
+}
+
 export const DESTINATION_KINDS = {
   LIFEOS: "internal",
   INSTAGRAM: "external",

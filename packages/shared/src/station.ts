@@ -217,13 +217,24 @@ export function mediaItemFromAsset(
 }
 
 export function tvEligibleAsset(asset: PublicAssetCard): boolean {
+  const surfaces = asset.surfaces ?? [];
+  if (surfaces.length) return surfaces.includes("TV");
   return asset.assetType === "VIDEO" && (asset.mediaAvailable || asset.isLiveReplay);
 }
 
 export function radioEligibleAsset(asset: PublicAssetCard): boolean {
+  const surfaces = asset.surfaces ?? [];
+  if (surfaces.length) return surfaces.includes("RADIO");
   if (asset.isPodcast) return asset.mediaAvailable;
   if (asset.assetType === "MUSIC" || asset.assetType === "PODCAST") return asset.mediaAvailable;
   return false;
+}
+
+/** Public App feed eligibility — explicit surface or legacy (no surfaces set). */
+export function publicAppEligibleAsset(asset: PublicAssetCard): boolean {
+  const surfaces = asset.surfaces ?? [];
+  if (!surfaces.length) return true;
+  return surfaces.includes("PUBLIC_APP");
 }
 
 export function fallbackPlaylistFromAssets(

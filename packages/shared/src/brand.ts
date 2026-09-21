@@ -120,6 +120,11 @@ export interface PublicAssetCard {
   /** True when public streamable media bytes exist (VIDEO/MUSIC/SOFTWARE package). */
   mediaAvailable: boolean;
   presentationTypes: PresentationType[];
+  /**
+   * Creator-selected surfaces. When empty/absent, station eligibility
+   * falls back to asset-type heuristics (legacy).
+   */
+  surfaces?: import("./presentation.js").PublicSurfaceDestination[];
   durationMs?: number | null;
   aspectRatio?: string | null;
   isLiveReplay: boolean;
@@ -316,6 +321,7 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "coverAvailable",
     "mediaAvailable",
     "presentationTypes",
+    "surfaces",
     "durationMs",
     "aspectRatio",
     "isLiveReplay",

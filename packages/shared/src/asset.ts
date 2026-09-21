@@ -121,6 +121,11 @@ export type AssetDistribution = {
   channels?: string[];
   lastPublishedAt?: string;
   syndicationStatus?: string;
+  /**
+   * Creator-selected Digiconomy surfaces for this Asset.
+   * PUBLIC_APP = Public App feed; TV / RADIO = station programming.
+   */
+  surfaces?: Array<"PUBLIC_APP" | "TV" | "RADIO">;
 };
 
 export interface Asset {

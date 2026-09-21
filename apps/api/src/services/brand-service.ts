@@ -17,7 +17,9 @@ import {
   sortNav,
   isReservedSlug,
   parsePresentationTypes,
+  parsePublicSurfaceDestinations,
   liveNowFromSession,
+  publicAppEligibleAsset,
   type BrandConfigPayload,
   type BrandCta,
   type BrandMedia,
@@ -177,6 +179,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
     coverAvailable,
     mediaAvailable,
     presentationTypes: parsePresentationTypes(presentationTypes),
+    surfaces: parsePublicSurfaceDestinations(asset.distribution?.surfaces),
     durationMs,
     aspectRatio,
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
@@ -314,7 +317,7 @@ export async function getBrandConfig(
     listPublicEligible(ownerId),
   ]);
   const featuredAssetIds = space ? readJson<string[]>(space.featuredAssetIds, []) : [];
-  const eligibleCards = eligible.map(toPublicAssetCard);
+  const eligibleCards = eligible.map(toPublicAssetCard).filter(publicAppEligibleAsset);
   const featuredAssets = orderByIds(eligibleCards, featuredAssetIds);
   const nav = parseNav(space?.publicNav);
   const media = parseMedia(space?.brandMedia);
@@ -576,7 +579,7 @@ async function experienceFrom(
 ): Promise<PublicBrandExperience> {
   const slug = space.slug ?? "";
   const featuredIds = readJson<string[]>(space.featuredAssetIds, []);
-  const publishedAssets = eligible.map(toPublicAssetCard);
+  const publishedAssets = eligible.map(toPublicAssetCard).filter(publicAppEligibleAsset);
   const featuredAssets = orderByIds(publishedAssets, featuredIds);
   const nav = parseNav(space.publicNav);
   const media = parseMedia(space.brandMedia);

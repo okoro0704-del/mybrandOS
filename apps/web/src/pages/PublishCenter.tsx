@@ -9,8 +9,11 @@ import {
   PUBLISH_AUDIENCE_LABELS,
   PUBLISH_VISIBILITIES,
   PUBLISH_VISIBILITY_LABELS,
+  PUBLIC_SURFACE_DESTINATIONS,
+  PUBLIC_SURFACE_DESTINATION_LABELS,
   WRITEUP_MAX_CHARS,
   type PresentationType,
+  type PublicSurfaceDestination,
   type PublishAudience,
   type PublishCandidate,
   type PublishCategoryId,
@@ -38,7 +41,7 @@ import {
 } from "../publish/contentSource";
 
 type Step = "landing" | "source" | "setup" | "review" | "done" | "distribute";
-type SetupPanel = null | "schedule" | "audience" | "visibility" | "rights";
+type SetupPanel = null | "schedule" | "audience" | "visibility" | "rights" | "surfaces";
 type UploadState = "idle" | "uploading" | "processing" | "ready" | "failed";
 
 type DriveFile = {
@@ -90,6 +93,7 @@ export function PublishCenterPage() {
   const [siteUrl, setSiteUrl] = useState("");
   const [distributeDetail, setDistributeDetail] = useState("");
   const [presentationTypes, setPresentationTypes] = useState<PresentationType[]>([]);
+  const [surfaces, setSurfaces] = useState<PublicSurfaceDestination[]>(["PUBLIC_APP"]);
   const [audience, setAudience] = useState<PublishAudience>("FREE");
   const [setupPanel, setSetupPanel] = useState<SetupPanel>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
@@ -150,6 +154,7 @@ export function PublishCenterPage() {
     setWriteup("");
     setScheduleMode("now");
     setAudience("FREE");
+    setSurfaces(["PUBLIC_APP"]);
     setVisibility("public");
     setRights({ ...DEFAULT_PUBLISH_RIGHTS });
     setSetupPanel(null);
@@ -333,6 +338,7 @@ export function PublishCenterPage() {
               }
             : {}),
           audience,
+          surfaces,
         }),
       });
       setResult(data);
@@ -703,6 +709,65 @@ export function PublishCenterPage() {
                   </span>
                 </label>
               ))}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="publish-config-row"
+            onClick={() => setSetupPanel(setupPanel === "surfaces" ? null : "surfaces")}
+          >
+            <span>Publish to</span>
+            <strong>
+              {surfaces.map((s) => PUBLIC_SURFACE_DESTINATION_LABELS[s]).join(" · ") || "None"}{" "}
+              <span aria-hidden>›</span>
+            </strong>
+          </button>
+          {setupPanel === "surfaces" ? (
+            <div className="publish-config-panel">
+              <p className="small muted">Select one or more destinations. Offline Kernel stores programmed TV/Radio locally for audiences.</p>
+              {PUBLIC_SURFACE_DESTINATIONS.map((id) => {
+                const checked = surfaces.includes(id);
+                const videoOnly = id === "TV";
+                const audioOnly = id === "RADIO";
+                const disabled =
+                  (videoOnly && selected.assetType !== "VIDEO" && format !== "video") ||
+                  (audioOnly &&
+                    selected.assetType !== "MUSIC" &&
+                    selected.assetType !== "PODCAST" &&
+                    format !== "audio");
+                return (
+                  <label
+                    key={id}
+                    className={`publish-radio${checked ? " on" : ""}${disabled ? " is-disabled" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={disabled}
+                      checked={checked}
+                      onChange={() => {
+                        setSurfaces((prev) => {
+                          if (prev.includes(id)) {
+                            const next = prev.filter((s) => s !== id);
+                            return next.length ? next : ["PUBLIC_APP"];
+                          }
+                          return [...prev, id];
+                        });
+                      }}
+                    />
+                    <span>
+                      <strong>{PUBLIC_SURFACE_DESTINATION_LABELS[id]}</strong>
+                      <span className="small muted">
+                        {id === "PUBLIC_APP"
+                          ? "Creator Public App feed and collections."
+                          : id === "TV"
+                            ? "Program into creator TV station (video)."
+                            : "Program into creator Radio station (music/podcast)."}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           ) : null}
 

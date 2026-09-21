@@ -105,6 +105,7 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
         presentationType: z.enum(["POST", "REEL", "WATCH", "CINEMA"]).nullable().optional(),
         presentationTypes: z.array(z.enum(["POST", "REEL", "WATCH", "CINEMA"])).optional(),
         audience: z.enum(["FREE", "PREMIUM", "VIP"]).nullable().optional(),
+        surfaces: z.array(z.enum(["PUBLIC_APP", "TV", "RADIO"])).optional(),
       })
       .parse(req.body);
     const result = await executePublish(
@@ -117,6 +118,7 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
         presentationType: body.presentationType ?? null,
         presentationTypes: body.presentationTypes ?? null,
         audience: body.audience ?? "FREE",
+        surfaces: body.surfaces ?? null,
       },
       primitives,
     );

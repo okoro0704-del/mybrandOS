@@ -11,6 +11,10 @@ import {
   reconcileStationNow,
   stationIdentityFromSlug,
   stationLifecycle,
+  tvEligibleAsset,
+  radioEligibleAsset,
+  publicAppEligibleAsset,
+  fallbackPlaylistFromAssets,
 } from "../../../packages/shared/src/station.ts";
 
 function asset(partial: Partial<PublicAssetCard> & Pick<PublicAssetCard, "id" | "assetType">): PublicAssetCard {
@@ -208,4 +212,31 @@ test("online return keeps the same program offset instead of restarting", () => 
   });
   assert.equal(back.item?.id, previous.item?.id);
   assert.equal(back.offsetMs, previous.offsetMs);
+});
+
+test("creator surface destinations gate Public App / TV / Radio", () => {
+  const tvOnly = asset({ id: "tv1", assetType: "VIDEO", surfaces: ["TV"] });
+  const radioOnly = asset({ id: "r1", assetType: "MUSIC", surfaces: ["RADIO"] });
+  const appOnly = asset({ id: "a1", assetType: "VIDEO", surfaces: ["PUBLIC_APP"] });
+  const multi = asset({ id: "m1", assetType: "VIDEO", surfaces: ["PUBLIC_APP", "TV"] });
+
+  assert.equal(tvEligibleAsset(tvOnly), true);
+  assert.equal(radioEligibleAsset(tvOnly), false);
+  assert.equal(publicAppEligibleAsset(tvOnly), false);
+
+  assert.equal(radioEligibleAsset(radioOnly), true);
+  assert.equal(tvEligibleAsset(radioOnly), false);
+  assert.equal(publicAppEligibleAsset(radioOnly), false);
+
+  assert.equal(publicAppEligibleAsset(appOnly), true);
+  assert.equal(tvEligibleAsset(appOnly), false);
+
+  assert.equal(publicAppEligibleAsset(multi), true);
+  assert.equal(tvEligibleAsset(multi), true);
+
+  const tvPlaylist = fallbackPlaylistFromAssets([tvOnly, radioOnly, appOnly, multi], "TV");
+  assert.deepEqual(
+    tvPlaylist.items.map((i) => i.id),
+    ["tv1", "m1"],
+  );
 });

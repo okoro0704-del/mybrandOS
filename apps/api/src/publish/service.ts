@@ -10,12 +10,14 @@ import {
   ensureMasterRendition,
   isPresentationType,
   parsePresentationTypes,
+  parsePublicSurfaceDestinations,
   parseVideoProcessing,
   presentationEligibility,
   digitalLifePath,
   validateDestinationForVideo,
   videoIsPlayableReady,
   DESTINATION_MEDIA_PROFILES,
+  PUBLIC_SURFACE_DESTINATIONS,
   type PublishAudience,
   type PublishCandidate,
   type PublishCategoryId,
@@ -30,6 +32,7 @@ import {
   type PublishSourceAvailability,
   type PublishVisibility,
   type PresentationType,
+  type PublicSurfaceDestination,
   PUBLISH_CATEGORY_DETAILS,
   PUBLISH_CATEGORY_IDS,
   PUBLISH_CATEGORY_LABELS,
@@ -52,6 +55,27 @@ function resolveSelectedPresentations(input: PublishExecuteInput): PresentationT
     return [input.presentationType];
   }
   return [];
+}
+
+function resolveSelectedSurfaces(
+  input: PublishExecuteInput,
+  opts: { isVideo: boolean; isAudio: boolean; isPodcast: boolean },
+): PublicSurfaceDestination[] {
+  const requested = parsePublicSurfaceDestinations(input.surfaces ?? []);
+  const surfaces =
+    requested.length > 0
+      ? requested
+      : (["PUBLIC_APP"] as PublicSurfaceDestination[]);
+
+  for (const surface of surfaces) {
+    if (surface === "TV" && !opts.isVideo) {
+      throw badRequest("surface_ineligible", "TV requires video media.");
+    }
+    if (surface === "RADIO" && !opts.isAudio && !opts.isPodcast) {
+      throw badRequest("surface_ineligible", "Radio requires music or podcast media.");
+    }
+  }
+  return surfaces;
 }
 
 function audienceAccessPolicy(audience: PublishAudience | null | undefined): string {
@@ -566,11 +590,27 @@ export async function executePublish(
     (typeof existingMeta.audience === "string" ? existingMeta.audience : "FREE")) as PublishAudience;
   const publishVisibility = input.visibility;
 
+  const isAudio =
+    asset.assetType === "MUSIC" ||
+    asset.assetType === "PODCAST" ||
+    input.contentFormat === "audio";
+  const isPodcast =
+    Boolean(existingMeta.podcast) ||
+    String(existingMeta.recordingMode ?? "").toUpperCase() === "PODCAST" ||
+    asset.assetType === "PODCAST";
+  const surfaces = resolveSelectedSurfaces(input, { isVideo, isAudio, isPodcast });
+
   const updated = await updateAsset(ownerId, asset.id, {
     title,
     description: writeup,
     status: "PUBLISHED",
     visibility: publishVisibility,
+    distribution: {
+      ...(asset.distribution ?? {}),
+      surfaces,
+      lastPublishedAt: new Date().toISOString(),
+      channels: surfaces,
+    },
     metadata: {
       ...existingMeta,
       publishWriteup: writeup,
@@ -841,7 +881,51 @@ export async function buildDistributionSummary(
     asset.visibility === "public" &&
     Boolean(lifeosIntent && ["projected", "QUEUED", "queued", "recorded"].includes(lifeosIntent.status));
 
+  const surfaces = parsePublicSurfaceDestinations(asset.distribution?.surfaces);
+  const surfaceSet = new Set(surfaces.length ? surfaces : ["PUBLIC_APP"]);
+
   const items: PublishDistributionSummaryItem[] = [
+    {
+      id: "public_app",
+      label: "Public App",
+      state:
+        asset.status === "PUBLISHED" && surfaceSet.has("PUBLIC_APP")
+          ? "published"
+          : asset.status === "PUBLISHED"
+            ? "eligible"
+            : "unavailable",
+      detail: surfaceSet.has("PUBLIC_APP")
+        ? `Visibility ${asset.visibility}`
+        : "Not selected for Public App",
+    },
+    {
+      id: "tv",
+      label: "TV",
+      state:
+        asset.status === "PUBLISHED" && surfaceSet.has("TV")
+          ? "published"
+          : asset.assetType === "VIDEO"
+            ? "eligible"
+            : "unavailable",
+      detail: surfaceSet.has("TV")
+        ? "Programmed into creator TV station"
+        : asset.assetType === "VIDEO"
+          ? "Eligible — select TV at publish"
+          : "Requires video",
+    },
+    {
+      id: "radio",
+      label: "Radio",
+      state:
+        asset.status === "PUBLISHED" && surfaceSet.has("RADIO")
+          ? "published"
+          : asset.assetType === "MUSIC" || asset.assetType === "PODCAST"
+            ? "eligible"
+            : "unavailable",
+      detail: surfaceSet.has("RADIO")
+        ? "Programmed into creator Radio station"
+        : "Select Radio at publish for music/podcast",
+    },
     {
       id: "mybrandos",
       label: "mybrandOS",

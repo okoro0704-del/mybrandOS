@@ -222,6 +222,11 @@ export interface PublishExecuteInput {
   presentationTypes?: PresentationType[] | null;
   /** Consumer audience. Defaults to FREE for public visibility. */
   audience?: PublishAudience | null;
+  /**
+   * Digiconomy surfaces to publish into (multi-select).
+   * Defaults to [PUBLIC_APP] when visibility is public.
+   */
+  surfaces?: import("./presentation.js").PublicSurfaceDestination[] | null;
 }
 
 export interface PublishExecuteResult {
