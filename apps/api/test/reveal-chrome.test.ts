@@ -30,9 +30,11 @@ test("reveal chrome toggles CLEAN ↔ OPENING ↔ VISIBLE ↔ CLOSING", () => {
   assert.equal(reduceRevealChrome("NAVIGATION_VISIBLE", "SELECT", true), "CLEAN");
 });
 
-test("wordmark visible only in CLEAN; nav visible while opening or open", () => {
-  assert.equal(revealWordmarkVisible("CLEAN"), true);
-  assert.equal(revealWordmarkVisible("NAVIGATION_VISIBLE"), false);
+test("wordmark visible only when Interaction Mode (nav) is summoned — Pure Media hides it", () => {
+  assert.equal(revealWordmarkVisible("CLEAN"), false);
+  assert.equal(revealWordmarkVisible("OPENING"), true);
+  assert.equal(revealWordmarkVisible("NAVIGATION_VISIBLE"), true);
+  assert.equal(revealWordmarkVisible("CLOSING"), false);
   assert.equal(revealNavVisible("CLEAN"), false);
   assert.equal(revealNavVisible("OPENING"), true);
   assert.equal(revealNavVisible("NAVIGATION_VISIBLE"), true);

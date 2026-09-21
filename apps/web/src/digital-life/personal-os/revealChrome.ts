@@ -18,7 +18,9 @@ export function revealNavVisible(state: RevealChromeState): boolean {
 }
 
 export function revealWordmarkVisible(state: RevealChromeState): boolean {
-  return state === "CLEAN";
+  // Pure Media Mode: no creator wordmark during passive viewing.
+  // Wordmark appears only when Interaction Mode (nav) is summoned.
+  return revealNavVisible(state);
 }
 
 export function reduceRevealChrome(

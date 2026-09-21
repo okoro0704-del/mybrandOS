@@ -2039,6 +2039,24 @@ button.linkish {
   z-index: 5;
   pointer-events: none;
 }
+.living-gallery__context--summoned {
+  animation: living-gallery-fade-in 220ms var(--os-ease, ease) both;
+}
+.living-gallery__rail--summoned {
+  animation: living-gallery-fade-in 220ms var(--os-ease, ease) both;
+}
+@keyframes living-gallery-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.living-gallery[data-ui-mode="pure"] .living-gallery__context--pure,
+.living-gallery[data-ui-mode="pure"] .living-gallery__rail--pure {
+  display: none !important;
+}
 .living-gallery__context > * {
   pointer-events: auto;
 }
@@ -3129,17 +3147,18 @@ button.linkish {
   transform: none;
   pointer-events: auto;
 }
-.personal-os[data-reveal-shell][data-reveal="OPENING"]:has(.os-home--immersive) .os-wordmark--signature,
-.personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .os-wordmark--signature {
-  opacity: 0;
-  transform: translateY(-10px);
+/* Pure Media Mode: identity HUD stays for LIVE badge only; wordmark mounts only when summoned. */
+.personal-os[data-reveal-shell][data-reveal="CLEAN"] .os-identity-hud {
   pointer-events: none;
+}
+.personal-os[data-reveal-shell][data-reveal="CLEAN"] .os-identity-hud .os-live-badge {
+  pointer-events: auto;
 }
 .personal-os[data-reveal-shell][data-reveal="OPENING"] .os-identity-hud,
 .personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"] .os-identity-hud {
-  opacity: 0;
-  transform: translateY(-10px);
-  pointer-events: none;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 .personal-os[data-reveal-shell] .os-topbar,
 .personal-os[data-reveal-shell] .os-segments-wrap {

@@ -16,6 +16,7 @@ import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
+import { useRevealChrome } from "../digital-life/personal-os/RevealChromeContext";
 import {
   applyCommentInsert,
   canSendComment,
@@ -196,6 +197,9 @@ function PostSlide({
   onVideoEnded: () => void;
 }) {
   void basePath;
+  const reveal = useRevealChrome();
+  /** Interaction Mode: summoned shell, or comments actively open. Pure Media otherwise. */
+  const interactionOpen = Boolean(reveal?.navVisible || commentMode);
   const author = experience.identity.displayName || experience.slug;
   const body =
     (typeof asset.presentation?.body === "string" && asset.presentation.body) ||
@@ -372,9 +376,11 @@ function PostSlide({
       data-gallery-fit="contain"
       data-comment-mode={commentMode ? "open" : undefined}
       data-comments-open={commentMode ? "true" : "false"}
+      data-ui-mode={interactionOpen ? "interaction" : "pure"}
       aria-hidden={!active}
     >
-      <div ref={contextRef} className="living-gallery__context">
+      {interactionOpen ? (
+      <div ref={contextRef} className="living-gallery__context living-gallery__context--summoned">
         {collaborators.length ? (
           <div className="living-gallery__brand-row">
             <div className="living-gallery__brands" data-count={String(collaborators.length)} data-role="collaborator">
@@ -403,6 +409,9 @@ function PostSlide({
           lessLabel="See less"
         />
       </div>
+      ) : (
+        <div ref={contextRef} className="living-gallery__context living-gallery__context--pure" hidden aria-hidden />
+      )}
 
       <div className="living-gallery__media immersive-feed__media" data-gallery-fit="contain">
         {writing ? (
@@ -585,9 +594,10 @@ function PostSlide({
           </div>
         ) : null}
 
+        {interactionOpen ? (
         <div
           ref={railRef}
-          className="living-gallery__rail living-gallery__bottom-bar"
+          className="living-gallery__rail living-gallery__bottom-bar living-gallery__rail--summoned"
           data-section-bar="bottom"
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
@@ -608,6 +618,9 @@ function PostSlide({
             />
           </div>
         </div>
+        ) : (
+          <div ref={railRef} className="living-gallery__rail living-gallery__rail--pure" hidden aria-hidden />
+        )}
       </div>
     </li>
   );

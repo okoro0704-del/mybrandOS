@@ -200,14 +200,16 @@ export function DigitalLifeShell({
         ) : null}
 
         {revealEnabled ? (
-          <div className="os-identity-hud">
-            <OsWordmark
-              slug={experience.slug}
-              displayName={name}
-              to={home}
-              className="os-wordmark--signature os-wordmark--owner"
-              identity
-            />
+          <div className="os-identity-hud" data-ui-mode={revealApi.navVisible ? "interaction" : "pure"}>
+            {revealApi.wordmarkVisible ? (
+              <OsWordmark
+                slug={experience.slug}
+                displayName={name}
+                to={home}
+                className="os-wordmark--signature os-wordmark--owner"
+                identity
+              />
+            ) : null}
             <BrandLiveBadge liveNow={experience.liveNow} to={livePath(basePath)} />
           </div>
         ) : null}
