@@ -55,7 +55,7 @@ test("TV and Radio share one scheduling engine and live override", () => {
   assert.match(station, /live-override/);
   assert.match(station, /ADVERTISEMENT/);
   assert.match(station, /buildChannelProgramming/);
-  assert.match(surface, /resolveStationNow/);
+  assert.match(surface, /reconcileStationNow/);
   assert.match(surface, /channel === "RADIO"/);
   assert.equal(surface.includes("radioScheduleEngine"), false);
   assert.match(publicRoutes, /\/public\/:slug\/station/);
@@ -66,7 +66,10 @@ test("TV and Radio consume the shared Offline Kernel; no second DB", () => {
   assert.match(kernel, /cacheStationProgramming/);
   assert.match(kernel, /saveStationPlaybackState/);
   assert.match(kernel, /enqueueStationAnalytics/);
+  assert.match(kernel, /flushPendingStationAnalytics/);
+  assert.match(kernel, /hasOfflineEntitlement/);
   assert.match(kernel, /listLocallyAvailableAssetIds/);
+  assert.match(surface, /flushPendingStationAnalytics/);
   assert.match(surface, /from "..\/offline\/offlineKernel"/);
   assert.equal(kernel.includes("mybrandos-tv-offline"), false);
   assert.equal(kernel.includes("mybrandos-radio-offline"), false);
@@ -79,5 +82,7 @@ test("mode switching preserves identity and does not remount the gallery key", (
   assert.match(station, /stationLifecycle/);
   assert.match(feed, /key=\{asset\.id\}/);
   assert.match(shell, /experience\.slug/);
+  assert.match(shell, /lifecycle\("TV"\) !== "SUSPENDED"/);
+  assert.match(shell, /lifecycle\("RADIO"\) !== "SUSPENDED"/);
   assert.match(surface, /data-lifecycle/);
 });

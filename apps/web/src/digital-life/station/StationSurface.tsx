@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildChannelProgramming,
-  resolveStationNow,
+  reconcileStationNow,
   type PublicBrandExperience,
   type StationChannel,
   type StationNow,
@@ -12,6 +12,7 @@ import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
 import {
   cacheStationProgramming,
   enqueueStationAnalytics,
+  flushPendingStationAnalytics,
   getCachedStationProgramming,
   getStationPlaybackState,
   listLocallyAvailableAssetIds,
@@ -61,6 +62,7 @@ export function StationSurface({
   const [now, setNow] = useState(() => new Date());
   const [resume, setResume] = useState<{ itemId: string; offsetMs: number } | null>(null);
   const lastItemRef = useRef<string | null>(null);
+  const previousNowRef = useRef<StationNow | null>(null);
   const videoTimeRef = useRef(0);
 
   useEffect(() => {
@@ -103,23 +105,29 @@ export function StationSurface({
   }, [experience.slug, channel]);
 
   useEffect(() => {
-    if (online) return;
-    void listLocallyAvailableAssetIds().then(setLocalIds).catch(() => undefined);
-  }, [online]);
+    if (!online) {
+      void listLocallyAvailableAssetIds().then(setLocalIds).catch(() => undefined);
+      return;
+    }
+    void flushPendingStationAnalytics().catch(() => undefined);
+    void cacheStationProgramming(experience.slug, channel, liveProgramming).catch(() => undefined);
+    setNow(new Date());
+  }, [online, channel, experience.slug, liveProgramming]);
 
   const programming = !online && cached ? cached : liveProgramming;
-  const resolved: StationNow = useMemo(
-    () =>
-      resolveStationNow({
-        programming,
-        liveNow: experience.liveNow,
-        at: now,
-        online,
-        locallyAvailableIds: localIds,
-        resumeCursor: online ? null : resume,
-      }),
-    [programming, experience.liveNow, now, online, localIds, resume],
-  );
+  const resolved: StationNow = useMemo(() => {
+    const next = reconcileStationNow({
+      previous: previousNowRef.current,
+      programming,
+      liveNow: experience.liveNow,
+      at: now,
+      online,
+      locallyAvailableIds: localIds,
+      resumeCursor: online ? null : resume,
+    });
+    previousNowRef.current = next;
+    return next;
+  }, [programming, experience.liveNow, now, online, localIds, resume]);
 
   useEffect(() => {
     if (!resolved.item || resolved.item.id === lastItemRef.current) return;

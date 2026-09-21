@@ -8,6 +8,7 @@ import {
   itemPlayableOffline,
   resolveStationNow,
   resumeAfterLive,
+  reconcileStationNow,
   stationIdentityFromSlug,
   stationLifecycle,
 } from "../../../packages/shared/src/station.ts";
@@ -188,4 +189,23 @@ test("ACTIVE / WARM / SUSPENDED keeps only the current mode fully live", () => {
   assert.equal(stationLifecycle("TV", "APP", "APP"), "WARM");
   assert.equal(stationLifecycle("TV", "RADIO", "APP"), "SUSPENDED");
   assert.equal(stationLifecycle("APP", "APP", null), "ACTIVE");
+});
+
+test("online return keeps the same program offset instead of restarting", () => {
+  const programming = buildChannelProgramming({ slug: "ada", assets: [videos[0]], channel: "TV" });
+  const previous = resolveStationNow({
+    programming,
+    at: new Date(2026, 0, 1, 0, 0, 20),
+    online: false,
+    locallyAvailableIds: ["morning"],
+  });
+  assert.equal(previous.item?.id, "morning");
+  const back = reconcileStationNow({
+    previous,
+    programming,
+    at: new Date(2026, 0, 1, 0, 0, 20),
+    online: true,
+  });
+  assert.equal(back.item?.id, previous.item?.id);
+  assert.equal(back.offsetMs, previous.offsetMs);
 });

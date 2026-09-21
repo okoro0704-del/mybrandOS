@@ -527,3 +527,30 @@ export function resumeAfterLive(input: {
 export function sameStationProgram(previous: StationNow | null | undefined, next: StationNow): boolean {
   return Boolean(previous?.item?.id && previous.item.id === next.item?.id);
 }
+
+/**
+ * Online return / live refresh: keep the current program's offset when the
+ * clock still resolves the same item. Do not restart unless programming changed.
+ */
+export function reconcileStationNow(input: {
+  previous?: StationNow | null;
+  programming: StationProgramming;
+  liveNow?: PublicLiveNow | null;
+  at?: Date | number;
+  online?: boolean;
+  locallyAvailableIds?: Iterable<string> | null;
+  resumeCursor?: StationPlaybackCursor | null;
+}): StationNow {
+  const next = resolveStationNow({
+    programming: input.programming,
+    liveNow: input.liveNow,
+    at: input.at,
+    online: input.online,
+    locallyAvailableIds: input.locallyAvailableIds,
+    resumeCursor: input.online === false ? input.resumeCursor : null,
+  });
+  if (input.online !== false && sameStationProgram(input.previous, next) && input.previous) {
+    return { ...next, offsetMs: input.previous.offsetMs };
+  }
+  return next;
+}

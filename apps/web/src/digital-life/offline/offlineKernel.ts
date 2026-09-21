@@ -339,6 +339,27 @@ export async function listPendingStationAnalytics(): Promise<StationAnalyticsEve
   });
 }
 
+/** Saved + media cached = entitled to play this publication offline. */
+export async function hasOfflineEntitlement(assetId: string): Promise<boolean> {
+  const row = await getOfflinePublication(assetId);
+  return Boolean(row?.mediaCached);
+}
+
+/** Drain the local queue after connectivity returns. No campaign-analytics backend in this phase. */
+export async function flushPendingStationAnalytics(): Promise<number> {
+  const pending = await listPendingStationAnalytics();
+  if (!pending.length) return 0;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(ANALYTICS_STORE, "readwrite");
+    const store = tx.objectStore(ANALYTICS_STORE);
+    for (const row of pending) store.put({ ...row, synced: true });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  return pending.length;
+}
+
 export async function listLocallyAvailableAssetIds(): Promise<string[]> {
   const rows = await listOfflinePublications();
   return rows.filter((row) => row.mediaCached).map((row) => row.id);

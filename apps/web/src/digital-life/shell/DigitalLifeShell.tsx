@@ -257,8 +257,12 @@ function DigitalLifeShellFrame({
           </div>
           {primary === "info" || primary === "website" ? null : (
             <>
-              <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
-              <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
+              {stationMode.lifecycle("TV") !== "SUSPENDED" ? (
+                <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
+              ) : null}
+              {stationMode.lifecycle("RADIO") !== "SUSPENDED" ? (
+                <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
+              ) : null}
             </>
           )}
         </main>
