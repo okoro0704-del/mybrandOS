@@ -2066,22 +2066,31 @@ button.linkish {
 }
 .living-gallery__details {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.22rem;
   min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  color: #111;
+  background: rgba(244, 246, 250, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 0.32rem 0.55rem 0.38rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .living-gallery__title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 650;
-  color: #f8fafc;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+  color: #111;
+  text-shadow: none;
 }
 .living-gallery__caption {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.4;
-  color: #f4f6fb;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+  color: #111;
+  text-shadow: none;
   white-space: pre-wrap;
 }
 .living-gallery__caption.is-collapsed {
@@ -2104,7 +2113,7 @@ button.linkish {
   margin: 0;
   display: flex;
   gap: 0.55rem;
-  color: var(--os-muted, #6b7285);
+  color: #111;
   font-size: 0.75rem;
 }
 .living-gallery__media,
@@ -2118,6 +2127,54 @@ button.linkish {
   width: 100%;
   z-index: 0;
   background: transparent;
+}
+.media-outcome {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+.media-outcome__heart,
+.media-outcome__text {
+  position: absolute;
+  bottom: 7%;
+  animation-name: media-outcome-rise;
+  animation-timing-function: cubic-bezier(0.22, 0.72, 0.2, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+.media-outcome__heart {
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
+}
+.media-outcome__text {
+  color: #111;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: rgba(244, 246, 250, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  padding: 0.2rem 0.62rem 0.24rem;
+}
+@keyframes media-outcome-rise {
+  0% { transform: translate3d(0, 10px, 0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate3d(var(--drift, 0px), -92vh, 0); opacity: 0; }
+}
+@keyframes media-outcome-fade {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-outcome__heart,
+  .media-outcome__text {
+    animation-name: media-outcome-fade;
+    animation-duration: 1.6s !important;
+  }
 }
 .living-comments-layer,
 .living-gallery__comments {
@@ -3186,8 +3243,8 @@ button.linkish {
 }
 .personal-os[data-reveal-shell][data-reveal="OPENING"]:has(.os-home--immersive) .living-gallery__rail,
 .personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .living-gallery__rail {
-  bottom: calc(4.7rem + env(safe-area-inset-bottom, 0px));
-  transform: translateY(0) scale(1.02);
+  bottom: calc(var(--os-bottom-nav-h) + 0.18rem);
+  transform: translateY(0) scale(1);
 }
 .personal-os[data-reveal-shell]:has(.os-home--immersive) .living-comments-layer,
 .personal-os[data-reveal-shell]:has(.os-home--immersive) .living-gallery__comments {
@@ -3197,7 +3254,11 @@ button.linkish {
 .personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .living-comments-layer,
 .personal-os[data-reveal-shell][data-reveal="OPENING"]:has(.os-home--immersive) .living-gallery__comments,
 .personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .living-gallery__comments {
-  bottom: calc(5.15rem + env(safe-area-inset-bottom, 0px) + var(--vv-bottom, 0px));
+  bottom: calc(var(--os-bottom-nav-h) + 3.35rem + var(--vv-bottom, 0px));
+}
+.personal-os[data-reveal-shell][data-reveal="OPENING"]:has(.os-home--immersive) .living-comments-layer[data-keyboard="open"],
+.personal-os[data-reveal-shell][data-reveal="NAVIGATION_VISIBLE"]:has(.os-home--immersive) .living-comments-layer[data-keyboard="open"] {
+  bottom: calc(var(--os-bottom-nav-h) + 3.35rem);
 }
 .personal-os[data-reveal-shell]:has(.os-home--immersive) .living-gallery__context {
   top: 0;
@@ -3780,6 +3841,18 @@ button.linkish {
   font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
+}
+.content-actions__toast.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
 }
 .content-actions__comments {
   margin-top: 0.55rem;

@@ -11,6 +11,7 @@ import {
 } from "../offline/offlineKernel";
 import { studioPath } from "@mybrandos/shared";
 import { PostComments, type PublicComment } from "./PostComments";
+import type { MediaOutcome } from "./MediaOutcomeLayer";
 
 const LONG_PRESS_MS = 520;
 
@@ -33,6 +34,7 @@ export function ContentActionBar({
   commentsOpen: commentsOpenProp,
   onDetails,
   detailsOpen = false,
+  onOutcome,
   hideComposer = false,
   variant = "default",
 }: {
@@ -46,6 +48,7 @@ export function ContentActionBar({
   commentsOpen?: boolean;
   onDetails?: () => void;
   detailsOpen?: boolean;
+  onOutcome?: (outcome: MediaOutcome) => void;
   hideComposer?: boolean;
   variant?: "default" | "compact" | "gallery";
 }) {
@@ -90,8 +93,10 @@ export function ContentActionBar({
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  function flash(message: string) {
+  function flash(message: string, extras?: { hearts?: boolean }) {
     setToast(message);
+    if (extras?.hearts) onOutcome?.({ kind: "hearts" });
+    else if (message) onOutcome?.({ kind: "text", text: message });
   }
 
   async function toggleLove() {
@@ -103,7 +108,8 @@ export function ContentActionBar({
         { method: "POST", body: JSON.stringify({}) },
       );
       setSocial((s) => ({ ...s, loves: next.loves, lovedByMe: next.lovedByMe }));
-      flash(next.lovedByMe ? "Loved" : "Love removed");
+      if (next.lovedByMe) flash("Loved", { hearts: true });
+      else flash("Love removed");
     } catch (err) {
       flash(err instanceof ApiError ? err.message : "Could not update Love.");
     } finally {
@@ -119,7 +125,7 @@ export function ContentActionBar({
       return;
     }
     try {
-      const row = await savePublicationOffline({
+      await savePublicationOffline({
         id: asset.id,
         slug,
         title: asset.title,
@@ -132,7 +138,7 @@ export function ContentActionBar({
         mediaCached: false,
       });
       setSaved(true);
-      flash(row.mediaCached || !mediaUrl ? "Saved Offline" : "Saved Offline (metadata only)");
+      flash("Saved offline");
     } catch {
       flash("Could not save offline.");
     }
@@ -168,7 +174,7 @@ export function ContentActionBar({
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-      flash("Downloading…");
+      flash("Downloaded");
     } catch {
       flash("Download failed.");
     }
@@ -229,21 +235,21 @@ export function ContentActionBar({
 
   async function onReuse() {
     if (!getToken()) {
-      flash("Only creators can Reuse.");
+      flash("Only creators can reuse");
       return;
     }
     try {
       const studio = await api<{ slug: string | null }>("/auth/studio");
       if (!studio.slug) {
-        flash("Only creators can Reuse. Create your Digital Life app first.");
+        flash("Only creators can reuse");
         return;
       }
     } catch {
-      flash("Only creators can Reuse.");
+      flash("Only creators can reuse");
       return;
     }
     if (!social.allowReuse) {
-      flash("Reuse is not allowed by the creator.");
+      flash("Only creators can reuse");
       return;
     }
     window.location.href = studioPath("/create", window.location.hostname);
@@ -281,13 +287,28 @@ export function ContentActionBar({
             }}
             icon={<Icons.messages size={22} />}
           />
-          <ActionBtn
-            label="Details"
-            active={detailsOpen}
-            iconOnly
-            onClick={() => onDetails?.()}
-            icon={<Icons.details size={22} />}
-          />
+          {onDetails ? (
+            <ActionBtn
+              label="Details"
+              active={detailsOpen}
+              iconOnly
+              onClick={() => onDetails()}
+              icon={<Icons.details size={22} />}
+            />
+          ) : (
+            <ActionBtn
+              label={saved ? "Saved" : "Save"}
+              active={saved}
+              iconOnly
+              onPointerDown={onSavePointerDown}
+              onPointerUp={onSavePointerUp}
+              onPointerLeave={onSavePointerLeave}
+              onContextMenu={onSaveContextMenu}
+              onClick={(e) => e.preventDefault()}
+              title="Tap to save offline. Hold to download when allowed."
+              icon={<Icons.save size={22} filled={saved} />}
+            />
+          )}
           <ActionBtn
             label="Reuse"
             iconOnly
@@ -347,7 +368,7 @@ export function ContentActionBar({
       ) : null}
 
       {toast ? (
-        <p className="content-actions__toast" role="status">
+        <p className="content-actions__toast sr-only" role="status">
           {toast}
         </p>
       ) : null}

@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { PublicAssetCard, PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
+import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
@@ -217,6 +218,7 @@ function PostSlide({
   const [keyboard, setKeyboard] = useState<CommentKeyboardState>("CLOSED");
   const [inputMode, setInputMode] = useState<CommentComposerInputMode>("internal");
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
 
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active,
@@ -423,6 +425,11 @@ function PostSlide({
           <div className="immersive-feed__asset immersive-feed__asset--empty" aria-hidden />
         )}
 
+        <MediaOutcomeLayer
+          particles={outcomes}
+          onExpire={(id) => setOutcomes((prev) => prev.filter((item) => item.id !== id))}
+        />
+
         {commentMode ? (
           <div
             className="living-comments-layer"
@@ -432,6 +439,8 @@ function PostSlide({
             data-input-mode={inputMode}
             style={{ "--vv-bottom": `${Math.round(inputMode === "system" ? vvBottom : 0)}px` } as CSSProperties}
             onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
             {social.comments.length > 0 || social.loading || social.error ? (
@@ -581,6 +590,8 @@ function PostSlide({
           className="living-gallery__rail living-gallery__bottom-bar"
           data-section-bar="bottom"
           onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="living-gallery__section-bar">
             <ContentActionBar
@@ -593,8 +604,7 @@ function PostSlide({
               hideComposer
               variant="gallery"
               onComment={onToggleComments}
-              onDetails={() => setDetailsOpen((open) => !open)}
-              detailsOpen={detailsOpen}
+              onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
             />
           </div>
         </div>

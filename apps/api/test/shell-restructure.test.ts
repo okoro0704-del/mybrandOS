@@ -45,21 +45,25 @@ test("messages and notifications are not primary public destinations", () => {
   assert.match(experience, /Not comments/);
 });
 
-test("publication action hood is Love Comment Details Reuse Share", () => {
+test("publication action hood is Love Comment Save Reuse Share", () => {
   const gallery = actions.slice(actions.indexOf("galleryActions"));
   const love = gallery.indexOf('label="Love"');
   const comment = gallery.indexOf('label="Comment"');
-  const details = gallery.indexOf('label="Details"');
+  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
   const reuse = gallery.indexOf('label="Reuse"');
   const share = gallery.indexOf('label="Share"');
-  assert.ok(love >= 0 && comment > love && details > comment && reuse > details && share > reuse);
-  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
-  assert.ok(save === -1 || save > share);
+  assert.ok(love >= 0 && comment > love && save > comment && reuse > save && share > reuse);
+  assert.match(actions, /Only creators can reuse/);
+  assert.match(actions, /Saved offline/);
+  assert.match(actions, /Downloaded/);
+  assert.match(actions, /onOutcome/);
   assert.match(actions, /content-actions--hood/);
   assert.equal(feed.includes("<LiveControl"), false);
-  assert.match(feed, /onDetails=/);
+  assert.match(feed, /MediaOutcomeLayer/);
   assert.match(styles, /content-actions--gallery[\s\S]*backdrop-filter:\s*blur/);
   assert.match(styles, /\.living-comments-layer[\s\S]{0,400}background:\s*transparent/);
+  assert.match(styles, /media-outcome-rise/);
+  assert.match(styles, /\.living-gallery__caption\s*\{[^}]*color:\s*#111/s);
 });
 
 test("studio dock is Home Create Camera Publish More; Assets is a side rail", () => {

@@ -20,6 +20,8 @@ import {
 } from "../../web/src/lib/livingGallery.ts";
 import { LIVING_GALLERY_DEV_FIXTURES } from "../../web/src/lib/livingGallery.fixtures.ts";
 import { galleryContainFit } from "../../web/src/lib/galleryMediaFit.ts";
+import { spawnMediaOutcome } from "../../web/src/digital-life/personal-os/MediaOutcomeLayer.tsx";
+import { spawnMediaOutcome } from "../../web/src/digital-life/personal-os/MediaOutcomeLayer.tsx";
 import { publicationBrandMarks, publicationCollaboratorMarks } from "../../web/src/digital-life/personal-os/osIdentity.ts";
 import { readLayoutMode } from "../../web/src/media/AdaptiveVideoPlayer.tsx";
 
@@ -238,20 +240,32 @@ test("keyboard visualViewport must not flip gallery orientation", () => {
   );
 });
 
-test("five gallery actions are Love Comment Details Reuse Share; status bar is translucent", () => {
+test("five gallery actions are Love Comment Save Reuse Share; status bar is translucent", () => {
   const gallery = actions.slice(actions.indexOf('galleryActions'));
   const love = gallery.indexOf('label="Love"');
   const comment = gallery.indexOf('label="Comment"');
-  const details = gallery.indexOf('label="Details"');
+  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
   const reuse = gallery.indexOf('label="Reuse"');
   const share = gallery.indexOf('label="Share"');
-  assert.ok(love >= 0 && comment > love && details > comment && reuse > details && share > reuse);
-  const save = gallery.indexOf('label={saved ? "Saved" : "Save"}');
-  assert.ok(save === -1 || save > share);
+  assert.ok(love >= 0 && comment > love && save > comment && reuse > save && share > reuse);
   assert.match(branding, /theme-color", "transparent"/);
   assert.match(branding, /black-translucent/);
   assert.match(player, /wantSound/);
   assert.match(player, /policyBlocked/);
+});
+
+test("love hearts and action writing fly through media without a toast panel", () => {
+  const hearts = spawnMediaOutcome({ kind: "hearts" });
+  const text = spawnMediaOutcome({ kind: "text", text: "Saved offline" });
+  assert.equal(hearts.length > 5, true);
+  assert.equal(hearts.every((item) => item.kind === "heart"), true);
+  assert.equal(text[0]?.kind, "text");
+  if (text[0]?.kind === "text") assert.equal(text[0].text, "Saved offline");
+  assert.match(feed, /MediaOutcomeLayer/);
+  assert.match(actions, /content-actions__toast sr-only/);
+  assert.match(actions, /Only creators can reuse/);
+  assert.match(styles, /media-outcome-rise/);
+  assert.match(styles, /\.living-gallery__caption\s*\{[^}]*color:\s*#111/s);
 });
 
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {

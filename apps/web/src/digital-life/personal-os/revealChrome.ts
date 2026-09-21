@@ -77,6 +77,7 @@ const INTERACTIVE_SELECTOR = [
   ".living-gallery__brands",
   ".living-gallery__rail",
   ".living-gallery__details",
+  ".media-outcome",
   ".adaptive-video__ctrl",
   ".os-bottom-nav",
   ".os-dock",
