@@ -21,7 +21,6 @@ import {
 import { LIVING_GALLERY_DEV_FIXTURES } from "../../web/src/lib/livingGallery.fixtures.ts";
 import { galleryContainFit } from "../../web/src/lib/galleryMediaFit.ts";
 import { spawnMediaOutcome } from "../../web/src/digital-life/personal-os/MediaOutcomeLayer.tsx";
-import { spawnMediaOutcome } from "../../web/src/digital-life/personal-os/MediaOutcomeLayer.tsx";
 import { publicationBrandMarks, publicationCollaboratorMarks } from "../../web/src/digital-life/personal-os/osIdentity.ts";
 import { readLayoutMode } from "../../web/src/media/AdaptiveVideoPlayer.tsx";
 
@@ -137,7 +136,8 @@ test("shell double-tap exempts composer, comments, and details", () => {
 test("post captions collapse to two lines with See more", () => {
   assert.equal(LIVING_GALLERY_DETAILS_LINES, 2);
   assert.match(styles, /-webkit-line-clamp:\s*2/);
-  assert.match(feed, /See more/);
+  const details = readFileSync(join(root, "apps/web/src/digital-life/personal-os/PostDetails.tsx"), "utf8");
+  assert.match(details, /See more/);
   const preview = captionPreview(LIVING_GALLERY_DEV_FIXTURES.longCaption);
   assert.equal(preview.truncated, true);
   assert.ok(preview.preview.length < LIVING_GALLERY_DEV_FIXTURES.longCaption.length);
@@ -173,7 +173,6 @@ test("UUID and asset-id titles are not human post details", () => {
 });
 
 test("comments overlay the video only when commentsOpen; Pause and Muted pills are gone", () => {
-  assert.match(feed, /publicationBrandMarks/);
   assert.match(feed, /living-comments-layer/);
   assert.match(feed, /CommentRow/);
   assert.match(feed, /commentMode \?/);
@@ -270,9 +269,9 @@ test("love hearts and action writing fly through media without a toast panel", (
 
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
   assert.match(shell, /HomeEdgeNav/);
-  assert.match(shell, /BrandSurface/);
+  assert.match(shell, /os-wordmark--owner/);
+  assert.match(shell, /data-brand-persist/);
   assert.equal(feed.includes("os-wordmark--signature"), false);
-  assert.match(feed, /data-role="creator"/);
   assert.match(html, /interactive-widget=overlays-content/);
   assert.match(styles, /\.personal-os:has\(\.os-home--immersive\) \.os-wordmark--signature\s*\{[^}]*left:/s);
   assert.match(styles, /env\(safe-area-inset-top/);

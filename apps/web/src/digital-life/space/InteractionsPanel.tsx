@@ -17,11 +17,16 @@ export function InteractionsPanel({
 
   return (
     <aside
-      className="home-interactions"
+      className="edge-interactions home-interactions"
       data-home-interactions="true"
       data-view={space.interactionsView}
       aria-label="Interactions"
-      onPointerDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        space.holdLaunchers(true);
+      }}
+      onPointerUp={() => space.holdLaunchers(false)}
+      onPointerLeave={() => space.holdLaunchers(false)}
       onClick={(e) => e.stopPropagation()}
     >
       <header className="home-interactions__head">

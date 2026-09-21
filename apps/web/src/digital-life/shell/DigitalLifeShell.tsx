@@ -7,14 +7,15 @@ import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { BrandLiveBadge } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
+import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { CreatorSpaceProvider, useCreatorSpace } from "../space/CreatorSpaceContext";
 import { HomeExperienceProvider } from "../space/HomeExperienceContext";
 import { HomeEdgeNav } from "../space/HomeEdgeNav";
 import { SpaceRouterPanel } from "../space/SpaceRouterPanel";
 import { DigiNewsSurface, DigiPediaSurface } from "../space/KnowledgeSurfaces";
-import { BrandSurface } from "../space/BrandSurface";
 import { InteractionsPanel } from "../space/InteractionsPanel";
+import { PostDetailsOverlay } from "../space/PostDetailsOverlay";
 import { StationSurface } from "../station/StationSurface";
 import { isRevealKeyboardBlocked } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
@@ -70,19 +71,17 @@ function DigitalLifeShellFrame({
   const reduced = prefersReducedMotion();
   const liveHref = livePath(basePath);
 
+  const name = experience.identity.displayName || experience.slug;
+
   const revealApi = useMemo<RevealChromeApi>(
     () => ({
-      state: space.controlsHidden ? "CLEAN" : "NAVIGATION_VISIBLE",
-      navVisible: !space.controlsHidden,
-      wordmarkVisible: false,
+      state: "CLEAN",
+      navVisible: false,
+      wordmarkVisible: true,
       toggle: () => space.toggleControls(),
-      open: () => {
-        if (space.controlsHidden) space.toggleControls();
-      },
-      close: () => {
-        if (!space.controlsHidden) space.toggleControls();
-      },
-      selectDestination: () => undefined,
+      open: () => undefined,
+      close: () => space.toggleControls(),
+      selectDestination: () => space.collapseLaunchers(),
     }),
     [space],
   );
@@ -105,6 +104,14 @@ function DigitalLifeShellFrame({
         space.closeInteractions();
         return;
       }
+      if (space.detailsOpen) {
+        space.closeDetails();
+        return;
+      }
+      if (space.revealed) {
+        space.collapseLaunchers();
+        return;
+      }
       if (space.surface === "SPACE") {
         space.closeSpace();
       }
@@ -115,7 +122,6 @@ function DigitalLifeShellFrame({
 
   const websiteMode = primary === "info" || primary === "website";
   const appHidden = space.surface !== "APP";
-  const brandHidden = space.surface !== "BRAND";
   const newsHidden = space.surface !== "NEWS";
   const pediaHidden = space.surface !== "DIGIPEDIA";
   const spaceHidden = space.surface !== "SPACE";
@@ -136,7 +142,7 @@ function DigitalLifeShellFrame({
       data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
-      data-home-nav={space.controlsHidden ? "hidden" : "visible"}
+      data-home-nav={space.revealed ? "revealed" : "collapsed"}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -149,11 +155,16 @@ function DigitalLifeShellFrame({
       ) : null}
 
       <div className="os-phone-frame">
-        {isBrandLive(experience.liveNow) ? (
-          <div className="os-identity-hud" data-ui-mode="pure">
-            <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} />
-          </div>
-        ) : null}
+        <div className="os-identity-hud" data-ui-mode="pure" data-brand-persist="true">
+          <OsWordmark
+            slug={experience.slug}
+            displayName={name}
+            to=""
+            className="os-wordmark--signature os-wordmark--owner os-wordmark--space"
+            identity
+          />
+          <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} />
+        </div>
 
         <main className="dl-main be-main os-main" data-space-host="true">
           <div
@@ -168,15 +179,6 @@ function DigitalLifeShellFrame({
           </div>
           {websiteMode ? null : (
             <>
-              <section
-                className="space-surface space-surface--brand space-surface--inset"
-                data-space-surface="BRAND"
-                data-runtime={space.lifecycle("BRAND")}
-                hidden={brandHidden || undefined}
-                inert={brandHidden ? true : undefined}
-              >
-                <BrandSurface experience={experience} mediaBase={mediaBase} />
-              </section>
               <section
                 className="space-surface space-surface--news space-surface--inset"
                 data-space-surface="NEWS"
@@ -216,7 +218,8 @@ function DigitalLifeShellFrame({
 
         {websiteMode ? null : (
           <>
-            <HomeEdgeNav experience={experience} hidden={space.controlsHidden} />
+            <HomeEdgeNav experience={experience} />
+            <PostDetailsOverlay />
             {space.interactionsOpen ? <InteractionsPanel experience={experience} mediaBase={mediaBase} /> : null}
           </>
         )}

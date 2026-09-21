@@ -1,91 +1,60 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CREATOR_MEDIA_SURFACES,
   CREATOR_SPACE_SURFACES,
-  HOME_SLOT_IDS,
-  INITIAL_HOME_SLOTS,
+  LAUNCHER_IDLE_MS,
+  LAUNCHER_REVEAL_MS,
+  LEFT_LAUNCH_ITEMS,
   RADIO_BACKGROUND_ENABLED,
+  RIGHT_LAUNCH_ITEMS,
   closeHomeSpace,
-  homeNavInvariants,
-  initialHomeNav,
+  firstTouchReveals,
+  launchTargetIsOverlay,
+  launchTargetIsSurface,
   mergeCreatorSpaces,
   openHomeInteractions,
   openHomeSpace,
   radioShouldPlay,
   slugFromPublicHref,
   spaceEdgeFor,
-  swapHomeSlot,
   stationModeFromSurface,
 } from "../../../packages/shared/src/creator-space.ts";
 
-test("App is the default creator space surface", () => {
-  assert.deepEqual([...CREATOR_SPACE_SURFACES], ["APP", "BRAND", "DIGIPEDIA", "NEWS", "RADIO", "TV", "SPACE"]);
-  const nav = initialHomeNav("APP");
-  assert.equal(nav.active, "APP");
-  assert.deepEqual(nav.slots, INITIAL_HOME_SLOTS);
-  assert.deepEqual(homeNavInvariants(nav), []);
+test("media surfaces are App Digipedia News Radio TV; Space is a router overlay", () => {
+  assert.deepEqual([...CREATOR_MEDIA_SURFACES], ["APP", "DIGIPEDIA", "NEWS", "RADIO", "TV"]);
+  assert.ok(CREATOR_SPACE_SURFACES.includes("SPACE"));
+  assert.equal(LAUNCHER_IDLE_MS, 4000);
+  assert.ok(LAUNCHER_REVEAL_MS >= 180 && LAUNCHER_REVEAL_MS <= 300);
 });
 
-test("six shortcuts start as Brand/Digipedia/Radio vs Interactions/News/TV", () => {
-  const nav = initialHomeNav();
-  assert.equal(nav.slots.UL, "BRAND");
-  assert.equal(nav.slots.ML, "DIGIPEDIA");
-  assert.equal(nav.slots.LL, "RADIO");
-  assert.equal(nav.slots.UR, "INTERACTIONS");
-  assert.equal(nav.slots.MR, "NEWS");
-  assert.equal(nav.slots.LR, "TV");
+test("left and right launchers keep destinations collapsed until first touch", () => {
+  assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["APP", "DIGIPEDIA", "NEWS"]);
+  assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["INTERACTIONS", "RADIO", "TV"]);
+  assert.equal(firstTouchReveals(null, "left"), true);
+  assert.equal(firstTouchReveals("left", "left"), false);
+  assert.equal(firstTouchReveals("left", "right"), true);
+  assert.equal(launchTargetIsOverlay("INTERACTIONS"), true);
+  assert.equal(launchTargetIsOverlay("SPACE"), true);
+  assert.equal(launchTargetIsSurface("DIGIPEDIA"), true);
+  assert.equal(launchTargetIsSurface("INTERACTIONS"), false);
 });
 
-test("Radio swap puts App in Radio's slot and keeps other shortcuts", () => {
-  const start = initialHomeNav("APP");
-  const radio = swapHomeSlot(start, "LL");
-  assert.ok(radio);
-  assert.equal(radio.active, "RADIO");
-  assert.equal(radio.slots.LL, "APP");
-  assert.equal(radio.slots.UL, "BRAND");
-  assert.equal(radio.slots.UR, "INTERACTIONS");
-  assert.equal(radio.slots.LR, "TV");
-  assert.deepEqual(homeNavInvariants(radio), []);
-});
-
-test("Radio then TV then App does not lose shortcuts", () => {
-  const radio = swapHomeSlot(initialHomeNav("APP"), "LL");
-  assert.ok(radio);
-  const tv = swapHomeSlot(radio, "LR");
-  assert.ok(tv);
-  assert.equal(tv.active, "TV");
-  assert.equal(tv.slots.LR, "RADIO");
-  assert.equal(tv.slots.LL, "APP");
-  const app = swapHomeSlot(tv, "LL");
-  assert.ok(app);
-  assert.equal(app.active, "APP");
-  assert.equal(app.slots.LL, "TV");
-  assert.equal(app.slots.LR, "RADIO");
-  assert.equal(app.slots.UL, "BRAND");
-  assert.deepEqual(homeNavInvariants(app), []);
-});
-
-test("Space opens and returns without changing side slots", () => {
-  const radio = swapHomeSlot(initialHomeNav("APP"), "LL");
-  assert.ok(radio);
-  const space = openHomeSpace(radio);
+test("Space opens and returns without becoming a media surface", () => {
+  const start = { active: "APP" as const, slots: { UL: "BRAND", ML: "DIGIPEDIA", LL: "RADIO", UR: "INTERACTIONS", MR: "NEWS", LR: "TV" }, returnFromSpace: null, interactionsOpen: false, interactionsView: "overview" as const };
+  const space = openHomeSpace(start);
   assert.equal(space.active, "SPACE");
-  assert.equal(space.returnFromSpace, "RADIO");
-  assert.deepEqual(space.slots, radio.slots);
-  assert.deepEqual(homeNavInvariants(space), []);
+  assert.equal(space.returnFromSpace, "APP");
   const back = closeHomeSpace(space);
-  assert.equal(back.active, "RADIO");
-  assert.deepEqual(back.slots, radio.slots);
+  assert.equal(back.active, "APP");
   assert.equal(back.returnFromSpace, null);
 });
 
-test("Interactions is not a destination swap", () => {
-  const start = initialHomeNav("APP");
-  assert.equal(swapHomeSlot(start, "UR"), null);
+test("Interactions is an overlay, not a destination surface", () => {
+  const start = { active: "APP" as const, slots: { UL: "BRAND", ML: "DIGIPEDIA", LL: "RADIO", UR: "INTERACTIONS", MR: "NEWS", LR: "TV" }, returnFromSpace: null, interactionsOpen: false, interactionsView: "overview" as const };
   const open = openHomeInteractions(start);
   assert.equal(open.interactionsOpen, true);
   assert.equal(open.active, "APP");
-  assert.deepEqual(open.slots, start.slots);
 });
 
 test("Radio does not play under TV; background radio is off", () => {
@@ -108,5 +77,4 @@ test("Space Router lists distinct creator spaces, not surfaces", () => {
   assert.deepEqual(spaces.map((row) => row.slug), ["mrfundzman", "dpcribs", "school"]);
   assert.equal(slugFromPublicHref("https://ada.getlifeos.app/"), "ada");
   assert.equal(slugFromPublicHref("https://getlifeos.app/u/ada"), "ada");
-  assert.equal(HOME_SLOT_IDS.length, 6);
 });

@@ -56,13 +56,13 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details sit under creator marks; owner identity lives in the overlay", () => {
+test("post details sit in a summoned overlay; owner identity lives in the shell", () => {
+  const overlay = readFileSync(join(root, "apps/web/src/digital-life/space/PostDetailsOverlay.tsx"), "utf8");
+  assert.match(overlay, /<PostDetails/);
+  assert.match(overlay, /data-edge-handle="details"/);
   assert.match(feed, /living-gallery__context/);
-  assert.match(feed, /publicationBrandMarks/);
-  assert.match(feed, /<PostDetails/);
-  assert.match(feed, /<OsWordmark/);
-  assert.match(feed, /living-gallery__brand--collaborator/);
-  assert.match(feed, /living-gallery__brand--host/);
+  assert.match(feed, /data-post-bound="false"/);
+  assert.equal(feed.includes("<OsWordmark"), false);
   assert.equal(feed.includes("<PublicationEntityBlock"), false);
   assert.match(entity, /data-entity-kind/);
   assert.match(entity, /kind = "creator"/);

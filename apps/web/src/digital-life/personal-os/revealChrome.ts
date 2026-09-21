@@ -106,6 +106,13 @@ const INTERACTIVE_SELECTOR = [
   ".home-space",
   ".home-interactions",
   ".media-launcher",
+  ".edge-nav",
+  ".edge-handle",
+  ".edge-tray",
+  ".edge-item",
+  ".edge-interactions",
+  ".post-detail-layer",
+  ".post-detail-tray",
 ].join(", ");
 
 export function isRevealExemptTarget(target: EventTarget | null): boolean {

@@ -19,7 +19,6 @@ const chrome = readFileSync(join(root, "apps/web/src/digital-life/navigation/Chr
 const wordmark = readFileSync(join(root, "apps/web/src/digital-life/personal-os/OsWordmark.tsx"), "utf8");
 const home = readFileSync(join(root, "apps/web/src/digital-life/personal-os/PersonalOsHome.tsx"), "utf8");
 const experience = readFileSync(join(root, "apps/web/src/experience/ExperienceView.tsx"), "utf8");
-const brand = readFileSync(join(root, "apps/web/src/digital-life/space/BrandSurface.tsx"), "utf8");
 
 test("reveal chrome toggles CLEAN ↔ OPENING ↔ VISIBLE ↔ CLOSING", () => {
   assert.equal(reduceRevealChrome("CLEAN", "TOGGLE"), "OPENING");
@@ -50,7 +49,7 @@ test("OS identity is data-driven from slug, not hard-coded mrfundzman", () => {
   assert.match(wordmark, /identity/);
   assert.equal(wordmark.includes("mrfundzmanOS"), false);
   assert.equal(shell.includes('"mrfundzmanOS"'), false);
-  assert.match(brand, /identity/);
+  assert.match(shell, /OsWordmark/);
 });
 
 test("public shell uses one reveal controller over edge launchers", () => {

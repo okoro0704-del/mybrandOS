@@ -2,20 +2,24 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   closeHomeInteractions,
   closeHomeSpace,
+  firstTouchReveals,
   homeNavEquals,
   initialHomeNav,
+  LAUNCHER_IDLE_MS,
+  launchTargetIsSurface,
   normalizeHomeDestination,
   openHomeComments,
   openHomeInteractions,
   openHomeSpace,
   spaceSurfaceLifecycle,
   stationModeFromSurface,
-  swapHomeSlot,
   type CreatorSpaceRuntime,
   type CreatorSpaceSurface,
+  type EdgeLauncherSide,
   type HomeNavSnapshot,
   type HomeSlotId,
   type HomeSlotOccupant,
+  type LaunchTarget,
   type PublicStationMode,
   type StationRuntimeLifecycle,
   type SwapDestination,
@@ -29,8 +33,16 @@ type CreatorSpaceApi = {
   interactionsOpen: boolean;
   interactionsView: "overview" | "comments";
   controlsHidden: boolean;
+  revealed: EdgeLauncherSide | null;
+  detailsOpen: boolean;
   setSurface: (surface: CreatorSpaceSurface) => void;
   selectSlot: (slot: HomeSlotId) => void;
+  revealLauncher: (side: EdgeLauncherSide) => void;
+  launch: (target: LaunchTarget) => void;
+  collapseLaunchers: () => void;
+  holdLaunchers: (held: boolean) => void;
+  toggleDetails: () => void;
+  closeDetails: () => void;
   openSpace: () => void;
   closeSpace: () => void;
   openInteractions: () => void;
@@ -84,6 +96,35 @@ function historyPayload(snapshot: HomeNavSnapshot) {
   return { ...(typeof history === "undefined" ? {} : (history.state as object | null) || {}), homeNav: snapshot };
 }
 
+const idleFallback: CreatorSpaceApi = {
+  surface: "APP",
+  previous: null,
+  slots: initialHomeNav("APP").slots,
+  routerOpen: false,
+  interactionsOpen: false,
+  interactionsView: "overview",
+  controlsHidden: true,
+  revealed: null,
+  detailsOpen: false,
+  setSurface: () => undefined,
+  selectSlot: () => undefined,
+  revealLauncher: () => undefined,
+  launch: () => undefined,
+  collapseLaunchers: () => undefined,
+  holdLaunchers: () => undefined,
+  toggleDetails: () => undefined,
+  closeDetails: () => undefined,
+  openSpace: () => undefined,
+  closeSpace: () => undefined,
+  openInteractions: () => undefined,
+  closeInteractions: () => undefined,
+  openComments: () => undefined,
+  closeComments: () => undefined,
+  toggleControls: () => undefined,
+  setRouterOpen: () => undefined,
+  lifecycle: (candidate) => (candidate === "APP" ? "ACTIVE" : "SUSPENDED"),
+};
+
 export function CreatorSpaceProvider({
   slug,
   initialSurface = "APP",
@@ -95,7 +136,9 @@ export function CreatorSpaceProvider({
 }) {
   const [nav, setNav] = useState<HomeNavSnapshot>(() => readStoredNav(slug, initialSurface));
   const [previous, setPrevious] = useState<CreatorSpaceSurface | null>(null);
-  const [controlsHidden, setControlsHidden] = useState(false);
+  const [revealed, setRevealed] = useState<EdgeLauncherSide | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [holdIdle, setHoldIdle] = useState(false);
   const navRef = useRef(nav);
   navRef.current = nav;
   const skipPop = useRef(false);
@@ -114,12 +157,16 @@ export function CreatorSpaceProvider({
     [slug],
   );
 
+  const collapseLaunchers = useCallback(() => setRevealed(null), []);
+
   useEffect(() => {
     const next = readStoredNav(slug, initialSurface);
     skipPop.current = true;
     setPrevious(null);
     setNav(next);
     persistNav(slug, next);
+    setRevealed(null);
+    setDetailsOpen(false);
     if (typeof history !== "undefined") history.replaceState(historyPayload(next), "");
     skipPop.current = false;
   }, [slug, initialSurface]);
@@ -128,6 +175,7 @@ export function CreatorSpaceProvider({
     const onPop = (event: PopStateEvent) => {
       if (skipPop.current) return;
       const incoming = (event.state as { homeNav?: HomeNavSnapshot } | null)?.homeNav;
+      setRevealed(null);
       if (!incoming) {
         setNav(initialHomeNav(normalizeHomeDestination(initialSurface)));
         return;
@@ -140,42 +188,64 @@ export function CreatorSpaceProvider({
     return () => window.removeEventListener("popstate", onPop);
   }, [slug, initialSurface]);
 
-  const selectSlot = useCallback(
-    (slot: HomeSlotId) => {
-      const current = navRef.current;
-      if (current.slots[slot] === "INTERACTIONS") {
-        apply(
-          current.interactionsOpen ? closeHomeInteractions(current) : openHomeInteractions(current),
-          "push",
-        );
-        return;
-      }
-      const next = swapHomeSlot(current, slot);
-      if (!next) return;
-      apply(next, "push");
-    },
-    [apply],
-  );
+  useEffect(() => {
+    if (!revealed || holdIdle) return;
+    const t = window.setTimeout(() => setRevealed(null), LAUNCHER_IDLE_MS);
+    return () => window.clearTimeout(t);
+  }, [revealed, holdIdle]);
+
+  useEffect(() => {
+    if (!detailsOpen || holdIdle) return;
+    const t = window.setTimeout(() => setDetailsOpen(false), LAUNCHER_IDLE_MS);
+    return () => window.clearTimeout(t);
+  }, [detailsOpen, holdIdle]);
 
   const setSurface = useCallback(
     (surface: CreatorSpaceSurface) => {
       const dest = normalizeHomeDestination(surface);
       const current = navRef.current;
+      setRevealed(null);
       if (dest === "SPACE") {
         apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
         return;
       }
       if (dest === current.active) return;
-      const slot = (Object.keys(current.slots) as HomeSlotId[]).find((id) => current.slots[id] === dest);
-      if (slot) {
-        const next = swapHomeSlot(current, slot);
-        if (next) apply(next, "push");
-        return;
-      }
-      apply({ ...current, active: dest, returnFromSpace: null, interactionsOpen: false, interactionsView: "overview" }, "push");
+      apply(
+        {
+          ...current,
+          active: dest,
+          returnFromSpace: null,
+          interactionsOpen: false,
+          interactionsView: "overview",
+        },
+        "push",
+      );
     },
     [apply],
   );
+
+  const launch = useCallback(
+    (target: LaunchTarget) => {
+      setRevealed(null);
+      setDetailsOpen(false);
+      const current = navRef.current;
+      if (target === "INTERACTIONS") {
+        apply(openHomeInteractions(current), current.interactionsOpen ? "silent" : "push");
+        return;
+      }
+      if (target === "SPACE") {
+        apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
+        return;
+      }
+      if (launchTargetIsSurface(target)) setSurface(target);
+    },
+    [apply, setSurface],
+  );
+
+  const revealLauncher = useCallback((side: EdgeLauncherSide) => {
+    setDetailsOpen(false);
+    setRevealed((open) => (firstTouchReveals(open, side) ? side : null));
+  }, []);
 
   const value = useMemo<CreatorSpaceApi>(
     () => ({
@@ -185,11 +255,23 @@ export function CreatorSpaceProvider({
       routerOpen: nav.active === "SPACE",
       interactionsOpen: nav.interactionsOpen,
       interactionsView: nav.interactionsView,
-      controlsHidden,
+      controlsHidden: true,
+      revealed,
+      detailsOpen,
       setSurface,
-      selectSlot,
+      selectSlot: () => undefined,
+      revealLauncher,
+      launch,
+      collapseLaunchers,
+      holdLaunchers: setHoldIdle,
+      toggleDetails: () => {
+        setRevealed(null);
+        setDetailsOpen((open) => !open);
+      },
+      closeDetails: () => setDetailsOpen(false),
       openSpace: () => {
         const current = navRef.current;
+        setRevealed(null);
         if (current.active === "SPACE") apply(closeHomeSpace(current), "push");
         else apply(openHomeSpace(current), "push");
       },
@@ -204,46 +286,26 @@ export function CreatorSpaceProvider({
         apply(openHomeComments(current), current.interactionsView === "comments" ? "silent" : "push");
       },
       closeComments: () => apply(openHomeInteractions(navRef.current), "push"),
-      toggleControls: () => setControlsHidden((v) => !v),
+      toggleControls: () => {
+        setRevealed(null);
+        setDetailsOpen(false);
+      },
       setRouterOpen: (open) => {
         const current = navRef.current;
+        setRevealed(null);
         if (open) apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
         else apply(closeHomeSpace(current), "push");
       },
       lifecycle: (candidate) => spaceSurfaceLifecycle(nav.active, candidate, previous),
     }),
-    [nav, previous, controlsHidden, setSurface, selectSlot, apply],
+    [nav, previous, revealed, detailsOpen, setSurface, revealLauncher, launch, collapseLaunchers, apply],
   );
 
   return <CreatorSpaceContext.Provider value={value}>{children}</CreatorSpaceContext.Provider>;
 }
 
 export function useCreatorSpace(): CreatorSpaceApi {
-  const ctx = useContext(CreatorSpaceContext);
-  if (!ctx) {
-    const fallback = initialHomeNav("APP");
-    return {
-      surface: "APP",
-      previous: null,
-      slots: fallback.slots,
-      routerOpen: false,
-      interactionsOpen: false,
-      interactionsView: "overview",
-      controlsHidden: false,
-      setSurface: () => undefined,
-      selectSlot: () => undefined,
-      openSpace: () => undefined,
-      closeSpace: () => undefined,
-      openInteractions: () => undefined,
-      closeInteractions: () => undefined,
-      openComments: () => undefined,
-      closeComments: () => undefined,
-      toggleControls: () => undefined,
-      setRouterOpen: () => undefined,
-      lifecycle: (candidate) => (candidate === "APP" ? "ACTIVE" : "SUSPENDED"),
-    };
-  }
-  return ctx;
+  return useContext(CreatorSpaceContext) ?? idleFallback;
 }
 
 /** Station TV/Radio still read this; surface is the source of truth. */

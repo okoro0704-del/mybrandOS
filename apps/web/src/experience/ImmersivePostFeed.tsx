@@ -13,8 +13,6 @@ import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
-import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
-import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { usePublicationComments } from "../digital-life/personal-os/usePublicationComments";
 import {
   applyCommentInsert,
@@ -26,7 +24,6 @@ import {
   type CommentKeyboardState,
 } from "../lib/commentKeyboard";
 import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery";
-import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import { useCreatorSpace } from "../digital-life/space/CreatorSpaceContext";
@@ -227,26 +224,16 @@ function PostSlide({
   const [srcW, setSrcW] = useState<number | null>(null);
   const [srcH, setSrcH] = useState<number | null>(null);
   const [viewport, setViewport] = useState({ w: 390, h: 844 });
-  const [contextH, setContextH] = useState(120);
+  const [contextH, setContextH] = useState(0);
   const [vvBottom, setVvBottom] = useState(0);
   const [keyboard, setKeyboard] = useState<CommentKeyboardState>("CLOSED");
   const [inputMode, setInputMode] = useState<CommentComposerInputMode>("internal");
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
 
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active,
     onCountChange: setCommentCount,
   });
-
-  const brands = useMemo(
-    () =>
-      publicationBrandMarks(
-        { slug: experience.slug, displayName: experience.identity.displayName },
-        asset.presentation?.collaborators,
-      ),
-    [experience.slug, experience.identity.displayName, asset.presentation?.collaborators],
-  );
 
   const layout = useMemo(
     () =>
@@ -395,38 +382,11 @@ function PostSlide({
       <div
         ref={contextRef}
         className="living-gallery__context living-gallery__context--summoned"
-        hidden={!topOpen}
-        aria-hidden={!topOpen}
-        inert={!topOpen ? true : undefined}
-      >
-        {brands.length ? (
-          <div className="living-gallery__brand-row">
-            <div className="living-gallery__brands" data-count={String(brands.length)} data-role="creator">
-              {brands.map((brand) => (
-                <OsWordmark
-                  key={brand.slug}
-                  slug={brand.slug}
-                  displayName={brand.displayName}
-                  to=""
-                  className={`living-gallery__brand${brand.slug === experience.slug ? " living-gallery__brand--host" : " living-gallery__brand--collaborator"}`}
-                  identity
-                />
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <PostDetails
-          title={humanTitle}
-          body={body}
-          publishedAt={asset.publishedAt}
-          kind={asset.assetType}
-          hideMeta={false}
-          expanded={detailsOpen}
-          onExpandedChange={setDetailsOpen}
-          moreLabel="See more"
-          lessLabel="See less"
-        />
-      </div>
+        hidden
+        aria-hidden
+        inert
+        data-post-bound="false"
+      />
 
       <div className="living-gallery__media immersive-feed__media" data-gallery-fit="contain">
         {writing ? (
@@ -674,6 +634,8 @@ export function ImmersivePostFeed({
   galleryLiveRef.current = galleryLive;
   const interactionsRef = useRef(space.interactionsOpen);
   interactionsRef.current = space.interactionsOpen;
+  const detailsOpenRef = useRef(space.detailsOpen);
+  detailsOpenRef.current = space.detailsOpen;
   const items = useMemo(() => filterForCategory(assets, category), [assets, category]);
   const ids = useMemo(() => items.map((a) => a.id), [items]);
   const initialIndex = resolveInitialIndex(ids, initialAssetId);
@@ -726,7 +688,7 @@ export function ImmersivePostFeed({
     () =>
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentModeRef.current,
-        topOpen: topOpenRef.current,
+        topOpen: topOpenRef.current || detailsOpenRef.current,
         dragging: draggingRef.current,
         documentHidden:
           typeof document !== "undefined" && (document.hidden || !galleryLiveRef.current || interactionsRef.current),
@@ -848,9 +810,9 @@ export function ImmersivePostFeed({
     if (
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentMode,
-        topOpen,
+        topOpen: topOpen || space.detailsOpen,
         dragging: draggingRef.current,
-        documentHidden,
+        documentHidden: documentHidden || space.interactionsOpen,
       })
     ) {
       if (holdTimerRef.current) {
@@ -860,7 +822,7 @@ export function ImmersivePostFeed({
       return;
     }
     scheduleEndHold();
-  }, [commentMode, topOpen, documentHidden, interactionNonce, scheduleEndHold, clearHoldTimer]);
+  }, [commentMode, topOpen, documentHidden, interactionNonce, space.detailsOpen, space.interactionsOpen, scheduleEndHold, clearHoldTimer]);
 
   useEffect(() => {
     const asset = items[activeIndex];
@@ -870,9 +832,9 @@ export function ImmersivePostFeed({
     if (
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentMode,
-        topOpen,
+        topOpen: topOpen || space.detailsOpen,
         dragging: draggingRef.current,
-        documentHidden,
+        documentHidden: documentHidden || space.interactionsOpen,
       })
     ) {
       return;
@@ -885,7 +847,7 @@ export function ImmersivePostFeed({
       window.clearTimeout(t);
       photoRemainingRef.current = Math.max(0, photoRemainingRef.current - (Date.now() - started));
     };
-  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, advanceToNextPublication]);
+  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.detailsOpen, space.interactionsOpen, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;

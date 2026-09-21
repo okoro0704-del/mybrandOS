@@ -257,3 +257,30 @@ export function homeOccupantLabel(occupant: HomeSlotOccupant, brandName = "Brand
   if (occupant === "TV") return "TV";
   return "Interactions";
 }
+
+/** Full-screen media/knowledge/station surfaces. Interactions and Space are overlays. */
+export const CREATOR_MEDIA_SURFACES = ["APP", "DIGIPEDIA", "NEWS", "RADIO", "TV"] as const;
+export type CreatorMediaSurface = (typeof CREATOR_MEDIA_SURFACES)[number];
+
+export const EDGE_LAUNCHER_SIDES = ["left", "right", "space"] as const;
+export type EdgeLauncherSide = (typeof EDGE_LAUNCHER_SIDES)[number];
+
+export const LEFT_LAUNCH_ITEMS = ["APP", "DIGIPEDIA", "NEWS"] as const;
+export const RIGHT_LAUNCH_ITEMS = ["INTERACTIONS", "RADIO", "TV"] as const;
+
+export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "SPACE";
+
+export const LAUNCHER_IDLE_MS = 4000;
+export const LAUNCHER_REVEAL_MS = 240;
+
+export function firstTouchReveals(open: EdgeLauncherSide | null, side: EdgeLauncherSide): boolean {
+  return open !== side;
+}
+
+export function launchTargetIsOverlay(target: LaunchTarget): boolean {
+  return target === "INTERACTIONS" || target === "SPACE";
+}
+
+export function launchTargetIsSurface(target: LaunchTarget): target is CreatorMediaSurface {
+  return CREATOR_MEDIA_SURFACES.includes(target as CreatorMediaSurface);
+}

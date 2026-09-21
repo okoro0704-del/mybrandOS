@@ -15,63 +15,74 @@ const stationSurface = readFileSync(join(root, "apps/web/src/digital-life/statio
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 const knowledge = readFileSync(join(root, "apps/web/src/digital-life/space/KnowledgeSurfaces.tsx"), "utf8");
 const interactions = readFileSync(join(root, "apps/web/src/digital-life/space/InteractionsPanel.tsx"), "utf8");
-const brand = readFileSync(join(root, "apps/web/src/digital-life/space/BrandSurface.tsx"), "utf8");
+const details = readFileSync(join(root, "apps/web/src/digital-life/space/PostDetailsOverlay.tsx"), "utf8");
 
 test("App is the default active surface and fills the space host", () => {
-  assert.match(space, /HOME_DESTINATIONS = \["APP", "BRAND", "DIGIPEDIA", "NEWS", "RADIO", "TV", "SPACE"\]/);
+  assert.match(space, /CREATOR_MEDIA_SURFACES = \["APP", "DIGIPEDIA", "NEWS", "RADIO", "TV"\]/);
   assert.match(ctx, /initialSurface = "APP"/);
   assert.match(shell, /data-space-surface=\{space\.surface\}/);
   assert.match(shell, /data-space-host/);
   assert.match(shell, /data-space-surface="APP"/);
 });
 
-test("six paired edge controls and a bottom Space launcher", () => {
-  assert.match(rails, /HOME_SLOT_PAIRS/);
-  assert.match(rails, /data-band=\{pair\.band\}/);
-  assert.match(rails, /data-home-space/);
-  assert.match(styles, /--home-pair-upper/);
-  assert.match(styles, /--home-pair-middle/);
-  assert.match(styles, /--home-pair-lower/);
-  assert.match(styles, /--home-slot:\s*2\.75rem/);
+test("tiny edge handles reveal destinations on first touch only", () => {
+  assert.match(rails, /data-two-touch="true"/);
+  assert.match(rails, /data-edge-handle="left"/);
+  assert.match(rails, /data-edge-handle="right"/);
+  assert.match(rails, /data-edge-handle="space"/);
+  assert.match(rails, /revealLauncher\("left"\)/);
+  assert.match(rails, /space\.launch\(target\)/);
+  assert.match(space, /firstTouchReveals/);
+  assert.match(styles, /\.edge-handle/);
+  assert.match(styles, /\.edge-tray--left/);
   assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
   assert.equal(shell.includes("<DigitalLifeTopBar"), false);
   assert.equal(shell.includes("<StationSwitcher"), false);
+  assert.equal(rails.includes("HOME_SLOT_PAIRS"), false);
 });
 
-test("Brand News Digipedia TV Radio are full-screen destinations", () => {
-  assert.match(shell, /data-space-surface="BRAND"/);
+test("persistent Space brand is a shell landmark, not a launched destination", () => {
+  assert.match(shell, /data-brand-persist="true"/);
+  assert.match(shell, /os-wordmark--owner/);
+  assert.match(shell, /<OsWordmark/);
+  assert.equal(shell.includes("<BrandSurface"), false);
   assert.match(shell, /data-space-surface="NEWS"/);
   assert.match(shell, /data-space-surface="DIGIPEDIA"/);
-  assert.match(shell, /<BrandSurface/);
   assert.match(shell, /<DigiNewsSurface/);
   assert.match(shell, /<DigiPediaSurface/);
-  assert.match(knowledge, /DigiNews/);
-  assert.match(knowledge, /DigiPedia/);
-  assert.match(brand, /home-brand__creator/);
-  assert.match(brand, /home-brand__post/);
+  assert.match(knowledge, /Digipedia/);
+  assert.match(knowledge, /News/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
   assert.match(stationSurface, /radioShouldPlay\(space\.surface\)/);
 });
 
-test("slot swapping and Space return are modeled in shared nav", () => {
-  assert.match(space, /swapHomeSlot/);
-  assert.match(space, /openHomeSpace/);
-  assert.match(space, /closeHomeSpace/);
+test("second touch launches a surface and collapses the launcher", () => {
+  assert.match(ctx, /setRevealed\(null\)/);
+  assert.match(ctx, /launchTargetIsSurface/);
   assert.match(ctx, /history\.pushState/);
   assert.match(ctx, /popstate/);
   assert.match(shell, /HomeEdgeNav/);
+  assert.match(ctx, /LAUNCHER_IDLE_MS/);
 });
 
-test("Interactions opens an action overview before comments", () => {
-  assert.match(interactions, /Interactions/);
+test("Interactions opens a transparent right-edge drawer", () => {
+  assert.match(interactions, /edge-interactions/);
   assert.match(interactions, /<ContentActionBar/);
   assert.match(interactions, /onComment=\{\(\) => space\.openComments\(\)\}/);
   assert.match(interactions, /<PostComments/);
-  assert.match(interactions, /No interactable post/);
+  assert.match(styles, /\.edge-interactions/);
   assert.match(feed, /setHomeAsset/);
   assert.match(feed, /space\.surface === "APP"/);
   assert.match(feed, /key=\{asset\.id\}/);
+});
+
+test("post details stay hidden until the top handle is touched", () => {
+  assert.match(shell, /PostDetailsOverlay/);
+  assert.match(details, /data-edge-handle="details"/);
+  assert.match(details, /toggleDetails/);
+  assert.match(styles, /\.post-detail-tray/);
+  assert.match(feed, /data-post-bound="false"/);
 });
 
 test("Space app is a full viewport destination, not a card overlay", () => {

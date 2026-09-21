@@ -170,7 +170,11 @@ export function StationSurface({
       hidden={hidden || undefined}
       inert={hidden && !keepAudio ? true : undefined}
       aria-hidden={hidden && !keepAudio ? true : undefined}
-      aria-label={channel === "TV" ? "Creator TV" : "Creator Radio"}
+      aria-label={
+        channel === "TV"
+          ? `${experience.identity.displayName || experience.slug} TV`
+          : `${experience.identity.displayName || experience.slug} Radio`
+      }
     >
       {!item ? (
         <div className="station-surface__empty" role="status">

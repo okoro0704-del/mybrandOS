@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { api } from "../../lib/api";
+import { personalOsName } from "../personal-os/osIdentity";
 
 export function DigiPediaSurface({ experience }: { experience: PublicBrandExperience }) {
+  const osName = personalOsName(experience.slug, experience.identity.displayName);
   const [query, setQuery] = useState("");
   const [state, setState] = useState<{
     available: boolean;
@@ -34,7 +36,7 @@ export function DigiPediaSurface({ experience }: { experience: PublicBrandExperi
     : d.sections;
   return (
     <article className="space-knowledge website-article">
-      <div className="eyebrow">DigiPedia</div>
+      <div className="eyebrow">{osName.stem} Digipedia</div>
       <h2>{d.title}</h2>
       {d.summary ? <p className="be-lead">{d.summary}</p> : null}
       <label className="space-knowledge__search">
@@ -67,9 +69,10 @@ export function DigiNewsSurface({
   const news = experience.websitePages.filter((p) => p.type === "NEWS" || p.type === "PRESS" || p.type === "EVENT");
   const [openId, setOpenId] = useState(news[0]?.id ?? null);
   const open = news.find((item) => item.id === openId) ?? news[0] ?? null;
+  const osName = personalOsName(experience.slug, experience.identity.displayName);
   return (
     <section className="space-newsroom">
-      <h2>DigiNews</h2>
+      <h2>{experience.identity.displayName || osName.stem} News</h2>
       <p className="be-lead">What is happening with {experience.identity.displayName || "this creator"}.</p>
       {!news.length ? <p className="muted">No news published yet.</p> : null}
       {news.length > 1 ? (

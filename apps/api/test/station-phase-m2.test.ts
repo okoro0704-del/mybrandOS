@@ -29,11 +29,11 @@ test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(shell, /channel="RADIO"/);
 });
 
-test("surface launchers are subtle by default and summoned by the existing reveal gesture", () => {
+test("surface launchers are tiny edge handles until first touch", () => {
   assert.match(shell, /HomeEdgeNav/);
-  assert.match(shell, /controlsHidden/);
+  assert.match(shell, /collapseLaunchers/);
   assert.match(shell, /useRevealDoubleTap/);
-  assert.match(reveal, /\.home-slot/);
+  assert.match(reveal, /\.edge-handle/);
   assert.equal(shell.includes("<StationSwitcher"), false);
 });
 
