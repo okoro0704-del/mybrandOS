@@ -1,9 +1,14 @@
-import type { PresentationType } from "@mybrandos/shared";
+import type { PresentationType, StationChannel, StationPlaybackCursor, StationProgramming } from "@mybrandos/shared";
 
-const DB_NAME = "mybrandos-offline-kernel";
-const DB_VERSION = 2;
+/** Canonical Offline Kernel DB — TV/Radio consume this store, they do not open another. */
+export const OFFLINE_KERNEL_DB = "mybrandos-offline-kernel";
+const DB_NAME = OFFLINE_KERNEL_DB;
+const DB_VERSION = 3;
 const STORE = "publications";
 const BLOB_STORE = "media-blobs";
+const STATION_STORE = "station-programming";
+const PLAYBACK_STORE = "station-playback";
+const ANALYTICS_STORE = "station-analytics";
 
 export type OfflinePublication = {
   id: string;
@@ -29,6 +34,15 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(BLOB_STORE)) {
         db.createObjectStore(BLOB_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(STATION_STORE)) {
+        db.createObjectStore(STATION_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(PLAYBACK_STORE)) {
+        db.createObjectStore(PLAYBACK_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(ANALYTICS_STORE)) {
+        db.createObjectStore(ANALYTICS_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -204,4 +218,128 @@ export function extensionForMime(mime: string): string {
   if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
   if (mime.includes("wav")) return "wav";
   return "bin";
+}
+
+function stationKey(slug: string, channel: StationChannel): string {
+  return `${slug}:${channel}`;
+}
+
+export async function cacheStationProgramming(
+  slug: string,
+  channel: StationChannel,
+  programming: StationProgramming,
+): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STATION_STORE, "readwrite");
+    tx.objectStore(STATION_STORE).put({
+      id: stationKey(slug, channel),
+      slug,
+      channel,
+      programming,
+      savedAt: new Date().toISOString(),
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getCachedStationProgramming(
+  slug: string,
+  channel: StationChannel,
+): Promise<StationProgramming | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STATION_STORE, "readonly");
+    const req = tx.objectStore(STATION_STORE).get(stationKey(slug, channel));
+    req.onsuccess = () => {
+      const row = req.result as { programming?: StationProgramming } | undefined;
+      resolve(row?.programming ?? null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function saveStationPlaybackState(
+  slug: string,
+  channel: StationChannel,
+  cursor: StationPlaybackCursor,
+): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(PLAYBACK_STORE, "readwrite");
+    tx.objectStore(PLAYBACK_STORE).put({
+      id: stationKey(slug, channel),
+      slug,
+      channel,
+      ...cursor,
+      updatedAt: new Date().toISOString(),
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getStationPlaybackState(
+  slug: string,
+  channel: StationChannel,
+): Promise<StationPlaybackCursor | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PLAYBACK_STORE, "readonly");
+    const req = tx.objectStore(PLAYBACK_STORE).get(stationKey(slug, channel));
+    req.onsuccess = () => {
+      const row = req.result as (StationPlaybackCursor & { id?: string }) | undefined;
+      if (!row?.itemId) {
+        resolve(null);
+        return;
+      }
+      resolve({ itemId: row.itemId, offsetMs: row.offsetMs || 0 });
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export type StationAnalyticsEvent = {
+  id: string;
+  slug: string;
+  channel: StationChannel;
+  itemId: string;
+  kind: string;
+  at: string;
+  synced?: boolean;
+};
+
+export async function enqueueStationAnalytics(event: Omit<StationAnalyticsEvent, "id" | "at" | "synced">): Promise<void> {
+  const db = await openDb();
+  const row: StationAnalyticsEvent = {
+    ...event,
+    id: `${event.slug}:${event.channel}:${event.itemId}:${Date.now()}`,
+    at: new Date().toISOString(),
+    synced: false,
+  };
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(ANALYTICS_STORE, "readwrite");
+    tx.objectStore(ANALYTICS_STORE).put(row);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function listPendingStationAnalytics(): Promise<StationAnalyticsEvent[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(ANALYTICS_STORE, "readonly");
+    const req = tx.objectStore(ANALYTICS_STORE).getAll();
+    req.onsuccess = () => {
+      const rows = (req.result as StationAnalyticsEvent[]) ?? [];
+      resolve(rows.filter((row) => !row.synced));
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listLocallyAvailableAssetIds(): Promise<string[]> {
+  const rows = await listOfflinePublications();
+  return rows.filter((row) => row.mediaCached).map((row) => row.id);
 }

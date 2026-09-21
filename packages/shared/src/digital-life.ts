@@ -17,6 +17,7 @@ import { digitalLifePath } from "./digital-life-urls.js";
 
 import type { AssetType } from "./asset.js";
 import type { PublicAssetCard, PublicNavItemConfig } from "./brand.js";
+import { normalizeStationOwnerConfig, type StationOwnerConfig } from "./station.js";
 
 export const DIGITAL_LIFE_SURFACES = ["public_app", "website", "workstation"] as const;
 export type DigitalLifeSurface = (typeof DIGITAL_LIFE_SURFACES)[number];
@@ -525,6 +526,8 @@ export type PublicExperiencePresentation = {
   spotlightPinnedIds?: string[] | null;
   /** First-person Digital Space welcome. Plain text. */
   digitalSpaceGreeting?: string | null;
+  /** Optional TV/Radio programming overlay. Missing schedule falls back to public media. */
+  station?: StationOwnerConfig | null;
 };
 
 export type DigiPediaSection = {
@@ -643,6 +646,7 @@ export function normalizePresentation(
           .slice(0, 2)
       : null,
     digitalSpaceGreeting: sanitizeDigitalSpaceGreeting(input?.digitalSpaceGreeting),
+    station: normalizeStationOwnerConfig(input?.station),
   };
 }
 

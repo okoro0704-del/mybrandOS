@@ -10,6 +10,9 @@ import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { UtilityDock } from "../personal-os/UtilityDock";
+import { StationModeProvider, useStationMode } from "../station/StationModeContext";
+import { StationSwitcher } from "../station/StationSwitcher";
+import { StationSurface } from "../station/StationSurface";
 import {
   REVEAL_CHROME_MS,
   REVEAL_IDLE_MS,
@@ -26,7 +29,24 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function DigitalLifeShell({
+export function DigitalLifeShell(props: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  mediaBase: string;
+  websiteBase: string;
+  primary: string;
+  preview?: boolean;
+  assetTitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <StationModeProvider slug={props.experience.slug}>
+      <DigitalLifeShellFrame {...props} />
+    </StationModeProvider>
+  );
+}
+
+function DigitalLifeShellFrame({
   experience,
   basePath,
   mediaBase,
@@ -45,6 +65,7 @@ export function DigitalLifeShell({
   assetTitle?: string;
   children: ReactNode;
 }) {
+  const stationMode = useStationMode();
   const theme = experience.theme;
   const revealEnabled = !preview;
   const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
@@ -97,7 +118,7 @@ export function DigitalLifeShell({
       if (!(el instanceof Element)) return;
       if (
         !el.closest(
-          ".os-topbar, .os-bottom-nav, .os-dock, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions",
+          ".os-topbar, .os-bottom-nav, .os-dock, .os-live-badge, .os-identity-hud, .living-gallery__rail, .living-comments-layer, .comment-keyboard, .content-actions, .station-switcher",
         )
       ) {
         return;
@@ -172,6 +193,7 @@ export function DigitalLifeShell({
       data-density={theme.density}
       data-reveal-shell={revealEnabled ? "true" : undefined}
       data-reveal={revealEnabled ? revealState : undefined}
+      data-station-mode={stationMode.mode}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
     >
@@ -224,11 +246,27 @@ export function DigitalLifeShell({
           reveal={revealEnabled}
         />
 
-        <main className="dl-main be-main os-main">{children}</main>
+        <main className="dl-main be-main os-main">
+          <div
+            className="station-layer station-layer--app"
+            data-lifecycle={stationMode.lifecycle("APP")}
+            hidden={stationMode.mode !== "APP" || undefined}
+            inert={stationMode.mode !== "APP" ? true : undefined}
+          >
+            {children}
+          </div>
+          {primary === "info" || primary === "website" ? null : (
+            <>
+              <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
+              <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
+            </>
+          )}
+        </main>
 
         {!preview ? <InstallPrompt experience={experience} /> : null}
 
         <div id="os-reveal-nav">
+          <StationSwitcher hidden={navHidden} />
           <UtilityDock immersiveDock={revealEnabled} chromeHidden={navHidden} />
           <DigitalLifeBottomNav
             experience={experience}

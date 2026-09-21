@@ -13,6 +13,7 @@ import {
   getPublicLive,
 } from "../services/brand-service.js";
 import { getPublicAssetSocial, togglePublicAssetLove, addPublicAssetComment } from "../services/public-social.js";
+import { getPublicStation } from "../services/station-service.js";
 import { peekInteractionKey, resolveInteractionIdentity } from "../lib/interaction-identity.js";
 import { resolveRequestIdentity } from "../lib/auth.js";
 import { unauthorized } from "../lib/errors.js";
@@ -148,6 +149,11 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
   app.get("/public/:slug/live", async (req) => {
     const { slug } = req.params as { slug: string };
     return getPublicLive(slug);
+  });
+
+  app.get("/public/:slug/station", async (req) => {
+    const { slug } = req.params as { slug: string };
+    return getPublicStation(slug, primitives);
   });
 
   app.get("/public/:slug/assets", async (req) => {

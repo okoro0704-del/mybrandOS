@@ -29,6 +29,7 @@ import { humanPublicationTitle, livingGalleryLayout } from "../lib/livingGallery
 import { publicationBrandMarks } from "../digital-life/personal-os/osIdentity";
 import { Icons } from "../nav/icons";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
+import { useStationMode } from "../digital-life/station/StationModeContext";
 import {
   activeIndexFromScroll,
   commentsSectionId,
@@ -700,6 +701,10 @@ export function ImmersivePostFeed({
   author?: string;
 }) {
   void slug;
+  const station = useStationMode();
+  const galleryLive = station.mode === "APP";
+  const galleryLiveRef = useRef(galleryLive);
+  galleryLiveRef.current = galleryLive;
   const items = useMemo(() => filterForCategory(assets, category), [assets, category]);
   const ids = useMemo(() => items.map((a) => a.id), [items]);
   const initialIndex = resolveInitialIndex(ids, initialAssetId);
@@ -749,7 +754,7 @@ export function ImmersivePostFeed({
         commentsOpen: commentModeRef.current,
         topOpen: topOpenRef.current,
         dragging: draggingRef.current,
-        documentHidden: typeof document !== "undefined" && document.hidden,
+        documentHidden: typeof document !== "undefined" && (document.hidden || !galleryLiveRef.current),
       }),
     [],
   );
@@ -839,11 +844,11 @@ export function ImmersivePostFeed({
   }, [initialAssetId, initialIndex]);
 
   useEffect(() => {
-    const onVis = () => setDocumentHidden(document.hidden);
+    const onVis = () => setDocumentHidden(document.hidden || !galleryLiveRef.current);
     onVis();
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+  }, [galleryLive]);
 
   useEffect(() => {
     const root = listRef.current;
@@ -1030,7 +1035,7 @@ export function ImmersivePostFeed({
             experience={experience}
             mediaBase={mediaBase}
             basePath={basePath}
-            active={active}
+            active={active && galleryLive}
             adjacent={Math.abs(index - activeIndex) === 1}
             topOpen={topOpen && active}
             commentMode={commentMode && active}

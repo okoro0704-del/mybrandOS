@@ -96,6 +96,8 @@ const INTERACTIVE_SELECTOR = [
   ".os-reveal-toggle",
   ".os-sheet",
   ".os-search",
+  ".station-switcher",
+  ".station-surface",
   ".media-launcher",
 ].join(", ");
 
