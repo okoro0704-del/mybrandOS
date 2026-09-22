@@ -20,7 +20,7 @@ function itemLabel(target: LaunchTarget, osName: string): string {
   if (target === "NEWS") return `${osName} News`;
   if (target === "RADIO") return `${osName} Radio`;
   if (target === "TV") return `${osName} TV`;
-  if (target === "SPACE") return "Space";
+  if (target === "SPACE") return "Space Router";
   return "Interactions";
 }
 
@@ -30,7 +30,7 @@ function shortLabel(target: LaunchTarget): string {
   if (target === "NEWS") return "News";
   if (target === "RADIO") return "Radio";
   if (target === "TV") return "TV";
-  if (target === "SPACE") return "Space";
+  if (target === "SPACE") return "Space Router";
   return "Interactions";
 }
 
@@ -49,7 +49,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
       <button
         type="button"
         className={`edge-handle edge-handle--left${space.revealed === "left" ? " is-open" : ""}`}
-        aria-label="Reveal App, Digipedia, and News"
+        aria-label="Reveal Space Router, DigiNews, and Digipedia"
         aria-expanded={space.revealed === "left"}
         data-edge-handle="left"
         onClick={() => space.revealLauncher("left")}
@@ -79,7 +79,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
       <button
         type="button"
         className={`edge-handle edge-handle--right${space.revealed === "right" ? " is-open" : ""}`}
-        aria-label="Reveal Interactions, Radio, and TV"
+        aria-label="Reveal TV and Radio"
         aria-expanded={space.revealed === "right"}
         data-edge-handle="right"
         onClick={() => space.revealLauncher("right")}
@@ -100,7 +100,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
             key={target}
             target={target}
             osName={osName}
-            active={target === "INTERACTIONS" ? space.interactionsOpen : space.surface === target}
+            active={space.surface === target}
             onLaunch={() => space.launch(target)}
           />
         ))}
