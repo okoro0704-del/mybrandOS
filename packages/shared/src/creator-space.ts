@@ -274,10 +274,10 @@ export type CreatorMediaSurface = (typeof CREATOR_MEDIA_SURFACES)[number];
 export const EDGE_LAUNCHER_SIDES = ["left", "right", "space"] as const;
 export type EdgeLauncherSide = (typeof EDGE_LAUNCHER_SIDES)[number];
 
-export const LEFT_LAUNCH_ITEMS = ["APP", "DIGIPEDIA", "NEWS"] as const;
-export const RIGHT_LAUNCH_ITEMS = ["INTERACTIONS", "RADIO", "TV"] as const;
+export const LEFT_LAUNCH_ITEMS = ["SPACE", "NEWS", "DIGIPEDIA"] as const;
+export const RIGHT_LAUNCH_ITEMS = ["TV", "RADIO"] as const;
 
-export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "SPACE";
+export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "INTERACTIONS";
 
 export const LAUNCHER_IDLE_MS = 4000;
 export const LAUNCHER_REVEAL_MS = 240;
