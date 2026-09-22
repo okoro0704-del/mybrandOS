@@ -15,12 +15,9 @@ export function TopActions({
     <header className="pedia-top">
       <p className="pedia-top__time">{time}</p>
       <div className="pedia-top__row">
-        <p className="pedia-brand" data-os-wordmark="true">
-          <span className="pedia-brand__stem">{osName}</span>
-          <span className="pedia-brand__os">OS</span>
-        </p>
+        <span className="pedia-top__spacer" aria-hidden />
         <div className="pedia-top__actions">
-          <button type="button" className="pedia-orb" aria-label="Search Digipedia" onClick={onSearch}>
+          <button type="button" className="pedia-orb" aria-label={`Search ${osName} Digipedia`} onClick={onSearch}>
             <Icons.search size={16} />
           </button>
           <button type="button" className="pedia-orb" aria-label="Open menu" onClick={onMenu}>

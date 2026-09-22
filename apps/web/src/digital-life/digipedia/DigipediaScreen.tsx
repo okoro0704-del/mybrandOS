@@ -3,7 +3,6 @@ import type { PublicBrandExperience } from "@mybrandos/shared";
 import { api } from "../../lib/api";
 import { personalOsName } from "../personal-os/osIdentity";
 import { useCreatorSpace } from "../space/CreatorSpaceContext";
-import { BottomNav } from "./BottomNav";
 import { CategoryChips } from "./CategoryChips";
 import { FeaturedKnowledgeCard } from "./FeaturedKnowledgeCard";
 import { GlassSearchBar } from "./GlassSearchBar";
@@ -57,6 +56,7 @@ export function DigipediaScreen({
   basePath: string;
 }) {
   const space = useCreatorSpace();
+  void basePath;
   const os = personalOsName(experience.slug, experience.identity.displayName);
   const name = experience.identity.displayName || os.stem;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -139,8 +139,6 @@ export function DigipediaScreen({
         }}
       />
       </div>
-
-      <BottomNav basePath={basePath} />
 
       {menuOpen ? (
         <aside className="pedia-sheet" aria-label="Creator destinations">

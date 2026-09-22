@@ -632,10 +632,10 @@ export function ImmersivePostFeed({
   const galleryLive = space.surface === "APP";
   const galleryLiveRef = useRef(galleryLive);
   galleryLiveRef.current = galleryLive;
-  const interactionsRef = useRef(space.interactionsOpen);
-  interactionsRef.current = space.interactionsOpen;
-  const detailsOpenRef = useRef(space.detailsOpen);
-  detailsOpenRef.current = space.detailsOpen;
+  const interactionsRef = useRef(space.ui === "INTERACTION");
+  interactionsRef.current = space.ui === "INTERACTION";
+  const detailsOpenRef = useRef(space.ui === "INTERACTION");
+  detailsOpenRef.current = space.ui === "INTERACTION";
   const items = useMemo(() => filterForCategory(assets, category), [assets, category]);
   const ids = useMemo(() => items.map((a) => a.id), [items]);
   const initialIndex = resolveInitialIndex(ids, initialAssetId);
@@ -810,9 +810,9 @@ export function ImmersivePostFeed({
     if (
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentMode,
-        topOpen: topOpen || space.detailsOpen,
+        topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
-        documentHidden: documentHidden || space.interactionsOpen,
+        documentHidden: documentHidden || space.ui === "INTERACTION",
       })
     ) {
       if (holdTimerRef.current) {
@@ -822,7 +822,7 @@ export function ImmersivePostFeed({
       return;
     }
     scheduleEndHold();
-  }, [commentMode, topOpen, documentHidden, interactionNonce, space.detailsOpen, space.interactionsOpen, scheduleEndHold, clearHoldTimer]);
+  }, [commentMode, topOpen, documentHidden, interactionNonce, space.ui, scheduleEndHold, clearHoldTimer]);
 
   useEffect(() => {
     const asset = items[activeIndex];
@@ -832,9 +832,9 @@ export function ImmersivePostFeed({
     if (
       shouldSuspendGalleryAutoAdvance({
         commentsOpen: commentMode,
-        topOpen: topOpen || space.detailsOpen,
+        topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
-        documentHidden: documentHidden || space.interactionsOpen,
+        documentHidden: documentHidden || space.ui === "INTERACTION",
       })
     ) {
       return;
@@ -847,7 +847,7 @@ export function ImmersivePostFeed({
       window.clearTimeout(t);
       photoRemainingRef.current = Math.max(0, photoRemainingRef.current - (Date.now() - started));
     };
-  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.detailsOpen, space.interactionsOpen, advanceToNextPublication]);
+  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.ui, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;

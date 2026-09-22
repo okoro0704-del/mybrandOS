@@ -100,15 +100,11 @@ function DigitalLifeShellFrame({
       if (isRevealKeyboardBlocked(e.target)) return;
       if (e.key !== "Escape") return;
       e.preventDefault();
-      if (space.interactionsOpen) {
+      if (space.ui === "INTERACTION") {
         space.closeInteractions();
         return;
       }
-      if (space.detailsOpen) {
-        space.closeDetails();
-        return;
-      }
-      if (space.revealed) {
+      if (space.ui === "SUMMONED") {
         space.collapseLaunchers();
         return;
       }
@@ -139,10 +135,11 @@ function DigitalLifeShellFrame({
       data-reveal-shell={revealEnabled ? "true" : undefined}
       data-reveal={revealEnabled ? revealApi.state : undefined}
       data-space-surface={space.surface}
+      data-space-ui={space.ui}
       data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
-      data-home-nav={space.revealed ? "revealed" : "collapsed"}
+      data-home-nav={space.ui === "SUMMONED" ? "revealed" : "collapsed"}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -219,8 +216,12 @@ function DigitalLifeShellFrame({
         {websiteMode ? null : (
           <>
             <HomeEdgeNav experience={experience} />
-            <PostDetailsOverlay />
-            {space.interactionsOpen ? <InteractionsPanel experience={experience} mediaBase={mediaBase} /> : null}
+            {space.ui === "INTERACTION" ? (
+              <>
+                <PostDetailsOverlay experience={experience} mediaBase={mediaBase} />
+                <InteractionsPanel experience={experience} mediaBase={mediaBase} />
+              </>
+            ) : null}
           </>
         )}
       </div>

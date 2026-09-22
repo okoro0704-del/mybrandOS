@@ -50,7 +50,7 @@ export function ContentActionBar({
   detailsOpen?: boolean;
   onOutcome?: (outcome: MediaOutcome) => void;
   hideComposer?: boolean;
-  variant?: "default" | "compact" | "gallery";
+  variant?: "default" | "compact" | "gallery" | "interaction";
 }) {
   const [social, setSocial] = useState<SocialState>({
     loves: asset.engagement?.loves ?? 0,
@@ -257,10 +257,11 @@ export function ContentActionBar({
 
   const commentsTotal = commentCount ?? social.comments.length;
   const galleryActions = variant === "gallery" || variant === "compact";
+  const interactionRail = variant === "interaction";
   const commentSelected = Boolean(onComment ? commentsOpenProp : commentsOpen);
 
   return (
-    <div className={`content-actions content-actions--hood${galleryActions ? " content-actions--gallery content-actions--compact" : ""}`}>
+    <div className={`content-actions content-actions--hood${galleryActions ? " content-actions--gallery content-actions--compact" : ""}${interactionRail ? " content-actions--interaction" : ""}`}>
       {galleryActions ? (
         <div className="content-actions__row content-actions__row--gallery" role="toolbar" aria-label="Publication actions">
           <ActionBtn
@@ -320,6 +321,51 @@ export function ContentActionBar({
             iconOnly
             onClick={() => void onShare()}
             icon={<Icons.share size={22} />}
+          />
+        </div>
+      ) : interactionRail ? (
+        <div className="content-actions__row content-actions__row--rail" role="toolbar" aria-label="Like, Comment, Share, Save">
+          <ActionBtn
+            label="Like"
+            active={social.lovedByMe}
+            count={social.loves}
+            numeric
+            iconOnly
+            onClick={() => void toggleLove()}
+            icon={<Icons.love size={22} filled={social.lovedByMe} />}
+          />
+          <ActionBtn
+            label="Comment"
+            count={commentsTotal}
+            numeric
+            iconOnly
+            active={commentSelected}
+            onClick={() => {
+              if (onComment) {
+                onComment();
+                return;
+              }
+              setCommentsOpen((v) => !v);
+            }}
+            icon={<Icons.messages size={22} />}
+          />
+          <ActionBtn
+            label="Share"
+            iconOnly
+            onClick={() => void onShare()}
+            icon={<Icons.share size={22} />}
+          />
+          <ActionBtn
+            label={saved ? "Saved" : "Save"}
+            active={saved}
+            iconOnly
+            onPointerDown={onSavePointerDown}
+            onPointerUp={onSavePointerUp}
+            onPointerLeave={onSavePointerLeave}
+            onContextMenu={onSaveContextMenu}
+            onClick={(e) => e.preventDefault()}
+            title="Tap to save offline. Hold to download when allowed."
+            icon={<Icons.save size={22} filled={saved} />}
           />
         </div>
       ) : (

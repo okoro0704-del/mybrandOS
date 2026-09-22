@@ -14,48 +14,49 @@ export function InteractionsPanel({
   const space = useCreatorSpace();
   const home = useHomeExperience();
   const asset = home.asset;
+  if (space.ui !== "INTERACTION") return null;
 
   return (
     <aside
       className="edge-interactions home-interactions"
       data-home-interactions="true"
+      data-interaction-rail="true"
       data-view={space.interactionsView}
       aria-label="Interactions"
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        space.holdLaunchers(true);
-      }}
-      onPointerUp={() => space.holdLaunchers(false)}
-      onPointerLeave={() => space.holdLaunchers(false)}
+      onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <header className="home-interactions__head">
-        {space.interactionsView === "comments" ? (
+      {space.interactionsView === "comments" ? (
+        <div className="edge-interactions__comments">
           <button type="button" className="home-interactions__back" onClick={() => space.closeComments()}>
-            Back
+            Close comments
           </button>
-        ) : (
+          {asset ? (
+            <PostComments publicationId={asset.id} slug={experience.slug} actorName={experience.identity.displayName} />
+          ) : (
+            <p className="muted">No interactable post on this surface.</p>
+          )}
+        </div>
+      ) : (
+        <>
           <button type="button" className="home-interactions__back" onClick={() => space.closeInteractions()}>
             Close
           </button>
-        )}
-        <h2>{space.interactionsView === "comments" ? "Comments" : "Interactions"}</h2>
-      </header>
-      {!asset ? (
-        <p className="muted">No interactable post on this surface.</p>
-      ) : space.interactionsView === "comments" ? (
-        <PostComments publicationId={asset.id} slug={experience.slug} actorName={experience.identity.displayName} />
-      ) : (
-        <ContentActionBar
-          asset={asset}
-          slug={experience.slug}
-          mediaBase={mediaBase}
-          creatorLabel={experience.identity.displayName || experience.slug}
-          variant="gallery"
-          onComment={() => space.openComments()}
-          commentsOpen={false}
-          hideComposer
-        />
+          {!asset ? (
+            <p className="muted">No interactable post on this surface.</p>
+          ) : (
+            <ContentActionBar
+              asset={asset}
+              slug={experience.slug}
+              mediaBase={mediaBase}
+              creatorLabel={experience.identity.displayName || experience.slug}
+              variant="interaction"
+              onComment={() => space.openComments()}
+              commentsOpen={false}
+              hideComposer
+            />
+          )}
+        </>
       )}
     </aside>
   );

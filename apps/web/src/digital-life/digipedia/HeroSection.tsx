@@ -16,8 +16,8 @@ export function HeroSection({
       </div>
       <div className="pedia-hero__shade" aria-hidden />
       <div className="pedia-hero__copy">
-        <p className="pedia-hero__name">{stem}</p>
-        <h1 className="pedia-hero__title">Digipedia</h1>
+        <p className="pedia-hero__name">{stem}OS</p>
+        <h1 className="pedia-hero__title">{stem} Digipedia</h1>
         <p className="pedia-hero__slogan">{DIGIPEDIA_SLOGAN}</p>
       </div>
       <ul className="pedia-hero__pillars" aria-label="Knowledge path">

@@ -20,12 +20,13 @@ const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLi
 test("Digipedia surface mounts the futuristic knowledge OS", () => {
   assert.match(shell, /<DigiPediaSurface experience=\{experience\} mediaBase=\{mediaBase\} basePath=\{basePath\}/);
   assert.match(screen, /data-pedia-ui="futuristic"/);
-  assert.match(styles, /\[data-space-surface="DIGIPEDIA"\] \.os-identity-hud/);
+  assert.match(styles, /\[data-space-surface="DIGIPEDIA"\] \.pedia-brand/);
+  assert.match(shell, /data-brand-persist="true"/);
 });
 
-test("hero, search, chips, cards, featured, and dock match the reference structure", () => {
-  assert.match(top, /pedia-brand/);
-  assert.match(top, /Search Digipedia/);
+test("hero, search, chips, cards, and featured match the reference without a tab dock", () => {
+  assert.match(top, /Search \$\{osName\} Digipedia/);
+  assert.equal(top.includes("pedia-brand"), false);
   assert.match(hero, /Digipedia/);
   assert.match(hero, /DIGIPEDIA_SLOGAN/);
   assert.match(hero, /DIGIPEDIA_PILLARS/);
@@ -35,6 +36,7 @@ test("hero, search, chips, cards, featured, and dock match the reference structu
   assert.match(chips, /pedia-chip/);
   assert.match(featured, /FEATURED/);
   assert.match(featured, /From Knowledge to Freedom/);
+  assert.equal(screen.includes("<BottomNav"), false);
   assert.match(dock, />Home</);
   assert.match(dock, />Digipedia</);
   assert.match(dock, />Community</);

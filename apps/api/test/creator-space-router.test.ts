@@ -58,8 +58,8 @@ test("persistent Space brand is a shell landmark, not a launched destination", (
 });
 
 test("second touch launches a surface and collapses the launcher", () => {
-  assert.match(ctx, /setRevealed\(null\)/);
-  assert.match(ctx, /launchTargetIsSurface/);
+  assert.match(ctx, /type: "LAUNCH"/);
+  assert.match(ctx, /reduceCreatorSpace/);
   assert.match(ctx, /history\.pushState/);
   assert.match(ctx, /popstate/);
   assert.match(shell, /HomeEdgeNav/);
@@ -77,10 +77,11 @@ test("Interactions opens a transparent right-edge drawer", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details stay hidden until the top handle is touched", () => {
+test("post details appear only in the Interaction state", () => {
   assert.match(shell, /PostDetailsOverlay/);
-  assert.match(details, /data-edge-handle="details"/);
-  assert.match(details, /toggleDetails/);
+  assert.match(shell, /space\.ui === "INTERACTION"/);
+  assert.match(details, /data-interaction-details="true"/);
+  assert.equal(details.includes("data-edge-handle=\"details\""), false);
   assert.match(styles, /\.post-detail-tray/);
   assert.match(feed, /data-post-bound="false"/);
 });

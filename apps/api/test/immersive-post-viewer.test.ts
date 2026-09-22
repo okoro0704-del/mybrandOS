@@ -56,10 +56,12 @@ test("online/offline does not remount rendered media", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details sit in a summoned overlay; owner identity lives in the shell", () => {
+test("post details sit in the Interaction overlay; owner identity lives in the shell", () => {
   const overlay = readFileSync(join(root, "apps/web/src/digital-life/space/PostDetailsOverlay.tsx"), "utf8");
   assert.match(overlay, /<PostDetails/);
-  assert.match(overlay, /data-edge-handle="details"/);
+  assert.match(overlay, /data-interaction-details="true"/);
+  assert.match(overlay, /space\.ui === "INTERACTION"/);
+  assert.equal(overlay.includes("data-edge-handle=\"details\""), false);
   assert.match(feed, /living-gallery__context/);
   assert.match(feed, /data-post-bound="false"/);
   assert.equal(feed.includes("<OsWordmark"), false);

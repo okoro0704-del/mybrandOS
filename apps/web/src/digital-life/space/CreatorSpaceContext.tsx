@@ -1,31 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  closeHomeInteractions,
-  closeHomeSpace,
-  firstTouchReveals,
-  homeNavEquals,
-  initialHomeNav,
   LAUNCHER_IDLE_MS,
-  launchTargetIsSurface,
+  initialCreatorSpaceModel,
+  initialHomeNav,
+  modelFromHomeNav,
+  modelToHomeNav,
   normalizeHomeDestination,
-  openHomeComments,
-  openHomeInteractions,
-  openHomeSpace,
+  reduceCreatorSpace,
   spaceSurfaceLifecycle,
   stationModeFromSurface,
+  type CreatorSpaceModel,
   type CreatorSpaceRuntime,
   type CreatorSpaceSurface,
+  type CreatorSpaceUiState,
   type EdgeLauncherSide,
-  type HomeNavSnapshot,
   type HomeSlotId,
   type HomeSlotOccupant,
   type LaunchTarget,
   type PublicStationMode,
   type StationRuntimeLifecycle,
-  type SwapDestination,
 } from "@mybrandos/shared";
 
 type CreatorSpaceApi = {
+  ui: CreatorSpaceUiState;
   surface: CreatorSpaceSurface;
   previous: CreatorSpaceSurface | null;
   slots: Record<HomeSlotId, HomeSlotOccupant>;
@@ -60,43 +57,36 @@ function storageKey(slug: string) {
   return `mybrandos-space-surface:${slug}`;
 }
 
-function slotsKey(slug: string) {
-  return `mybrandos-home-slots:${slug}`;
-}
-
-function readStoredNav(slug: string, initialSurface: CreatorSpaceSurface): HomeNavSnapshot {
+function readStoredModel(slug: string, initialSurface: CreatorSpaceSurface): CreatorSpaceModel {
   const requested = normalizeHomeDestination(initialSurface);
-  if (requested !== "APP") return initialHomeNav(requested);
-  if (typeof sessionStorage === "undefined") return initialHomeNav("APP");
+  if (requested !== "APP") return initialCreatorSpaceModel(requested);
+  if (typeof sessionStorage === "undefined") return initialCreatorSpaceModel("APP");
   try {
-    const rawSlots = sessionStorage.getItem(slotsKey(slug));
     const rawActive = sessionStorage.getItem(storageKey(slug));
-    const active = normalizeHomeDestination(rawActive, "APP");
-    const fallback = initialHomeNav(active);
-    if (!rawSlots) return fallback;
-    const parsed = JSON.parse(rawSlots) as Record<HomeSlotId, HomeSlotOccupant>;
-    return { ...fallback, slots: { ...fallback.slots, ...parsed } };
+    return initialCreatorSpaceModel(normalizeHomeDestination(rawActive, "APP"));
   } catch {
-    return initialHomeNav("APP");
+    return initialCreatorSpaceModel("APP");
   }
 }
 
-function persistNav(slug: string, snapshot: HomeNavSnapshot) {
+function persistModel(slug: string, model: CreatorSpaceModel) {
   try {
-    const storedActive: SwapDestination =
-      snapshot.active === "SPACE" ? snapshot.returnFromSpace || "APP" : (snapshot.active as SwapDestination);
-    sessionStorage.setItem(storageKey(slug), storedActive);
-    sessionStorage.setItem(slotsKey(slug), JSON.stringify(snapshot.slots));
+    sessionStorage.setItem(storageKey(slug), model.surface === "SPACE" ? "APP" : model.surface);
   } catch {
     /* private mode */
   }
 }
 
-function historyPayload(snapshot: HomeNavSnapshot) {
-  return { ...(typeof history === "undefined" ? {} : (history.state as object | null) || {}), homeNav: snapshot };
+function historyPayload(model: CreatorSpaceModel) {
+  return {
+    ...(typeof history === "undefined" ? {} : (history.state as object | null) || {}),
+    creatorSpace: model,
+    homeNav: modelToHomeNav(model),
+  };
 }
 
 const idleFallback: CreatorSpaceApi = {
+  ui: "HOME",
   surface: "APP",
   previous: null,
   slots: initialHomeNav("APP").slots,
@@ -134,22 +124,27 @@ export function CreatorSpaceProvider({
   initialSurface?: CreatorSpaceSurface;
   children: ReactNode;
 }) {
-  const [nav, setNav] = useState<HomeNavSnapshot>(() => readStoredNav(slug, initialSurface));
+  const [model, setModel] = useState<CreatorSpaceModel>(() => readStoredModel(slug, initialSurface));
   const [previous, setPrevious] = useState<CreatorSpaceSurface | null>(null);
-  const [revealed, setRevealed] = useState<EdgeLauncherSide | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [holdIdle, setHoldIdle] = useState(false);
-  const navRef = useRef(nav);
-  navRef.current = nav;
+  const modelRef = useRef(model);
+  modelRef.current = model;
   const skipPop = useRef(false);
 
   const apply = useCallback(
-    (next: HomeNavSnapshot, mode: "push" | "replace" | "silent") => {
-      const current = navRef.current;
-      if (homeNavEquals(current, next)) return;
-      setPrevious(current.active);
-      setNav(next);
-      persistNav(slug, next);
+    (next: CreatorSpaceModel, mode: "push" | "replace" | "silent") => {
+      const current = modelRef.current;
+      if (
+        current.ui === next.ui &&
+        current.surface === next.surface &&
+        current.summonedSide === next.summonedSide &&
+        current.interactionsView === next.interactionsView
+      ) {
+        return;
+      }
+      setPrevious(current.surface);
+      setModel(next);
+      persistModel(slug, next);
       if (typeof history === "undefined") return;
       if (mode === "push") history.pushState(historyPayload(next), "");
       if (mode === "replace") history.replaceState(historyPayload(next), "");
@@ -157,16 +152,19 @@ export function CreatorSpaceProvider({
     [slug],
   );
 
-  const collapseLaunchers = useCallback(() => setRevealed(null), []);
+  const dispatch = useCallback(
+    (action: Parameters<typeof reduceCreatorSpace>[1], mode: "push" | "replace" | "silent" = "push") => {
+      apply(reduceCreatorSpace(modelRef.current, action), mode);
+    },
+    [apply],
+  );
 
   useEffect(() => {
-    const next = readStoredNav(slug, initialSurface);
+    const next = readStoredModel(slug, initialSurface);
     skipPop.current = true;
     setPrevious(null);
-    setNav(next);
-    persistNav(slug, next);
-    setRevealed(null);
-    setDetailsOpen(false);
+    setModel(next);
+    persistModel(slug, next);
     if (typeof history !== "undefined") history.replaceState(historyPayload(next), "");
     skipPop.current = false;
   }, [slug, initialSurface]);
@@ -174,131 +172,72 @@ export function CreatorSpaceProvider({
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
       if (skipPop.current) return;
-      const incoming = (event.state as { homeNav?: HomeNavSnapshot } | null)?.homeNav;
-      setRevealed(null);
-      if (!incoming) {
-        setNav(initialHomeNav(normalizeHomeDestination(initialSurface)));
+      const state = event.state as { creatorSpace?: CreatorSpaceModel; homeNav?: ReturnType<typeof modelToHomeNav> } | null;
+      if (state?.creatorSpace) {
+        setPrevious(modelRef.current.surface);
+        setModel(state.creatorSpace);
+        persistModel(slug, state.creatorSpace);
         return;
       }
-      setPrevious(navRef.current.active);
-      setNav(incoming);
-      persistNav(slug, incoming);
+      if (state?.homeNav) {
+        const next = modelFromHomeNav(state.homeNav);
+        setPrevious(modelRef.current.surface);
+        setModel(next);
+        persistModel(slug, next);
+        return;
+      }
+      setModel(initialCreatorSpaceModel(normalizeHomeDestination(initialSurface)));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [slug, initialSurface]);
 
   useEffect(() => {
-    if (!revealed || holdIdle) return;
-    const t = window.setTimeout(() => setRevealed(null), LAUNCHER_IDLE_MS);
+    if (model.ui !== "SUMMONED" || holdIdle) return;
+    const t = window.setTimeout(() => dispatch({ type: "COLLAPSE" }, "silent"), LAUNCHER_IDLE_MS);
     return () => window.clearTimeout(t);
-  }, [revealed, holdIdle]);
-
-  useEffect(() => {
-    if (!detailsOpen || holdIdle) return;
-    const t = window.setTimeout(() => setDetailsOpen(false), LAUNCHER_IDLE_MS);
-    return () => window.clearTimeout(t);
-  }, [detailsOpen, holdIdle]);
-
-  const setSurface = useCallback(
-    (surface: CreatorSpaceSurface) => {
-      const dest = normalizeHomeDestination(surface);
-      const current = navRef.current;
-      setRevealed(null);
-      if (dest === "SPACE") {
-        apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
-        return;
-      }
-      if (dest === current.active) return;
-      apply(
-        {
-          ...current,
-          active: dest,
-          returnFromSpace: null,
-          interactionsOpen: false,
-          interactionsView: "overview",
-        },
-        "push",
-      );
-    },
-    [apply],
-  );
-
-  const launch = useCallback(
-    (target: LaunchTarget) => {
-      setRevealed(null);
-      setDetailsOpen(false);
-      const current = navRef.current;
-      if (target === "INTERACTIONS") {
-        apply(openHomeInteractions(current), current.interactionsOpen ? "silent" : "push");
-        return;
-      }
-      if (target === "SPACE") {
-        apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
-        return;
-      }
-      if (launchTargetIsSurface(target)) setSurface(target);
-    },
-    [apply, setSurface],
-  );
-
-  const revealLauncher = useCallback((side: EdgeLauncherSide) => {
-    setDetailsOpen(false);
-    setRevealed((open) => (firstTouchReveals(open, side) ? side : null));
-  }, []);
+  }, [model.ui, model.summonedSide, holdIdle, dispatch]);
 
   const value = useMemo<CreatorSpaceApi>(
     () => ({
-      surface: nav.active,
+      ui: model.ui,
+      surface: model.surface,
       previous,
-      slots: nav.slots,
-      routerOpen: nav.active === "SPACE",
-      interactionsOpen: nav.interactionsOpen,
-      interactionsView: nav.interactionsView,
+      slots: initialHomeNav(model.surface).slots,
+      routerOpen: model.surface === "SPACE",
+      interactionsOpen: model.ui === "INTERACTION",
+      interactionsView: model.interactionsView,
       controlsHidden: true,
-      revealed,
-      detailsOpen,
-      setSurface,
+      revealed: model.ui === "SUMMONED" ? model.summonedSide : null,
+      detailsOpen: model.ui === "INTERACTION",
+      setSurface: (surface) => dispatch({ type: "SET_SURFACE", surface }),
       selectSlot: () => undefined,
-      revealLauncher,
-      launch,
-      collapseLaunchers,
+      revealLauncher: (side) => {
+        if (modelRef.current.ui === "INTERACTION") {
+          dispatch({ type: "DISMISS_INTERACTION" }, "silent");
+          return;
+        }
+        dispatch({ type: "REVEAL", side }, "silent");
+      },
+      launch: (target) => dispatch({ type: "LAUNCH", target }),
+      collapseLaunchers: () => dispatch({ type: "COLLAPSE" }, "silent"),
       holdLaunchers: setHoldIdle,
       toggleDetails: () => {
-        setRevealed(null);
-        setDetailsOpen((open) => !open);
+        if (modelRef.current.ui === "INTERACTION") dispatch({ type: "DISMISS_INTERACTION" });
+        else dispatch({ type: "LAUNCH", target: "INTERACTIONS" });
       },
-      closeDetails: () => setDetailsOpen(false),
-      openSpace: () => {
-        const current = navRef.current;
-        setRevealed(null);
-        if (current.active === "SPACE") apply(closeHomeSpace(current), "push");
-        else apply(openHomeSpace(current), "push");
-      },
-      closeSpace: () => apply(closeHomeSpace(navRef.current), "push"),
-      openInteractions: () => {
-        const current = navRef.current;
-        apply(openHomeInteractions(current), current.interactionsOpen ? "silent" : "push");
-      },
-      closeInteractions: () => apply(closeHomeInteractions(navRef.current), "push"),
-      openComments: () => {
-        const current = navRef.current;
-        apply(openHomeComments(current), current.interactionsView === "comments" ? "silent" : "push");
-      },
-      closeComments: () => apply(openHomeInteractions(navRef.current), "push"),
-      toggleControls: () => {
-        setRevealed(null);
-        setDetailsOpen(false);
-      },
-      setRouterOpen: (open) => {
-        const current = navRef.current;
-        setRevealed(null);
-        if (open) apply(openHomeSpace(current), current.active === "SPACE" ? "silent" : "push");
-        else apply(closeHomeSpace(current), "push");
-      },
-      lifecycle: (candidate) => spaceSurfaceLifecycle(nav.active, candidate, previous),
+      closeDetails: () => dispatch({ type: "DISMISS_INTERACTION" }, "silent"),
+      openSpace: () => dispatch({ type: "LAUNCH", target: "SPACE" }),
+      closeSpace: () => dispatch({ type: "SET_SURFACE", surface: "APP" }),
+      openInteractions: () => dispatch({ type: "LAUNCH", target: "INTERACTIONS" }),
+      closeInteractions: () => dispatch({ type: "DISMISS_INTERACTION" }),
+      openComments: () => dispatch({ type: "OPEN_COMMENTS" }, "silent"),
+      closeComments: () => dispatch({ type: "CLOSE_COMMENTS" }, "silent"),
+      toggleControls: () => dispatch({ type: "COLLAPSE" }, "silent"),
+      setRouterOpen: (open) => dispatch(open ? { type: "LAUNCH", target: "SPACE" } : { type: "SET_SURFACE", surface: "APP" }),
+      lifecycle: (candidate) => spaceSurfaceLifecycle(model.surface, candidate, previous),
     }),
-    [nav, previous, revealed, detailsOpen, setSurface, revealLauncher, launch, collapseLaunchers, apply],
+    [model, previous, dispatch],
   );
 
   return <CreatorSpaceContext.Provider value={value}>{children}</CreatorSpaceContext.Provider>;
@@ -308,7 +247,6 @@ export function useCreatorSpace(): CreatorSpaceApi {
   return useContext(CreatorSpaceContext) ?? idleFallback;
 }
 
-/** Station TV/Radio still read this; surface is the source of truth. */
 export function useStationModeFromSpace(): {
   mode: PublicStationMode;
   previous: PublicStationMode | null;
