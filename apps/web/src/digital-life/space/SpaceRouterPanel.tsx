@@ -34,11 +34,11 @@ export function SpaceRouterPanel({
   }
 
   return (
-    <section className="home-space-app" data-space-router="true" aria-label="Creator Spaces">
+    <section className="home-space-app space-router-os" data-space-router="true" aria-label="Creator Spaces">
       <header className="home-space-app__head">
-        <p className="eyebrow">Space</p>
-        <h2>Creator Spaces</h2>
-        <p className="be-lead">Move between Digital Lives without leaving this arrangement.</p>
+        <p className="news-os__kicker">Space</p>
+        <h2>Space Router</h2>
+        <p className="news-os__sub">Move between creator and business Spaces without leaving this Space.</p>
       </header>
       <ul>
         {spaces.map((item) => {
@@ -47,7 +47,8 @@ export function SpaceRouterPanel({
             <li key={item.slug}>
               {here ? (
                 <button type="button" className="space-router__item is-current" aria-current="true">
-                  {item.displayName}
+                  <b>{item.displayName}</b>
+                  <span className="news-os__sub">App · News · Digipedia · TV · Radio</span>
                 </button>
               ) : (
                 <a
@@ -58,7 +59,8 @@ export function SpaceRouterPanel({
                     preserveArrangement(item.slug);
                   }}
                 >
-                  {item.displayName}
+                  <b>{item.displayName}</b>
+                  <span className="news-os__sub">Open this Space</span>
                 </a>
               )}
             </li>

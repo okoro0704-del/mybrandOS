@@ -177,14 +177,14 @@ function DigitalLifeShellFrame({
           {websiteMode ? null : (
             <>
               <section
-                className="space-surface space-surface--news space-surface--inset"
+                className="space-surface space-surface--news"
                 data-space-surface="NEWS"
                 data-runtime={space.lifecycle("NEWS")}
                 data-edge="left"
                 hidden={newsHidden || undefined}
                 inert={newsHidden ? true : undefined}
               >
-                <DigiNewsSurface experience={experience} />
+                <DigiNewsSurface experience={experience} mediaBase={mediaBase} />
               </section>
               <section
                 className="space-surface space-surface--pedia"
@@ -199,7 +199,7 @@ function DigitalLifeShellFrame({
               <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
               <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
               <section
-                className="space-surface space-surface--space space-surface--inset"
+                className="space-surface space-surface--space"
                 data-space-surface="SPACE"
                 data-runtime={space.lifecycle("SPACE")}
                 hidden={spaceHidden || undefined}

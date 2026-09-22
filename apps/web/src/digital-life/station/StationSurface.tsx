@@ -3,6 +3,7 @@ import {
   buildChannelProgramming,
   radioShouldPlay,
   reconcileStationNow,
+  stationProgramById,
   type PublicBrandExperience,
   type StationChannel,
   type StationNow,
@@ -21,6 +22,7 @@ import {
 } from "../offline/offlineKernel";
 import { useCreatorSpace } from "../space/CreatorSpaceContext";
 import { useStationMode } from "./StationModeContext";
+import { StationChrome, type StationChromeMode } from "./StationChrome";
 
 function mediaSrc(mediaBase: string, assetId: string) {
   return `${mediaBase}/assets/${assetId}/media`;
@@ -67,6 +69,7 @@ export function StationSurface({
   const lastItemRef = useRef<string | null>(null);
   const previousNowRef = useRef<StationNow | null>(null);
   const videoTimeRef = useRef(0);
+  const [chrome, setChrome] = useState<StationChromeMode>("idle");
 
   useEffect(() => {
     const onStatus = () => setOnline(navigator.onLine);
@@ -175,6 +178,9 @@ export function StationSurface({
   const liveVisual = item?.kind === "LIVE";
   const src = canPlayMedia && assetId ? mediaSrc(mediaBase, assetId) : "";
   const poster = assetId && item?.coverAvailable ? coverSrc(mediaBase, assetId) : null;
+  const nextItem = stationProgramById(programming, resolved.nextItemId);
+  const nowTitle = item?.title || "On air";
+  const nextTitle = nextItem?.title || "Continues after this program";
 
   return (
     <section
@@ -182,6 +188,7 @@ export function StationSurface({
       data-space-surface={channel}
       data-edge="right"
       data-station-channel={channel}
+      data-station-chrome={chrome}
       data-lifecycle={lifecycle}
       data-runtime={lifecycle}
       data-reason={resolved.reason}
@@ -202,7 +209,7 @@ export function StationSurface({
         <>
           {canPlayMedia && src ? (
             <AdaptiveVideoPlayer
-              className="station-surface__player"
+              className={`station-surface__player${channel === "RADIO" ? " station-surface__player--audio" : ""}`}
               src={src}
               presentation="WATCH"
               poster={poster}
@@ -220,16 +227,28 @@ export function StationSurface({
           ) : (
             <div className={`station-surface__card${liveVisual ? " is-live" : ""}`}>
               {liveVisual ? <span className="station-surface__live">LIVE</span> : null}
-              <h2>{item.title}</h2>
+              {channel === "RADIO" ? null : <h2>{item.title}</h2>}
               {liveVisual ? <p>On air now. Scheduled programming resumes when this live ends.</p> : null}
             </div>
           )}
-          <div className="station-surface__meta">
-            {resolved.sponsored ? <span className="station-surface__ad">Sponsored</span> : null}
-            <span className="station-surface__title">{item.title}</span>
-          </div>
         </>
       )}
+      {channel === "RADIO" ? (
+        <div className="station-wavefield" data-radio-atmosphere="true" aria-hidden>
+          <span className="station-wavefield__ring" />
+          <span className="station-wavefield__core" />
+        </div>
+      ) : null}
+      {active ? (
+        <StationChrome
+          channel={channel}
+          experience={experience}
+          chrome={chrome}
+          onChrome={setChrome}
+          nowTitle={nowTitle}
+          nextTitle={nextTitle}
+        />
+      ) : null}
     </section>
   );
 }

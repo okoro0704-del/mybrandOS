@@ -9,6 +9,7 @@ import {
   LAUNCHER_REVEAL_MS,
   LEFT_LAUNCH_ITEMS,
   RIGHT_LAUNCH_ITEMS,
+  adjacentCreatorSpace,
   firstTouchReveals,
   initialCreatorSpaceModel,
   reduceCreatorSpace,
@@ -63,9 +64,8 @@ test("3-4 first touch reveals and does not navigate", () => {
 });
 
 test("5 summoned controls stay transparent", () => {
-  assert.match(styles, /\.edge-item[\s\S]*background:\s*transparent/);
-  assert.match(styles, /\.edge-item__icon[\s\S]*background:\s*rgba\(255, 255, 255, 0\.04\)/);
-  assert.match(styles, /\.edge-item__icon[\s\S]*border:\s*1px solid/);
+  assert.match(styles, /\.edge-item[\s\S]*background:\s*rgba\(255, 255, 255, 0\.028\)/);
+  assert.match(styles, /\.edge-item[\s\S]*border:\s*1px solid rgba\(255, 255, 255, 0\.22\)/);
   assert.doesNotMatch(styles, /\.edge-item\s*\{[^}]*background:\s*#fff/);
 });
 
@@ -146,4 +146,36 @@ test("20 mobile safe areas stay on handles, brand, and interaction chrome", () =
   assert.match(styles, /\.edge-handle[\s\S]*min-width:\s*44px/);
   assert.deepEqual([...CREATOR_SPACE_UI_STATES], ["HOME", "SUMMONED", "INTERACTION", "SURFACE"]);
   assert.ok(LAUNCHER_REVEAL_MS >= 180 && LAUNCHER_REVEAL_MS <= 300);
+});
+
+test("12-15 TV and Radio use a station remote and NOW/NEXT overlay", () => {
+  const station = readFileSync(join(root, "apps/web/src/digital-life/station/StationSurface.tsx"), "utf8");
+  const chrome = readFileSync(join(root, "apps/web/src/digital-life/station/StationChrome.tsx"), "utf8");
+  const news = readFileSync(join(root, "apps/web/src/digital-life/news/NewsScreen.tsx"), "utf8");
+  assert.match(station, /<StationChrome/);
+  assert.match(station, /data-radio-atmosphere="true"/);
+  assert.match(station, /stationProgramById/);
+  assert.match(chrome, /data-station-handle="true"/);
+  assert.match(chrome, /data-station-mode-icon="TV"/);
+  assert.match(chrome, /data-station-mode-icon="RADIO"/);
+  assert.match(chrome, /data-station-remote="true"/);
+  assert.match(chrome, /data-station-creator="true"/);
+  assert.match(chrome, />NOW</);
+  assert.match(chrome, />NEXT</);
+  assert.match(chrome, /adjacentCreatorSpace/);
+  assert.match(chrome, /space\.launch\("TV"\)/);
+  assert.match(chrome, /space\.launch\("RADIO"\)/);
+  assert.match(news, /data-news-ui="creator"/);
+  assert.match(news, /Live Briefing/);
+  assert.match(news, /\{name\} News/);
+  const next = adjacentCreatorSpace(
+    [
+      { slug: "mrfundzman", displayName: "MrFundzMan" },
+      { slug: "dpcribs", displayName: "DPCRIBS" },
+      { slug: "school", displayName: "School" },
+    ],
+    "mrfundzman",
+    1,
+  );
+  assert.equal(next?.slug, "dpcribs");
 });

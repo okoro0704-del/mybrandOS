@@ -441,6 +441,13 @@ function pack(
   };
 }
 
+export function stationProgramById(programming: StationProgramming, id: string | null | undefined): StationMediaItem | null {
+  if (!id) return null;
+  const scheduled = programming.schedule.find((block) => block.item.id === id)?.item;
+  if (scheduled) return scheduled;
+  return programming.fallback.items.find((item) => item.id === id) ?? null;
+}
+
 /**
  * One engine for TV and Radio. Live overrides the clock. Offline skips live and
  * remote-only items, then uses locally available scheduled/fallback programming.
