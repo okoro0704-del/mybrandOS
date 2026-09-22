@@ -17,17 +17,17 @@ function ItemIcon({ target, size = 18 }: { target: LaunchTarget; size?: number }
 function itemLabel(target: LaunchTarget, osName: string): string {
   if (target === "APP") return `${osName} App`;
   if (target === "DIGIPEDIA") return `${osName} Digipedia`;
-  if (target === "NEWS") return `${osName} News`;
+  if (target === "NEWS") return `${osName} DigiNews`;
   if (target === "RADIO") return `${osName} Radio`;
   if (target === "TV") return `${osName} TV`;
-  if (target === "SPACE") return "Space";
+  if (target === "SPACE") return "Space Router";
   return "Interactions";
 }
 
 function shortLabel(target: LaunchTarget): string {
   if (target === "APP") return "App";
   if (target === "DIGIPEDIA") return "Digipedia";
-  if (target === "NEWS") return "News";
+  if (target === "NEWS") return "DigiNews";
   if (target === "RADIO") return "Radio";
   if (target === "TV") return "TV";
   if (target === "SPACE") return "Space";
@@ -50,7 +50,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
       <button
         type="button"
         className={`edge-handle edge-handle--left${space.revealed === "left" ? " is-open" : ""}`}
-        aria-label="Reveal App, Digipedia, and News"
+        aria-label="Reveal Space Router, DigiNews, and Digipedia"
         aria-expanded={space.revealed === "left"}
         data-edge-handle="left"
         onClick={() => space.revealLauncher("left")}
@@ -82,7 +82,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
       <button
         type="button"
         className={`edge-handle edge-handle--right${space.revealed === "right" ? " is-open" : ""}`}
-        aria-label="Reveal Interactions, Radio, and TV"
+        aria-label="Reveal TV and Radio"
         aria-expanded={space.revealed === "right"}
         data-edge-handle="right"
         onClick={() => space.revealLauncher("right")}
