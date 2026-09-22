@@ -5,7 +5,6 @@ import { personalOsName } from "../personal-os/osIdentity";
 import { useCreatorSpace } from "./CreatorSpaceContext";
 
 function ItemIcon({ target, size = 18 }: { target: LaunchTarget; size?: number }) {
-  if (target === "APP") return <Icons.home size={size} />;
   if (target === "DIGIPEDIA") return <Icons.details size={size} />;
   if (target === "NEWS") return <Icons.activity size={size} />;
   if (target === "RADIO") return <Icons.recording size={size} />;
@@ -15,7 +14,6 @@ function ItemIcon({ target, size = 18 }: { target: LaunchTarget; size?: number }
 }
 
 function itemLabel(target: LaunchTarget, osName: string): string {
-  if (target === "APP") return `${osName} App`;
   if (target === "DIGIPEDIA") return `${osName} Digipedia`;
   if (target === "NEWS") return `${osName} DigiNews`;
   if (target === "RADIO") return `${osName} Radio`;
@@ -25,7 +23,6 @@ function itemLabel(target: LaunchTarget, osName: string): string {
 }
 
 function shortLabel(target: LaunchTarget): string {
-  if (target === "APP") return "App";
   if (target === "DIGIPEDIA") return "Digipedia";
   if (target === "NEWS") return "DigiNews";
   if (target === "RADIO") return "Radio";
@@ -78,43 +75,43 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
       </nav>
 
       {stationActive ? null : (
-      <>
-      <button
-        type="button"
-        className={`edge-handle edge-handle--right${space.revealed === "right" ? " is-open" : ""}`}
-        aria-label="Reveal TV and Radio"
-        aria-expanded={space.revealed === "right"}
-        data-edge-handle="right"
-        onClick={() => space.revealLauncher("right")}
-      />
-      <nav
-        className={`edge-tray edge-tray--right${space.revealed === "right" ? " is-open" : ""}`}
-        data-edge-tray="right"
-        aria-hidden={space.revealed !== "right"}
-        inert={space.revealed !== "right" ? true : undefined}
-        onPointerEnter={() => space.holdLaunchers(true)}
-        onPointerLeave={() => space.holdLaunchers(false)}
-        onPointerDown={() => space.holdLaunchers(true)}
-        onPointerUp={() => space.holdLaunchers(false)}
-        onPointerCancel={() => space.holdLaunchers(false)}
-      >
-        {RIGHT_LAUNCH_ITEMS.map((target) => (
-          <LaunchButton
-            key={target}
-            target={target}
-            osName={osName}
-            active={target === "INTERACTIONS" ? space.interactionsOpen : space.surface === target}
-            onLaunch={() => space.launch(target)}
+        <>
+          <button
+            type="button"
+            className={`edge-handle edge-handle--right${space.revealed === "right" ? " is-open" : ""}`}
+            aria-label="Reveal TV and Radio"
+            aria-expanded={space.revealed === "right"}
+            data-edge-handle="right"
+            onClick={() => space.revealLauncher("right")}
           />
-        ))}
-      </nav>
-      </>
+          <nav
+            className={`edge-tray edge-tray--right${space.revealed === "right" ? " is-open" : ""}`}
+            data-edge-tray="right"
+            aria-hidden={space.revealed !== "right"}
+            inert={space.revealed !== "right" ? true : undefined}
+            onPointerEnter={() => space.holdLaunchers(true)}
+            onPointerLeave={() => space.holdLaunchers(false)}
+            onPointerDown={() => space.holdLaunchers(true)}
+            onPointerUp={() => space.holdLaunchers(false)}
+            onPointerCancel={() => space.holdLaunchers(false)}
+          >
+            {RIGHT_LAUNCH_ITEMS.map((target) => (
+              <LaunchButton
+                key={target}
+                target={target}
+                osName={osName}
+                active={space.surface === target}
+                onLaunch={() => space.launch(target)}
+              />
+            ))}
+          </nav>
+        </>
       )}
 
       <button
         type="button"
         className={`edge-handle edge-handle--space${space.revealed === "space" ? " is-open" : ""}`}
-        aria-label="Reveal Space"
+        aria-label="Reveal Space Router"
         aria-expanded={space.revealed === "space"}
         data-edge-handle="space"
         data-home-space="true"

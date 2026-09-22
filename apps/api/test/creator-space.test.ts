@@ -29,8 +29,8 @@ test("media surfaces are App Digipedia News Radio TV; Space is a router overlay"
 });
 
 test("left and right launchers keep destinations collapsed until first touch", () => {
-  assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["SPACE", "NEWS", "DIGIPEDIA"]);
-  assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["TV", "RADIO"]);
+  assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["APP", "DIGIPEDIA", "NEWS"]);
+  assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["INTERACTIONS", "RADIO", "TV"]);
   assert.equal(firstTouchReveals(null, "left"), true);
   assert.equal(firstTouchReveals("left", "left"), false);
   assert.equal(firstTouchReveals("left", "right"), true);
