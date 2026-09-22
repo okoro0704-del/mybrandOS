@@ -48,7 +48,7 @@ export type SpaceEdge = (typeof SPACE_EDGES)[number];
 /** Radio does not keep playing under another surface unless this is flipped later. */
 export const RADIO_BACKGROUND_ENABLED = false;
 
-export const LEFT_EDGE_SURFACES: CreatorSpaceSurface[] = ["DIGIPEDIA", "NEWS", "BRAND"];
+export const LEFT_EDGE_SURFACES: CreatorSpaceSurface[] = ["SPACE", "NEWS", "DIGIPEDIA"];
 export const RIGHT_EDGE_SURFACES: CreatorSpaceSurface[] = ["TV", "RADIO"];
 
 export type HomeNavSnapshot = {
@@ -277,8 +277,120 @@ export function firstTouchReveals(open: EdgeLauncherSide | null, side: EdgeLaunc
   return open !== side;
 }
 
+export const CREATOR_SPACE_UI_STATES = ["HOME", "SUMMONED", "INTERACTION", "SURFACE"] as const;
+export type CreatorSpaceUiState = (typeof CREATOR_SPACE_UI_STATES)[number];
+
+export type CreatorSpaceModel = {
+  ui: CreatorSpaceUiState;
+  surface: CreatorSpaceSurface;
+  summonedSide: EdgeLauncherSide | null;
+  interactionsView: "overview" | "comments";
+};
+
+export type CreatorSpaceUiAction =
+  | { type: "REVEAL"; side: EdgeLauncherSide }
+  | { type: "COLLAPSE" }
+  | { type: "LAUNCH"; target: LaunchTarget }
+  | { type: "DISMISS_INTERACTION" }
+  | { type: "OPEN_COMMENTS" }
+  | { type: "CLOSE_COMMENTS" }
+  | { type: "SET_SURFACE"; surface: CreatorSpaceSurface };
+
+export function initialCreatorSpaceModel(surface: CreatorSpaceSurface = "APP"): CreatorSpaceModel {
+  const dest = normalizeHomeDestination(surface);
+  if (dest === "APP") {
+    return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
+  }
+  return { ui: "SURFACE", surface: dest, summonedSide: null, interactionsView: "overview" };
+}
+
+export function creatorSpaceUiState(model: Pick<CreatorSpaceModel, "surface" | "summonedSide" | "ui"> & { interactionsOpen?: boolean }): CreatorSpaceUiState {
+  if (model.ui === "INTERACTION" || model.interactionsOpen) return "INTERACTION";
+  if (model.summonedSide) return "SUMMONED";
+  if (model.surface === "APP") return "HOME";
+  return "SURFACE";
+}
+
+function restUi(surface: CreatorSpaceSurface): CreatorSpaceUiState {
+  return surface === "APP" ? "HOME" : "SURFACE";
+}
+
+export function reduceCreatorSpace(model: CreatorSpaceModel, action: CreatorSpaceUiAction): CreatorSpaceModel {
+  switch (action.type) {
+    case "REVEAL": {
+      const open = firstTouchReveals(model.ui === "SUMMONED" ? model.summonedSide : null, action.side);
+      if (!open) {
+        return { ...model, ui: restUi(model.surface), summonedSide: null, interactionsView: "overview" };
+      }
+      return {
+        ...model,
+        ui: "SUMMONED",
+        summonedSide: action.side,
+        interactionsView: "overview",
+      };
+    }
+    case "COLLAPSE":
+      return { ...model, ui: restUi(model.surface), summonedSide: null };
+    case "LAUNCH": {
+      if (action.target === "INTERACTIONS") {
+        return {
+          ui: "INTERACTION",
+          surface: "APP",
+          summonedSide: null,
+          interactionsView: "overview",
+        };
+      }
+      if (action.target === "SPACE") {
+        return { ui: "SURFACE", surface: "SPACE", summonedSide: null, interactionsView: "overview" };
+      }
+      if (action.target === "APP") {
+        return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
+      }
+      if (launchTargetIsSurface(action.target)) {
+        return { ui: "SURFACE", surface: action.target, summonedSide: null, interactionsView: "overview" };
+      }
+      return model;
+    }
+    case "DISMISS_INTERACTION":
+      return { ui: restUi(model.surface), surface: model.surface, summonedSide: null, interactionsView: "overview" };
+    case "OPEN_COMMENTS":
+      return { ...model, ui: "INTERACTION", surface: "APP", summonedSide: null, interactionsView: "comments" };
+    case "CLOSE_COMMENTS":
+      return { ...model, ui: "INTERACTION", surface: "APP", summonedSide: null, interactionsView: "overview" };
+    case "SET_SURFACE": {
+      const dest = normalizeHomeDestination(action.surface);
+      if (dest === "APP") {
+        return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
+      }
+      return { ui: "SURFACE", surface: dest, summonedSide: null, interactionsView: "overview" };
+    }
+    default:
+      return model;
+  }
+}
+
+export function modelToHomeNav(model: CreatorSpaceModel): HomeNavSnapshot {
+  const nav = initialHomeNav(model.surface);
+  return {
+    ...nav,
+    active: model.surface,
+    interactionsOpen: model.ui === "INTERACTION",
+    interactionsView: model.interactionsView,
+  };
+}
+
+export function modelFromHomeNav(nav: HomeNavSnapshot): CreatorSpaceModel {
+  if (nav.interactionsOpen) {
+    return { ui: "INTERACTION", surface: nav.active === "SPACE" ? "APP" : nav.active, summonedSide: null, interactionsView: nav.interactionsView };
+  }
+  if (nav.active === "APP") {
+    return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
+  }
+  return { ui: "SURFACE", surface: nav.active, summonedSide: null, interactionsView: "overview" };
+}
+
 export function launchTargetIsOverlay(target: string): boolean {
-  return target === "INTERACTIONS" || target === "SPACE";
+  return target === "INTERACTIONS";
 }
 
 export function launchTargetIsSurface(target: string): target is CreatorMediaSurface {

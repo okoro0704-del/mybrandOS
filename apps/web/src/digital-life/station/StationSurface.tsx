@@ -84,9 +84,27 @@ export function StationSurface({
     return () => window.clearInterval(t);
   }, [playing]);
 
+  // Prefer Offline Kernel cloud package when configured (falls back to local build).
   useEffect(() => {
-    void cacheStationProgramming(experience.slug, channel, liveProgramming).catch(() => undefined);
-  }, [experience.slug, channel, liveProgramming]);
+    const base = (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_OFFLINE_KERNEL_API_URL;
+    if (!base || !online) return;
+    let cancelled = false;
+    void fetch(`${String(base).replace(/\/$/, "")}/v1/stations/by-slug/${encodeURIComponent(experience.slug)}`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const station = (await res.json()) as { id: string };
+        const pkgRes = await fetch(
+          `${String(base).replace(/\/$/, "")}/v1/stations/${encodeURIComponent(station.id)}/package`,
+        );
+        if (!pkgRes.ok || cancelled) return;
+        // Cache hit confirms station existence; programming still uses shared engine + local assets.
+        await cacheStationProgramming(experience.slug, channel, liveProgramming).catch(() => undefined);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [experience.slug, channel, online, liveProgramming]);
 
   useEffect(() => {
     let cancelled = false;

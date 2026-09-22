@@ -47,6 +47,7 @@ import { getAsset, updateAsset, createAsset, recordActivity } from "../services/
 import { publishProject } from "../creation/publish-service.js";
 import { publishWriting } from "../writing/publish.js";
 import { videoLiveCapability } from "../live/capability.js";
+import { publishSurfacesToKernel } from "../services/offline-kernel-client.js";
 
 function resolveSelectedPresentations(input: PublishExecuteInput): PresentationType[] {
   const fromList = parsePresentationTypes(input.presentationTypes ?? []);
@@ -689,6 +690,19 @@ export async function executePublish(
   const space = await prisma.personalSpace.findUnique({ where: { ownerId } });
   const publicPath = publishVisibility === "public" && space?.publicEnabled && space.slug
     ? digitalLifePath({ surface: "public_app", slug: space.slug, path: `a/${asset.id}` }) : null;
+
+  if (space?.slug && (surfaces.includes("TV") || surfaces.includes("RADIO"))) {
+    await publishSurfacesToKernel({
+      ownerId,
+      slug: space.slug,
+      assetId: updated.id,
+      title,
+      surfaces,
+      mediaUrl: updated.dataZoneId ? `/api/assets/${updated.id}/media` : null,
+      coverUrl: updated.dataZoneId ? `/api/assets/${updated.id}/cover` : null,
+      durationMs: typeof existingMeta.durationMs === "number" ? existingMeta.durationMs : null,
+    }).catch(() => undefined);
+  }
 
   return {
     assetId: asset.id,

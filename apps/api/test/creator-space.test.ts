@@ -35,7 +35,7 @@ test("left and right launchers keep destinations collapsed until first touch", (
   assert.equal(firstTouchReveals("left", "left"), false);
   assert.equal(firstTouchReveals("left", "right"), true);
   assert.equal(launchTargetIsOverlay("INTERACTIONS"), true);
-  assert.equal(launchTargetIsOverlay("SPACE"), true);
+  assert.equal(launchTargetIsOverlay("SPACE"), false);
   assert.equal(launchTargetIsSurface("DIGIPEDIA"), true);
   assert.equal(launchTargetIsSurface("INTERACTIONS"), false);
 });
