@@ -352,9 +352,6 @@ export function reduceCreatorSpace(model: CreatorSpaceModel, action: CreatorSpac
       if (action.target === "SPACE") {
         return { ui: "SURFACE", surface: "SPACE", summonedSide: null, interactionsView: "overview" };
       }
-      if (action.target === "APP") {
-        return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
-      }
       if (launchTargetIsSurface(action.target)) {
         return { ui: "SURFACE", surface: action.target, summonedSide: null, interactionsView: "overview" };
       }
