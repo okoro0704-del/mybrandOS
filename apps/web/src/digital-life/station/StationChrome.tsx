@@ -9,7 +9,7 @@ export type StationChromeMode = "idle" | "controls" | "info";
 export function StationChrome({
   channel,
   experience,
-  chrome,
+  chrome: appChrome,
   onChrome,
   nowTitle,
   nextTitle,
@@ -22,6 +22,7 @@ export function StationChrome({
   nextTitle: string;
 }) {
   const space = useCreatorSpace();
+  const chrome = space.programmeInfoOpen ? "info" : appChrome;
   const lastTap = useRef(0);
   const name = experience.identity.displayName || experience.slug;
   const stationName = `${name} ${channel === "TV" ? "TV" : "Radio"}`;
@@ -121,6 +122,7 @@ export function StationChrome({
         {stationName}
       </p>
       <div className="station-chrome__guide" hidden={chrome !== "info" || undefined} data-station-guide="true">
+        {space.programmeInfoOpen ? <button type="button" onClick={space.toggleProgrammeInfo}>Close programme information</button> : null}
         <p className="station-chrome__kicker">NOW</p>
         <p className="station-chrome__program">{nowTitle}</p>
         <p className="station-chrome__kicker">NEXT</p>

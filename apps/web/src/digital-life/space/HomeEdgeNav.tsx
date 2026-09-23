@@ -14,6 +14,7 @@ function ItemIcon({ target, size = 18 }: { target: LaunchTarget; size?: number }
 }
 
 function itemLabel(target: LaunchTarget, osName: string): string {
+  if (target === "APP") return `${osName} App`;
   if (target === "DIGIPEDIA") return `${osName} Digipedia`;
   if (target === "NEWS") return `${osName} DigiNews`;
   if (target === "RADIO") return `${osName} Radio`;
@@ -23,6 +24,7 @@ function itemLabel(target: LaunchTarget, osName: string): string {
 }
 
 function shortLabel(target: LaunchTarget): string {
+  if (target === "APP") return "App";
   if (target === "DIGIPEDIA") return "Digipedia";
   if (target === "NEWS") return "DigiNews";
   if (target === "RADIO") return "Radio";
@@ -131,7 +133,7 @@ export function HomeEdgeNav({ experience }: { experience: PublicBrandExperience 
         <LaunchButton
           target="SPACE"
           osName={osName}
-          active={space.surface === "SPACE"}
+          active={space.routerOpen}
           onLaunch={() => space.launch("SPACE")}
         />
       </nav>

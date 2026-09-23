@@ -114,18 +114,20 @@ test("13 return to App restores Home media state", () => {
   assert.match(feed, /galleryLive = space\.surface === "APP"/);
 });
 
-test("14-17 News TV Radio and Space launch as creator rooms", () => {
+test("14-17 experiences launch within Space; Space router remains an overlay", () => {
   const home = initialCreatorSpaceModel("APP");
   assert.equal(reduceCreatorSpace(home, { type: "LAUNCH", target: "NEWS" }).surface, "NEWS");
   assert.equal(reduceCreatorSpace(home, { type: "LAUNCH", target: "TV" }).surface, "TV");
   assert.equal(reduceCreatorSpace(home, { type: "LAUNCH", target: "RADIO" }).surface, "RADIO");
-  assert.equal(reduceCreatorSpace(home, { type: "LAUNCH", target: "SPACE" }).surface, "SPACE");
+  const router = reduceCreatorSpace(home, { type: "LAUNCH", target: "SPACE" });
+  assert.equal(router.surface, "APP");
+  assert.equal(router.routerOpen, true);
   assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["APP", "DIGIPEDIA", "NEWS"]);
   assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["INTERACTIONS", "RADIO", "TV"]);
   assert.match(rails, /target="SPACE"/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
-  assert.match(shell, /data-space-surface="SPACE"/);
+  assert.match(shell, /data-space-router-overlay="true"/);
 });
 
 test("18-19 photo and video auto-sequence pauses only in Interaction", () => {

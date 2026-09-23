@@ -115,8 +115,10 @@ const INTERACTIVE_SELECTOR = [
   ".post-detail-tray",
 ].join(", ");
 
-export function isRevealExemptTarget(target: EventTarget | null): boolean {
+export function isRevealExemptTarget(target: EventTarget | null, spaceMode = false): boolean {
   if (!(target instanceof Element)) return false;
+  if (spaceMode && target.closest('.station-surface, .adaptive-video') &&
+    !target.closest('button, a, input, textarea, select, [contenteditable="true"], .station-chrome, .adaptive-video__ctrl')) return false;
   return Boolean(target.closest(INTERACTIVE_SELECTOR));
 }
 

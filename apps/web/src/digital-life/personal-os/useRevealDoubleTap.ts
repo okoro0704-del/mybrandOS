@@ -9,7 +9,7 @@ import {
  * Shell-level double-tap on a neutral surface toggles reveal chrome.
  * Interactive children, swipes, and focused inputs are exempt.
  */
-export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootSelector = ".os-phone-frame") {
+export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootSelector = ".os-phone-frame", spaceMode = false) {
   const onToggleRef = useRef(onToggle);
   onToggleRef.current = onToggle;
 
@@ -29,7 +29,7 @@ export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootS
     const onDown = (e: Event) => {
       const pe = e as PointerEvent;
       if (pe.pointerType === "mouse" && pe.button !== 0) return;
-      if (isRevealExemptTarget(e.target)) {
+      if (isRevealExemptTarget(e.target, spaceMode)) {
         tracking = false;
         return;
       }
@@ -54,7 +54,7 @@ export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootS
       if (!tracking) return;
       tracking = false;
       if (moved) return;
-      if (isRevealExemptTarget(e.target)) return;
+      if (isRevealExemptTarget(e.target, spaceMode)) return;
       const pe = e as PointerEvent;
       const now = pe.timeStamp || Date.now();
       const dt = now - lastTs;
@@ -84,5 +84,5 @@ export function useRevealDoubleTap(enabled: boolean, onToggle: () => void, rootS
       root.removeEventListener("pointerup", onUp);
       root.removeEventListener("pointercancel", onCancel);
     };
-  }, [enabled, rootSelector]);
+  }, [enabled, rootSelector, spaceMode]);
 }

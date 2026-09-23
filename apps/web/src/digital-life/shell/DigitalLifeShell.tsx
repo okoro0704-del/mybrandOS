@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { studioPath, livePath, type CreatorSpaceSurface, type PublicBrandExperience } from "@mybrandos/shared";
 import { isBrandLive } from "../personal-os/usePublicLiveNow";
@@ -19,6 +19,10 @@ import { PostDetailsOverlay } from "../space/PostDetailsOverlay";
 import { StationSurface } from "../station/StationSurface";
 import { isRevealKeyboardBlocked } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
+import { useSpaceRuntime } from "../space/useSpaceRuntime";
+import { SpaceControls } from "../space/SpaceControls";
+import { CREATOR_MEDIA_SURFACES, publicApplicationUrl, type SpaceDefinition, type SpaceEvent } from "@mybrandos/shared";
+import { listRouterSpaces } from "../space/spaceRecents";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -70,6 +74,37 @@ function DigitalLifeShellFrame({
   const revealEnabled = !preview;
   const reduced = prefersReducedMotion();
   const liveHref = livePath(basePath);
+  const [spaceMode, setSpaceMode] = useState(!preview && primary !== "info" && primary !== "website");
+  const definition = useMemo<SpaceDefinition>(() => ({
+    id: `space.${experience.slug}`, owner: experience.slug, defaultExperienceId: "APP",
+    experiences: CREATOR_MEDIA_SURFACES.map(id => ({ id, title: id, type: id, lifecyclePolicy: "retained", offlinePolicy: "cached" })),
+  }), [experience.slug]);
+  const registeredSpaces = useMemo<SpaceDefinition[]>(() => listRouterSpaces(
+    { slug: experience.slug, displayName: experience.identity.displayName || experience.slug }, experience.publicLinks,
+  ).filter(entry => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.slug)).map(entry => ({
+    ...definition, id: `space.${entry.slug}`, owner: entry.slug,
+  })), [definition, experience.slug, experience.identity.displayName, experience.publicLinks]);
+  const runtime = useSpaceRuntime(definition, (id, spaceId) => {
+    if (spaceId === definition.id) { space.setSurface(id as CreatorSpaceSurface); return; }
+    const target = registeredSpaces.find(entry => entry.id === spaceId);
+    if (!target) throw new Error("Space is not registered");
+    // Whole-Space navigation only. Intra-Space Switch never changes the URL.
+    // The departing state was persisted before this activation callback runs.
+    window.location.assign(publicApplicationUrl(target.owner));
+    return new Promise<void>(() => { /* the destination document owns activation */ });
+  }, spaceMode, registeredSpaces);
+  const lastInteraction = useRef(false);
+  useEffect(() => {
+    if (lastInteraction.current && !space.interactionsOpen && runtime.state.presentationState === "INTERACTION") {
+      runtime.dispatch({ type: "CLOSE_INTERACTIONS" });
+    }
+    lastInteraction.current = space.interactionsOpen;
+  }, [space.interactionsOpen, runtime.state.presentationState, runtime.dispatch]);
+  function spaceEvent(event: SpaceEvent) {
+    runtime.dispatch(event);
+    if (event.type === "OPEN_INTERACTIONS") space.openInteractions();
+    if (event.type === "CLOSE_INTERACTIONS") space.closeInteractions();
+  }
 
   const name = experience.identity.displayName || experience.slug;
 
@@ -86,7 +121,7 @@ function DigitalLifeShellFrame({
     [space],
   );
 
-  useRevealDoubleTap(revealEnabled, () => space.toggleControls());
+  useRevealDoubleTap(revealEnabled, () => spaceMode ? runtime.dispatch({ type: "DOUBLE_TAP_CANVAS" }) : space.toggleControls(), ".os-phone-frame", spaceMode);
 
   useEffect(() => {
     applyBrandDocument(experience, { assetTitle });
@@ -108,7 +143,7 @@ function DigitalLifeShellFrame({
         space.collapseLaunchers();
         return;
       }
-      if (space.surface === "SPACE") {
+      if (space.routerOpen) {
         space.closeSpace();
       }
     };
@@ -120,7 +155,7 @@ function DigitalLifeShellFrame({
   const appHidden = space.surface !== "APP";
   const newsHidden = space.surface !== "NEWS";
   const pediaHidden = space.surface !== "DIGIPEDIA";
-  const spaceHidden = space.surface !== "SPACE";
+  const spaceHidden = !space.routerOpen;
 
   return (
     <HomeChromeContext.Provider value={null}>
@@ -136,6 +171,10 @@ function DigitalLifeShellFrame({
       data-reveal={revealEnabled ? revealApi.state : undefined}
       data-space-surface={space.surface}
       data-space-ui={space.ui}
+      data-space-mode={spaceMode ? "SPACE" : "APP"}
+      data-space-presentation={runtime.state.presentationState}
+      data-current-space-id={runtime.state.currentSpaceId}
+      data-current-experience-id={runtime.state.currentExperienceId}
       data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
@@ -200,12 +239,12 @@ function DigitalLifeShellFrame({
               <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
               <section
                 className="space-surface space-surface--space"
-                data-space-surface="SPACE"
-                data-runtime={space.lifecycle("SPACE")}
+                data-space-router-overlay="true"
+                style={{ position: "fixed", inset: 0, zIndex: 95 }}
                 hidden={spaceHidden || undefined}
                 inert={spaceHidden ? true : undefined}
               >
-                <SpaceRouterPanel experience={experience} />
+                <SpaceRouterPanel experience={experience} onRevolve={spaceMode ? slug => runtime.dispatch({ type: "REVOLVE", spaceId: `space.${slug}` }) : undefined} />
               </section>
             </>
           )}
@@ -215,7 +254,14 @@ function DigitalLifeShellFrame({
 
         {websiteMode ? null : (
           <>
-            <HomeEdgeNav experience={experience} />
+            {spaceMode ? <SpaceControls state={runtime.state} definition={definition} dispatch={spaceEvent}>
+              <button type="button" onClick={space.openSpace}>Spaces</button>
+              {space.surface === "TV" || space.surface === "RADIO" ? <button type="button" onClick={space.toggleProgrammeInfo}>Programme information</button> : null}
+              <button type="button" onClick={() => setSpaceMode(false)}>App mode</button>
+            </SpaceControls> : <>
+              <HomeEdgeNav experience={experience} />
+              <button type="button" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 90 }} onClick={() => setSpaceMode(true)}>Space mode</button>
+            </>}
             {space.ui === "INTERACTION" ? (
               <>
                 <PostDetailsOverlay experience={experience} mediaBase={mediaBase} />
@@ -225,6 +271,8 @@ function DigitalLifeShellFrame({
           </>
         )}
       </div>
+      {spaceMode ? <style>{`[data-space-mode="SPACE"] .station-chrome:not([data-station-chrome="info"]) { display: none; }
+        [data-space-mode="SPACE"] .station-chrome__reveal { display: none; }`}</style> : null}
     </div>
     </RevealChromeContext.Provider>
     </HomeChromeContext.Provider>

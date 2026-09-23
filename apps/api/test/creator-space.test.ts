@@ -23,19 +23,19 @@ import {
 
 test("media surfaces are App Digipedia News Radio TV; Space is a router overlay", () => {
   assert.deepEqual([...CREATOR_MEDIA_SURFACES], ["APP", "DIGIPEDIA", "NEWS", "RADIO", "TV"]);
-  assert.ok(CREATOR_SPACE_SURFACES.includes("SPACE"));
+  assert.equal(CREATOR_SPACE_SURFACES.some(value => String(value) === "SPACE"), false);
   assert.equal(LAUNCHER_IDLE_MS, 4000);
   assert.ok(LAUNCHER_REVEAL_MS >= 180 && LAUNCHER_REVEAL_MS <= 300);
 });
 
 test("left and right launchers keep destinations collapsed until first touch", () => {
-  assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["SPACE", "NEWS", "DIGIPEDIA"]);
-  assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["TV", "RADIO"]);
+  assert.deepEqual([...LEFT_LAUNCH_ITEMS], ["APP", "DIGIPEDIA", "NEWS"]);
+  assert.deepEqual([...RIGHT_LAUNCH_ITEMS], ["INTERACTIONS", "RADIO", "TV"]);
   assert.equal(firstTouchReveals(null, "left"), true);
   assert.equal(firstTouchReveals("left", "left"), false);
   assert.equal(firstTouchReveals("left", "right"), true);
   assert.equal(launchTargetIsOverlay("INTERACTIONS"), true);
-  assert.equal(launchTargetIsOverlay("SPACE"), false);
+  assert.equal(launchTargetIsOverlay("SPACE"), true);
   assert.equal(launchTargetIsSurface("DIGIPEDIA"), true);
   assert.equal(launchTargetIsSurface("INTERACTIONS"), false);
 });

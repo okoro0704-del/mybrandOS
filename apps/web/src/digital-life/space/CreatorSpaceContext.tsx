@@ -22,6 +22,8 @@ import {
 } from "@mybrandos/shared";
 
 type CreatorSpaceApi = {
+  programmeInfoOpen: boolean;
+  toggleProgrammeInfo: () => void;
   ui: CreatorSpaceUiState;
   surface: CreatorSpaceSurface;
   previous: CreatorSpaceSurface | null;
@@ -86,6 +88,8 @@ function historyPayload(model: CreatorSpaceModel) {
 }
 
 const idleFallback: CreatorSpaceApi = {
+  programmeInfoOpen: false,
+  toggleProgrammeInfo: () => undefined,
   ui: "HOME",
   surface: "APP",
   previous: null,
@@ -127,6 +131,7 @@ export function CreatorSpaceProvider({
   const [model, setModel] = useState<CreatorSpaceModel>(() => readStoredModel(slug, initialSurface));
   const [previous, setPrevious] = useState<CreatorSpaceSurface | null>(null);
   const [holdIdle, setHoldIdle] = useState(false);
+  const [programmeInfoOpen, setProgrammeInfoOpen] = useState(false);
   const modelRef = useRef(model);
   modelRef.current = model;
   const skipPop = useRef(false);
@@ -136,13 +141,15 @@ export function CreatorSpaceProvider({
       const current = modelRef.current;
       if (
         current.ui === next.ui &&
+        current.routerOpen === next.routerOpen &&
         current.surface === next.surface &&
         current.summonedSide === next.summonedSide &&
         current.interactionsView === next.interactionsView
       ) {
         return;
       }
-      setPrevious(current.surface);
+      if (current.surface !== next.surface) setPrevious(current.surface);
+      modelRef.current = next;
       setModel(next);
       persistModel(slug, next);
       if (typeof history === "undefined") return;
@@ -174,14 +181,16 @@ export function CreatorSpaceProvider({
       if (skipPop.current) return;
       const state = event.state as { creatorSpace?: CreatorSpaceModel; homeNav?: ReturnType<typeof modelToHomeNav> } | null;
       if (state?.creatorSpace) {
-        setPrevious(modelRef.current.surface);
+        if (modelRef.current.surface !== state.creatorSpace.surface) setPrevious(modelRef.current.surface);
+        modelRef.current = state.creatorSpace;
         setModel(state.creatorSpace);
         persistModel(slug, state.creatorSpace);
         return;
       }
       if (state?.homeNav) {
         const next = modelFromHomeNav(state.homeNav);
-        setPrevious(modelRef.current.surface);
+        if (modelRef.current.surface !== next.surface) setPrevious(modelRef.current.surface);
+        modelRef.current = next;
         setModel(next);
         persistModel(slug, next);
         return;
@@ -200,11 +209,13 @@ export function CreatorSpaceProvider({
 
   const value = useMemo<CreatorSpaceApi>(
     () => ({
+      programmeInfoOpen,
+      toggleProgrammeInfo: () => setProgrammeInfoOpen(value => !value),
       ui: model.ui,
       surface: model.surface,
       previous,
       slots: initialHomeNav(model.surface).slots,
-      routerOpen: model.surface === "SPACE",
+      routerOpen: model.routerOpen === true,
       interactionsOpen: model.ui === "INTERACTION",
       interactionsView: model.interactionsView,
       controlsHidden: true,
@@ -228,16 +239,16 @@ export function CreatorSpaceProvider({
       },
       closeDetails: () => dispatch({ type: "DISMISS_INTERACTION" }, "silent"),
       openSpace: () => dispatch({ type: "LAUNCH", target: "SPACE" }),
-      closeSpace: () => dispatch({ type: "SET_SURFACE", surface: "APP" }),
+      closeSpace: () => apply({ ...modelRef.current, routerOpen: false }, "silent"),
       openInteractions: () => dispatch({ type: "LAUNCH", target: "INTERACTIONS" }),
       closeInteractions: () => dispatch({ type: "DISMISS_INTERACTION" }),
       openComments: () => dispatch({ type: "OPEN_COMMENTS" }, "silent"),
       closeComments: () => dispatch({ type: "CLOSE_COMMENTS" }, "silent"),
       toggleControls: () => dispatch({ type: "COLLAPSE" }, "silent"),
-      setRouterOpen: (open) => dispatch(open ? { type: "LAUNCH", target: "SPACE" } : { type: "SET_SURFACE", surface: "APP" }),
+      setRouterOpen: (open) => apply({ ...modelRef.current, routerOpen: open }, "silent"),
       lifecycle: (candidate) => spaceSurfaceLifecycle(model.surface, candidate, previous),
     }),
-    [model, previous, dispatch],
+    [model, previous, dispatch, apply, programmeInfoOpen],
   );
 
   return <CreatorSpaceContext.Provider value={value}>{children}</CreatorSpaceContext.Provider>;

@@ -8,9 +8,11 @@ const SLOTS_KEY = (slug: string) => `mybrandos-home-slots:${slug}`;
 
 export function SpaceRouterPanel({
   experience,
+  onRevolve,
 }: {
   experience: PublicBrandExperience;
   open?: boolean;
+  onRevolve?: (slug: string) => void;
 }) {
   const space = useCreatorSpace();
   const current = useMemo(
@@ -38,7 +40,8 @@ export function SpaceRouterPanel({
       <header className="home-space-app__head">
         <p className="news-os__kicker">Space</p>
         <h2>Space Router</h2>
-        <p className="news-os__sub">Move between creator and business Spaces without leaving this Space.</p>
+        <p className="news-os__sub">Open another creator or business Space.</p>
+        <button type="button" onClick={space.closeSpace}>Close Spaces</button>
       </header>
       <ul>
         {spaces.map((item) => {
@@ -54,9 +57,10 @@ export function SpaceRouterPanel({
                 <a
                   className="space-router__item"
                   href={publicApplicationUrl(item.slug)}
-                  onClick={() => {
+                  onClick={(event) => {
                     rememberCreatorSpace(item);
-                    preserveArrangement(item.slug);
+                    preserveArrangement(experience.slug);
+                    if (onRevolve) { event.preventDefault(); onRevolve(item.slug); }
                   }}
                 >
                   <b>{item.displayName}</b>

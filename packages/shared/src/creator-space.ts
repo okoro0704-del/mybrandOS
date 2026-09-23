@@ -6,8 +6,8 @@
 export const HOME_DESTINATIONS = ["APP", "BRAND", "DIGIPEDIA", "NEWS", "RADIO", "TV", "SPACE"] as const;
 export type HomeDestination = (typeof HOME_DESTINATIONS)[number];
 
-/** Surfaces that can occupy the viewport, including Space. */
-export const CREATOR_SPACE_SURFACES = HOME_DESTINATIONS;
+/** Space owns these experiences. HOME_DESTINATIONS also accepts legacy snapshots. */
+export const CREATOR_SPACE_SURFACES = ["APP", "BRAND", "DIGIPEDIA", "NEWS", "RADIO", "TV"] as const;
 export type CreatorSpaceSurface = HomeDestination;
 
 export const SWAP_DESTINATIONS = ["APP", "BRAND", "DIGIPEDIA", "NEWS", "RADIO", "TV"] as const;
@@ -73,7 +73,7 @@ export function isHomeSlotOccupant(value: string | null | undefined): value is H
 
 export function isCreatorSpaceSurface(value: string | null | undefined): value is CreatorSpaceSurface {
   if (value === "DIGINEWS") return true;
-  return isHomeDestination(value);
+  return value !== "SPACE" && isHomeDestination(value);
 }
 
 export function normalizeHomeDestination(value: string | null | undefined, fallback: HomeDestination = "APP"): HomeDestination {
@@ -274,10 +274,10 @@ export type CreatorMediaSurface = (typeof CREATOR_MEDIA_SURFACES)[number];
 export const EDGE_LAUNCHER_SIDES = ["left", "right", "space"] as const;
 export type EdgeLauncherSide = (typeof EDGE_LAUNCHER_SIDES)[number];
 
-export const LEFT_LAUNCH_ITEMS = ["SPACE", "NEWS", "DIGIPEDIA"] as const;
-export const RIGHT_LAUNCH_ITEMS = ["TV", "RADIO"] as const;
+export const LEFT_LAUNCH_ITEMS = ["APP", "DIGIPEDIA", "NEWS"] as const;
+export const RIGHT_LAUNCH_ITEMS = ["INTERACTIONS", "RADIO", "TV"] as const;
 
-export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "INTERACTIONS";
+export type LaunchTarget = (typeof LEFT_LAUNCH_ITEMS)[number] | (typeof RIGHT_LAUNCH_ITEMS)[number] | "SPACE";
 
 export const LAUNCHER_IDLE_MS = 4000;
 export const LAUNCHER_REVEAL_MS = 240;
@@ -290,6 +290,7 @@ export const CREATOR_SPACE_UI_STATES = ["HOME", "SUMMONED", "INTERACTION", "SURF
 export type CreatorSpaceUiState = (typeof CREATOR_SPACE_UI_STATES)[number];
 
 export type CreatorSpaceModel = {
+  routerOpen?: boolean;
   ui: CreatorSpaceUiState;
   surface: CreatorSpaceSurface;
   summonedSide: EdgeLauncherSide | null;
@@ -306,7 +307,7 @@ export type CreatorSpaceUiAction =
   | { type: "SET_SURFACE"; surface: CreatorSpaceSurface };
 
 export function initialCreatorSpaceModel(surface: CreatorSpaceSurface = "APP"): CreatorSpaceModel {
-  const dest = normalizeHomeDestination(surface);
+  const dest = surface === "SPACE" ? "APP" : normalizeHomeDestination(surface);
   if (dest === "APP") {
     return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
   }
@@ -344,26 +345,27 @@ export function reduceCreatorSpace(model: CreatorSpaceModel, action: CreatorSpac
       if (action.target === "INTERACTIONS") {
         return {
           ui: "INTERACTION",
-          surface: "APP",
+          surface: model.surface,
           summonedSide: null,
           interactionsView: "overview",
         };
       }
       if (action.target === "SPACE") {
-        return { ui: "SURFACE", surface: "SPACE", summonedSide: null, interactionsView: "overview" };
+        return { ...model, routerOpen: true, summonedSide: null };
       }
       if (launchTargetIsSurface(action.target)) {
-        return { ui: "SURFACE", surface: action.target, summonedSide: null, interactionsView: "overview" };
+        return { ui: restUi(action.target), surface: action.target, summonedSide: null, interactionsView: "overview" };
       }
       return model;
     }
     case "DISMISS_INTERACTION":
       return { ui: restUi(model.surface), surface: model.surface, summonedSide: null, interactionsView: "overview" };
     case "OPEN_COMMENTS":
-      return { ...model, ui: "INTERACTION", surface: "APP", summonedSide: null, interactionsView: "comments" };
+      return { ...model, ui: "INTERACTION", summonedSide: null, interactionsView: "comments" };
     case "CLOSE_COMMENTS":
-      return { ...model, ui: "INTERACTION", surface: "APP", summonedSide: null, interactionsView: "overview" };
+      return { ...model, ui: "INTERACTION", summonedSide: null, interactionsView: "overview" };
     case "SET_SURFACE": {
+      if (action.surface === "SPACE") return { ...model, routerOpen: true };
       const dest = normalizeHomeDestination(action.surface);
       if (dest === "APP") {
         return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
@@ -386,8 +388,13 @@ export function modelToHomeNav(model: CreatorSpaceModel): HomeNavSnapshot {
 }
 
 export function modelFromHomeNav(nav: HomeNavSnapshot): CreatorSpaceModel {
+  if (nav.active === "SPACE") return {
+    ...initialCreatorSpaceModel(nav.returnFromSpace || "APP"),
+    routerOpen: true,
+    ...(nav.interactionsOpen ? { ui: "INTERACTION" as const, interactionsView: nav.interactionsView } : {}),
+  };
   if (nav.interactionsOpen) {
-    return { ui: "INTERACTION", surface: nav.active === "SPACE" ? "APP" : nav.active, summonedSide: null, interactionsView: nav.interactionsView };
+    return { ui: "INTERACTION", surface: nav.active, summonedSide: null, interactionsView: nav.interactionsView };
   }
   if (nav.active === "APP") {
     return { ui: "HOME", surface: "APP", summonedSide: null, interactionsView: "overview" };
@@ -396,7 +403,7 @@ export function modelFromHomeNav(nav: HomeNavSnapshot): CreatorSpaceModel {
 }
 
 export function launchTargetIsOverlay(target: string): boolean {
-  return target === "INTERACTIONS";
+  return target === "INTERACTIONS" || target === "SPACE";
 }
 
 export function launchTargetIsSurface(target: string): target is CreatorMediaSurface {

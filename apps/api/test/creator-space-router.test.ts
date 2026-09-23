@@ -86,8 +86,9 @@ test("post details appear only in the Interaction state", () => {
   assert.match(feed, /data-post-bound="false"/);
 });
 
-test("Space app is a full viewport destination, not a card overlay", () => {
-  assert.match(shell, /data-space-surface="SPACE"/);
+test("Space router overlays the current experience rather than becoming a destination", () => {
+  assert.match(shell, /data-space-router-overlay="true"/);
+  assert.equal(shell.includes('data-space-surface="SPACE"'), false);
   assert.match(router, /home-space-app/);
   assert.match(router, /publicApplicationUrl/);
   assert.equal(router.includes("setSurface"), false);
