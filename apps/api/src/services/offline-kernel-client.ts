@@ -92,3 +92,9 @@ export async function publishSurfacesToKernel(input: {
     method: "POST",
   });
 }
+
+/** Projection only: the offline kernel owns playback and local-media readiness. */
+export async function publishProductionSchedule(input: { ownerId: string; channelId: string; scheduleId: string; version: number; entries: Array<{ assetId: string; title: string; durationMs: number; startsAt: Date; endsAt: Date }> }): Promise<void> {
+  if (!offlineKernelConfigured()) return;
+  await kernelFetch("/v1/broadcast-schedules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publisherId: input.ownerId, channelId: input.channelId, scheduleId: input.scheduleId, scheduleVersion: input.version, programs: input.entries.map((entry, sequence) => ({ programId: `${input.scheduleId}:${sequence}`, mediaId: entry.assetId, title: entry.title, durationMs: entry.durationMs, scheduledStart: entry.startsAt.toISOString(), scheduledEnd: entry.endsAt.toISOString(), sequence })) }) });
+}

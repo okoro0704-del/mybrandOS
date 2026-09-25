@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
-import { createPrimitiveContainer } from "@mybrandos/integrations";
+import { createPrimitiveContainer, toIdentity } from "@mybrandos/integrations";
+import type { FastifyReply } from "fastify";
 import { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, studioPath, type DigitalLifeSurface } from "@mybrandos/shared";
 import { prisma } from "../src/lib/prisma.js";
 import { registerAuthRoutes } from "../src/routes/auth.js";
@@ -11,6 +12,7 @@ import { registerAssetRoutes } from "../src/routes/assets.js";
 import { registerPublishRoutes } from "../src/routes/publish.js";
 import { registerStaticWeb } from "../src/static-web.js";
 import { HttpError } from "../src/lib/errors.js";
+import { issueSession } from "../src/lib/auth.js";
 
 const slug = "surface-regression";
 const owner = "TD-SURFACE-REGRESSION-OWNER";
@@ -21,6 +23,13 @@ const app = Fastify();
 let ownerToken = "";
 let otherToken = "";
 let postId = "";
+
+/** A test-owned database session: never relies on AUTH_BYPASS or dev-session routes. */
+async function fixtureToken(trustId: string) {
+  const reply = { setCookie: () => reply } as unknown as FastifyReply;
+  const identity = toIdentity({ trustId, displayName: trustId, status: "local" }, false);
+  return (await issueSession(identity, reply)).token;
+}
 
 async function cleanup() {
   const ownerId = { in: [owner, other] };
@@ -39,8 +48,8 @@ before(async () => {
   registerPublishRoutes(app, primitives);
   await registerStaticWeb(app, "https://service.up.railway.app", primitives);
   await prisma.personalSpace.create({ data: { ownerId: owner, slug, displayName: "Surface regression", publicEnabled: true } });
-  ownerToken = (await app.inject({ method: "POST", url: "/auth/dev-session", payload: { trustId: owner } })).json().token;
-  otherToken = (await app.inject({ method: "POST", url: "/auth/dev-session", payload: { trustId: other } })).json().token;
+  ownerToken = await fixtureToken(owner);
+  otherToken = await fixtureToken(other);
 });
 after(async () => { await app.close(); await cleanup(); });
 

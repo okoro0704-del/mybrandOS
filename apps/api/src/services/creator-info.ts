@@ -194,6 +194,38 @@ export async function viewerHasCreatorVip(ownerId: string, buyerId: string | nul
   return { active: false, expiresAt: null };
 }
 
+/** Consumer projection only; CommerceEntitlement remains the commercial authority. */
+export async function listRelationshipProjectionsForSubject(subjectId: string) {
+  const entitlements = await prisma.commerceEntitlement.findMany({
+    where: { buyerId: subjectId },
+    include: { offer: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const spaces = await prisma.personalSpace.findMany({ where: { ownerId: { in: [...new Set(entitlements.map((row) => row.ownerId))] } } });
+  const byOwner = new Map(spaces.map((space) => [space.ownerId, space]));
+  const now = Date.now();
+  return entitlements.flatMap((row) => {
+    const space = byOwner.get(row.ownerId);
+    const vip = space ? presentationOf(space).creatorVip : null;
+    if (!space || !vip?.enabled || vip.offerId !== row.offerId) return [];
+    const expiresAt = new Date(row.createdAt.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    const status = row.status === "ACTIVE" && Date.parse(expiresAt) > now ? "ACTIVE" : row.status === "ACTIVE" ? "EXPIRED" : row.status;
+    return [{
+      relationshipId: row.id,
+      subject: { type: "TRUSTID_SUBJECT", id: row.buyerId },
+      target: { type: "CREATOR_SPACE", id: space.id },
+      relationshipType: "CREATOR_VIP",
+      productId: row.offerId,
+      spaceId: space.id,
+      status,
+      capabilities: ["creator.vip.consume", "creator.vip.posts", "creator.vip.tv", "creator.vip.radio", "creator.vip.live", "creator.vip.exclusive", "creator.vip.community"],
+      source: { system: "mybrandOS", authorityId: row.ownerId },
+      issuedAt: row.createdAt.toISOString(), effectiveAt: row.createdAt.toISOString(), expiresAt,
+      updatedAt: row.createdAt.toISOString(), version: 1,
+    }];
+  });
+}
+
 export async function getPublicDigiPedia(slug: string) {
   const space = await prisma.personalSpace.findUnique({ where: { slug } });
   if (!space?.publicEnabled) throw notFound("This Digital Life is not available.");

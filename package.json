@@ -21,6 +21,9 @@
     "typecheck": "npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run typecheck -w @mybrandos/api",
     "test": "npm run test -w @mybrandos/api"
   },
+  "dependencies": {
+    "@digiconomy/space-runtime": "file:../OS SHELL/.artifacts/digiconomy-space-runtime-1.0.0.tgz"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   },

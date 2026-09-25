@@ -12,6 +12,7 @@ import { CommandCenterPage } from "./pages/CommandCenter";
 import { CommercePage } from "./pages/Commerce";
 import { CreatePage } from "./pages/Create";
 import { CreateProjectPage } from "./pages/CreateProject";
+import { StudioHomePage } from "./pages/StudioHome";
 import { EnterPage } from "./pages/Enter";
 import { HomePage } from "./pages/Home";
 import { DigiTwinPage } from "./pages/DigiTwin";
@@ -46,11 +47,11 @@ function WorkstationRoutes() {
     <Routes>
       <Route path="/enter" element={<EnterPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
-      <Route path="/studio/*" element={<section className="gate"><h1>Studio has moved</h1><Link to={s("/")}>Open Creator Dashboard</Link></section>} />
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
           <Route path={s("/")} element={<HomePage />} />
           <Route path={s("/twin")} element={<DigiTwinPage />} />
+          <Route path={s("/studio")} element={<StudioHomePage />} />
           <Route path={s("/create")} element={<CreatePage />} />
           <Route path={s("/create/:id")} element={<CreateProjectPage />} />
           <Route path={s("/camera")} element={<CameraCapabilityPage />} />

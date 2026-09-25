@@ -23,6 +23,7 @@ import { useSpaceRuntime } from "../space/useSpaceRuntime";
 import { SpaceControls } from "../space/SpaceControls";
 import { CREATOR_MEDIA_SURFACES, publicApplicationUrl, type SpaceDefinition, type SpaceEvent } from "@mybrandos/shared";
 import { listRouterSpaces } from "../space/spaceRecents";
+import { isSpaceExperience, nextExperienceMode, type ExperienceMode } from "../experience/experienceMode";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -38,6 +39,7 @@ export function DigitalLifeShell(props: {
   preview?: boolean;
   assetTitle?: string;
   initialSurface?: CreatorSpaceSurface;
+  initialExperienceMode?: ExperienceMode;
   children: ReactNode;
 }) {
   return (
@@ -57,6 +59,7 @@ function DigitalLifeShellFrame({
   primary,
   preview,
   assetTitle,
+  initialExperienceMode = "APP",
   children,
 }: {
   experience: PublicBrandExperience;
@@ -66,6 +69,7 @@ function DigitalLifeShellFrame({
   primary: string;
   preview?: boolean;
   assetTitle?: string;
+  initialExperienceMode?: ExperienceMode;
   children: ReactNode;
 }) {
   void websiteBase;
@@ -74,7 +78,9 @@ function DigitalLifeShellFrame({
   const revealEnabled = !preview;
   const reduced = prefersReducedMotion();
   const liveHref = livePath(basePath);
-  const [spaceMode, setSpaceMode] = useState(!preview && primary !== "info" && primary !== "website");
+  // APP is the product default. SPACE is explicit and reversible.
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode>(preview ? "APP" : initialExperienceMode);
+  const spaceMode = isSpaceExperience(experienceMode);
   const definition = useMemo<SpaceDefinition>(() => ({
     id: `space.${experience.slug}`, owner: experience.slug, defaultExperienceId: "APP",
     experiences: CREATOR_MEDIA_SURFACES.map(id => ({ id, title: id, type: id, lifecyclePolicy: "retained", offlinePolicy: "cached" })),
@@ -104,6 +110,11 @@ function DigitalLifeShellFrame({
     runtime.dispatch(event);
     if (event.type === "OPEN_INTERACTIONS") space.openInteractions();
     if (event.type === "CLOSE_INTERACTIONS") space.closeInteractions();
+  }
+  function selectExperienceMode(target: ExperienceMode) {
+    if (space.interactionsOpen) space.closeInteractions();
+    if (target === "APP") space.closeSpace();
+    setExperienceMode(current => nextExperienceMode(current, target));
   }
 
   const name = experience.identity.displayName || experience.slug;
@@ -172,6 +183,7 @@ function DigitalLifeShellFrame({
       data-space-surface={space.surface}
       data-space-ui={space.ui}
       data-space-mode={spaceMode ? "SPACE" : "APP"}
+      data-experience-mode={experienceMode}
       data-space-presentation={runtime.state.presentationState}
       data-current-space-id={runtime.state.currentSpaceId}
       data-current-experience-id={runtime.state.currentExperienceId}
@@ -191,7 +203,7 @@ function DigitalLifeShellFrame({
       ) : null}
 
       <div className="os-phone-frame">
-        <div className="os-identity-hud" data-ui-mode="pure" data-brand-persist="true">
+        {!spaceMode ? <div className="os-identity-hud" data-ui-mode="app" data-brand-persist="true">
           <OsWordmark
             slug={experience.slug}
             displayName={name}
@@ -200,7 +212,7 @@ function DigitalLifeShellFrame({
             identity
           />
           <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} />
-        </div>
+        </div> : null}
 
         <main className="dl-main be-main os-main" data-space-host="true">
           <div
@@ -257,10 +269,10 @@ function DigitalLifeShellFrame({
             {spaceMode ? <SpaceControls state={runtime.state} definition={definition} dispatch={spaceEvent}>
               <button type="button" onClick={space.openSpace}>Spaces</button>
               {space.surface === "TV" || space.surface === "RADIO" ? <button type="button" onClick={space.toggleProgrammeInfo}>Programme information</button> : null}
-              <button type="button" onClick={() => setSpaceMode(false)}>App mode</button>
+              <button type="button" onClick={() => selectExperienceMode("APP")}>App mode</button>
             </SpaceControls> : <>
               <HomeEdgeNav experience={experience} />
-              <button type="button" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 90 }} onClick={() => setSpaceMode(true)}>Space mode</button>
+              <button type="button" data-space-entry="true" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 90 }} onClick={() => selectExperienceMode("SPACE")}>Space mode</button>
             </>}
             {space.ui === "INTERACTION" ? (
               <>

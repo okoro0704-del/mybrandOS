@@ -7,6 +7,7 @@ import {
   upsertCreatorVipAdmin,
   getPublicCreatorVip,
   viewerHasCreatorVip,
+  listRelationshipProjectionsForSubject,
   getPublicDigiPedia,
   getSpotlightPinsAdmin,
   setSpotlightPinsAdmin,
@@ -29,6 +30,12 @@ async function manage(req: Parameters<typeof requireIdentity>[0], reply: Fastify
 }
 
 export function registerCreatorInfoRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
+  app.get("/relationships/me", async (req, reply) => {
+    const identity = await requireIdentity(req, reply, primitives);
+    if (!identity) return;
+    reply.header("cache-control", "private, no-store");
+    return { version: "1", relationships: await listRelationshipProjectionsForSubject(identity.ownerId) };
+  });
   app.get("/info/vip", async (req, reply) => {
     const identity = await requireIdentity(req, reply, primitives);
     if (!identity) return;

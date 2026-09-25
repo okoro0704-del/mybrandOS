@@ -45,6 +45,29 @@ enum CreateMode {
   IMPORT
 }
 
+enum ProductionSourceType {
+  CREATOR_LIBRARY
+  DIRECT_UPLOAD
+  SUPPLIED
+  LICENSED
+  SYNDICATED
+  PUBLIC_DOMAIN
+  COMMISSIONED
+}
+enum ProductionRightsBasis {
+  OWNED
+  LICENSED
+  SYNDICATED
+  SUPPLIED
+  COMMISSIONED
+  PUBLIC_DOMAIN
+  OTHER
+}
+enum BroadcastScheduleStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model Session {
   id        String   @id @default(cuid())
   tokenHash String   @unique
@@ -80,6 +103,7 @@ model Asset {
   activity           Activity[]
   outboundRelations  AssetRelationship[] @relation("SourceAsset")
   inboundRelations   AssetRelationship[] @relation("TargetAsset")
+  productionItems    ProductionLibraryItem[]
 
   @@index([ownerId])
   @@index([ownerId, assetType])
@@ -237,6 +261,81 @@ model AssetRelationship {
   @@unique([sourceAssetId, targetAssetId, relationshipType])
   @@index([sourceAssetId])
   @@index([targetAssetId])
+}
+
+model ProductionLibraryItem {
+  id String @id @default(cuid())
+  ownerId String
+  assetId String
+  asset Asset @relation(fields:[assetId], references:[id], onDelete: Restrict)
+  sourceType ProductionSourceType
+  rightsBasis ProductionRightsBasis
+  rightsReference String?
+  validFrom DateTime?
+  validUntil DateTime?
+  territory String?
+  allowedChannels String @default("[]")
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  programs BroadcastProgram[]
+  @@unique([ownerId, assetId])
+  @@index([ownerId])
+}
+
+model BroadcastProgram {
+  id String @id @default(cuid())
+  ownerId String
+  channelId String
+  productionItemId String
+  productionItem ProductionLibraryItem @relation(fields:[productionItemId], references:[id], onDelete: Restrict)
+  assetId String
+  title String
+  durationMs Int?
+  status String @default("DRAFT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entries BroadcastScheduleEntry[]
+  @@index([ownerId, channelId])
+}
+
+model BroadcastSchedule {
+  id String @id @default(cuid())
+  ownerId String
+  channelId String
+  scheduleId String
+  version Int
+  status BroadcastScheduleStatus
+  startsAt DateTime
+  publishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entries BroadcastScheduleEntry[]
+  @@unique([ownerId, scheduleId, version])
+  @@index([ownerId, channelId, status])
+}
+
+model BroadcastScheduleEntry {
+  id String @id @default(cuid())
+  scheduleId String
+  schedule BroadcastSchedule @relation(fields:[scheduleId], references:[id], onDelete: Cascade)
+  programId String
+  program BroadcastProgram @relation(fields:[programId], references:[id], onDelete: Restrict)
+  sequence Int
+  startsAt DateTime
+  endsAt DateTime
+  @@unique([scheduleId, sequence])
+}
+
+model BroadcastSpaceSync {
+  id String @id @default(cuid())
+  ownerId String
+  channelId String
+  spaceScheduleVersion Int?
+  mediaReadyCount Int @default(0)
+  mediaRequiredCount Int @default(0)
+  updatedAt DateTime @updatedAt
+  @@unique([ownerId, channelId])
 }
 
 model ProjectMember {

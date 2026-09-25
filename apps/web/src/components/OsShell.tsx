@@ -62,7 +62,8 @@ export function OsShell() {
   const studioHome = s("/");
   const publishBase = s("/publish");
   const cameraBase = s("/camera");
-  const [revealState, setRevealState] = useState<RevealChromeState>("CLEAN");
+  // APP law: ordinary workstation navigation is discoverable without a gesture.
+  const [revealState, setRevealState] = useState<RevealChromeState>("NAVIGATION_VISIBLE");
   const [assetsOpen, setAssetsOpen] = useState(false);
   const revealStateRef = useRef(revealState);
   revealStateRef.current = revealState;
@@ -82,10 +83,7 @@ export function OsShell() {
     return () => window.clearTimeout(t);
   }, [revealState]);
 
-  useEffect(() => {
-    dispatch("CLOSE");
-    setAssetsOpen(false);
-  }, [location.pathname, location.search]);
+  useEffect(() => { setAssetsOpen(false); }, [location.pathname, location.search]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -216,12 +214,12 @@ export function OsShell() {
       <button
         ref={toggleRef}
         type="button"
-        className="os-reveal-toggle sr-only"
+        className="os-reveal-toggle"
         aria-expanded={navVisible}
         aria-controls="studio-dock"
         onClick={() => dispatch("TOGGLE")}
       >
-        {navVisible ? "Hide navigation" : "Show navigation"}
+        <span aria-hidden="true">☰</span><span className="sr-only">Open deliverables</span>
       </button>
 
       <nav id="studio-dock" className="dock" aria-hidden={!navVisible && !moreOpen ? true : undefined}>
