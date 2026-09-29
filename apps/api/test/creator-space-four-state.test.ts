@@ -35,8 +35,8 @@ test("1 home loads with media, brand, and tiny handles only", () => {
   assert.equal(home.summonedSide, null);
   assert.match(shell, /data-space-surface="APP"/);
   assert.match(shell, /<HomeEdgeNav/);
-  assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
-  assert.equal(shell.includes("<DigitalLifeTopBar"), false);
+  assert.match(shell, /<DigitalLifeBottomNav/);
+  assert.match(shell, /<DigitalLifeTopBar/);
   assert.match(rails, /data-edge-handle="left"/);
   assert.match(rails, /data-edge-handle="right"/);
   assert.match(rails, /data-edge-handle="space"/);

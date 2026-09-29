@@ -17,9 +17,12 @@ const camera = readFileSync(join(root, "apps/web/src/pages/CameraCapability.tsx"
 const app = readFileSync(join(root, "apps/web/src/App.tsx"), "utf8");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 
-test("public creator space uses edge launchers, not a destination bar", () => {
+test("public APP uses destination chrome; SPACE keeps edge launchers", () => {
   assert.match(shell, /HomeEdgeNav/);
-  assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
+  assert.match(shell, /DigitalLifeBottomNav/);
+  assert.match(shell, /DigitalLifeTopBar/);
+  assert.match(shell, /data-app-surface/);
+  assert.match(shell, /spaceMode \? <>/);
   assert.equal(chrome.includes('label: "Management"'), false);
   assert.equal(chrome.includes('label: "Info"'), false);
   assert.equal(parseDigitalLifePath("contacts").primary, "contacts");

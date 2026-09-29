@@ -35,8 +35,10 @@ test("tiny edge handles reveal destinations on first touch only", () => {
   assert.match(space, /firstTouchReveals/);
   assert.match(styles, /\.edge-handle/);
   assert.match(styles, /\.edge-tray--left/);
-  assert.equal(shell.includes("<DigitalLifeBottomNav"), false);
-  assert.equal(shell.includes("<DigitalLifeTopBar"), false);
+  // Edge launchers are SPACE presentation; APP restores destination chrome.
+  assert.match(shell, /spaceMode \? <>[\s\S]*<HomeEdgeNav/);
+  assert.match(shell, /<DigitalLifeBottomNav/);
+  assert.match(shell, /<DigitalLifeTopBar/);
   assert.equal(shell.includes("<StationSwitcher"), false);
   assert.equal(rails.includes("HOME_SLOT_PAIRS"), false);
 });

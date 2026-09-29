@@ -18,7 +18,8 @@ test("mybrandOS mounts Space controls only in Space mode and retains normal App 
   const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
   assert.match(shell, /initialExperienceMode = "APP"/);
   assert.match(shell, /data-experience-mode=\{experienceMode\}/);
-  assert.match(shell, /spaceMode \? <SpaceControls/);
-  assert.match(shell, /<HomeEdgeNav experience=\{experience\} \/>/);
+  // SPACE branch owns edge launchers + Space controls; APP branch owns destination chrome.
+  assert.match(shell, /spaceMode \? <>[\s\S]*<HomeEdgeNav experience=\{experience\} \/>[\s\S]*<SpaceControls[\s\S]*<\/> : <>[\s\S]*<DigitalLifeBottomNav/);
+  assert.match(shell, /data-space-entry="true"/);
   assert.match(shell, /useRevealDoubleTap\(revealEnabled, \(\) => spaceMode \?/);
 });

@@ -5,7 +5,7 @@ import { isBrandLive } from "../personal-os/usePublicLiveNow";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
 import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
-import { BrandLiveBadge } from "../navigation/Chrome";
+import { BrandLiveBadge, DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
@@ -117,19 +117,18 @@ function DigitalLifeShellFrame({
     setExperienceMode(current => nextExperienceMode(current, target));
   }
 
-  const name = experience.identity.displayName || experience.slug;
-
+  // APP keeps destination chrome persistently visible; only SPACE uses the clean, gesture-revealed canvas.
   const revealApi = useMemo<RevealChromeApi>(
     () => ({
-      state: "CLEAN",
-      navVisible: false,
+      state: spaceMode ? "CLEAN" : "NAVIGATION_VISIBLE",
+      navVisible: !spaceMode,
       wordmarkVisible: true,
       toggle: () => space.toggleControls(),
       open: () => undefined,
       close: () => space.toggleControls(),
       selectDestination: () => space.collapseLaunchers(),
     }),
-    [space],
+    [space, spaceMode],
   );
 
   useRevealDoubleTap(revealEnabled, () => spaceMode ? runtime.dispatch({ type: "DOUBLE_TAP_CANVAS" }) : space.toggleControls(), ".os-phone-frame", spaceMode);
@@ -204,12 +203,12 @@ function DigitalLifeShellFrame({
 
       <div className="os-phone-frame">
         {!spaceMode ? <div className="os-identity-hud" data-ui-mode="app" data-brand-persist="true">
-          <OsWordmark
-            slug={experience.slug}
-            displayName={name}
-            to=""
-            className="os-wordmark--signature os-wordmark--owner os-wordmark--space"
-            identity
+          <DigitalLifeTopBar
+            experience={experience}
+            basePath={basePath}
+            primary={primary}
+            chromeHidden={false}
+            reveal
           />
           <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} />
         </div> : null}
@@ -266,13 +265,36 @@ function DigitalLifeShellFrame({
 
         {websiteMode ? null : (
           <>
-            {spaceMode ? <SpaceControls state={runtime.state} definition={definition} dispatch={spaceEvent}>
+            {spaceMode ? <>
+              <OsWordmark
+                slug={experience.slug}
+                displayName={experience.identity.displayName || experience.slug}
+                to=""
+                className="os-wordmark--signature os-wordmark--owner os-wordmark--space"
+                identity
+              />
+              <HomeEdgeNav experience={experience} />
+              <SpaceControls state={runtime.state} definition={definition} dispatch={spaceEvent}>
               <button type="button" onClick={space.openSpace}>Spaces</button>
               {space.surface === "TV" || space.surface === "RADIO" ? <button type="button" onClick={space.toggleProgrammeInfo}>Programme information</button> : null}
               <button type="button" onClick={() => selectExperienceMode("APP")}>App mode</button>
-            </SpaceControls> : <>
-              <HomeEdgeNav experience={experience} />
-              <button type="button" data-space-entry="true" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 90 }} onClick={() => selectExperienceMode("SPACE")}>Space mode</button>
+            </SpaceControls>
+            </> : <>
+              <nav className="app-surface-nav" aria-label="Creator application surfaces" data-ui-mode="app">
+                {(["APP", "DIGIPEDIA", "NEWS", "TV", "RADIO"] as const).map((target) => (
+                  <button
+                    key={target}
+                    type="button"
+                    data-app-surface={target}
+                    aria-current={space.surface === target ? "page" : undefined}
+                    onClick={() => space.launch(target)}
+                  >
+                    {target === "APP" ? "Home" : target === "NEWS" ? "DigiNews" : target === "DIGIPEDIA" ? "Digipedia" : target}
+                  </button>
+                ))}
+              </nav>
+              <DigitalLifeBottomNav experience={experience} basePath={basePath} primary={primary} chromeHidden={false} />
+              <button type="button" data-space-entry="true" style={{ position: "fixed", right: 20, bottom: 88, zIndex: 90 }} onClick={() => selectExperienceMode("SPACE")}>Space mode</button>
             </>}
             {space.ui === "INTERACTION" ? (
               <>
