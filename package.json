@@ -22,7 +22,7 @@
     "test": "npm run test -w @mybrandos/api"
   },
   "dependencies": {
-    "@digiconomy/space-runtime": "file:../OS SHELL/.artifacts/digiconomy-space-runtime-1.0.0.tgz"
+    "@digiconomy/space-runtime": "file:vendor/digiconomy-space-runtime-1.0.0.tgz"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
