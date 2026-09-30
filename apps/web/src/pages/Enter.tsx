@@ -16,7 +16,7 @@ export function EnterPage() {
   const [bypass, setBypass] = useState(false);
   const [entering, setEntering] = useState(false);
   const slug = brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null);
-  const wl = search.get("wl") === "1" || Boolean(slug);
+  const wl = search.get("wl") === "1";
   const requested = search.get("returnTo");
   const safeReturn = studioReturnPath(requested, window.location.hostname);
 
@@ -82,6 +82,9 @@ export function EnterPage() {
             }
           >
             Continue with Trust ID
+          </button>
+          <button type="button" className="btn ghost" onClick={() => navigate("/")}>
+            Continue without signing in
           </button>
         </div>
         {error ? <p className="small" style={{ color: "var(--bos-danger)" }}>{error}</p> : null}
