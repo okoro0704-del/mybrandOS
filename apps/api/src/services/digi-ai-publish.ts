@@ -124,6 +124,7 @@ export async function publishGovernedDraft(input: {
     await reservePublishIdempotency(input);
   }
 
+  try {
   const live = await requirePublishableDraft(input.ownerId, input.draftId, input.payloadDigest);
   const result = await executePublish(
     input.ownerId,
@@ -153,6 +154,22 @@ export async function publishGovernedDraft(input: {
     data: { publishedAt: new Date() },
   });
   return { replayed: false, evidence: await toEvidence(published, input) };
+  } catch (err) {
+    try {
+      const raced = await prisma.digiAiPublishIdempotency.findUnique({
+        where: { ownerId_idempotencyKey: { ownerId: input.ownerId, idempotencyKey: input.idempotencyKey } },
+      });
+      if (raced && raced.payloadDigest === input.payloadDigest && raced.assetId === input.draftId) {
+        const published = await getAsset(input.ownerId, raced.assetId);
+        if (published && published.status === "PUBLISHED" && published.visibility === "public") {
+          return { replayed: true, evidence: await toEvidence(published, input) };
+        }
+      }
+    } catch {
+      /* Preserve the original publish error if the replay lookup fails. */
+    }
+    throw err;
+  }
 }
 
 export async function inspectGovernedPublish(input: {
