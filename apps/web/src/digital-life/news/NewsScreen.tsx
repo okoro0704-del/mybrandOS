@@ -47,7 +47,7 @@ export function NewsScreen({
     return [
       { id: "briefing", kicker: "Live Briefing", title: briefing?.title || "What changed today", fallback: "Fast creator commentary and context.", featured: true, page: briefing },
       { id: "business", kicker: "Business", title: business?.title || "Markets & opportunity", fallback: "Short signal, high relevance.", page: business },
-      { id: "tech", kicker: "Tech", title: tech?.title || "AI & Digital Economy", fallback: "Explainers from the creator Space.", page: tech },
+      { id: "tech", kicker: "Tech", title: tech?.title || "AI & Digital Economy", fallback: "Explainers from the creator.", page: tech },
       { id: "local", kicker: "Local", title: local?.title || "What matters near you", fallback: "Location-aware updates when available.", page: local },
       { id: "watch", kicker: "Watch", title: video ? (video.title || "Video dispatch") : "Video dispatch", fallback: "News that can collapse back into media.", asset: video },
     ];
@@ -61,7 +61,7 @@ export function NewsScreen({
       <header className="news-os__hero">
         <p className="news-os__kicker">{name} News</p>
         <h1>Your world.<br />Your signal.</h1>
-        <p className="news-os__sub">Creator-led headlines, briefings, updates and live context — inside the same Space.</p>
+        <p className="news-os__sub">Creator-led headlines, briefings, updates and live context — inside {name}.</p>
       </header>
       <div className="news-os__grid">
         {lanes.map((lane) => {

@@ -35,4 +35,4 @@ export * from "./space-runtime.js";
 export * from "./publish-center.js";
 export * from "./twin.js";
 
-export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, resolveDigitalLifeRequest, studioReturnPath, type DigitalLifeUrlOptions } from "./digital-life-urls.js";
+export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, publicSpaceEntryUrl, resolveDigitalLifeRequest, studioReturnPath, type DigitalLifeUrlOptions } from "./digital-life-urls.js";

@@ -10,8 +10,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 test("ExperienceMode is explicit and App is not Space-capable by default", () => {
   assert.equal(isSpaceExperience("APP"), false);
   assert.equal(isSpaceExperience("SPACE"), true);
-  assert.equal(nextExperienceMode("APP", "SPACE"), "SPACE");
+  assert.equal(nextExperienceMode("APP", "SPACE"), "APP");
   assert.equal(nextExperienceMode("SPACE", "APP"), "APP");
+  assert.equal(nextExperienceMode("SPACE", "SPACE"), "SPACE");
 });
 
 test("mybrandOS mounts Space controls only in Space mode and retains normal App navigation", () => {
@@ -20,6 +21,6 @@ test("mybrandOS mounts Space controls only in Space mode and retains normal App 
   assert.match(shell, /data-experience-mode=\{experienceMode\}/);
   // SPACE branch owns edge launchers + Space controls; APP branch owns destination chrome.
   assert.match(shell, /spaceMode \? <>[\s\S]*<HomeEdgeNav experience=\{experience\} \/>[\s\S]*<SpaceControls[\s\S]*<\/> : <>[\s\S]*<DigitalLifeBottomNav/);
-  assert.match(shell, /data-space-entry="true"/);
+  assert.equal(shell.includes("data-space-entry"), false);
   assert.match(shell, /useRevealDoubleTap\(revealEnabled, \(\) => spaceMode \?/);
 });

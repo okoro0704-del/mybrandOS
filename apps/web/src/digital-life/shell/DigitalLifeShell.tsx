@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { studioPath, livePath, type CreatorSpaceSurface, type PublicBrandExperience } from "@mybrandos/shared";
 import { isBrandLive } from "../personal-os/usePublicLiveNow";
 import { applyBrandDocument, clearBrandDocument } from "../branding";
@@ -23,7 +23,9 @@ import { useSpaceRuntime } from "../space/useSpaceRuntime";
 import { SpaceControls } from "../space/SpaceControls";
 import { CREATOR_MEDIA_SURFACES, publicApplicationUrl, type SpaceDefinition, type SpaceEvent } from "@mybrandos/shared";
 import { listRouterSpaces } from "../space/spaceRecents";
-import { isSpaceExperience, nextExperienceMode, type ExperienceMode } from "../experience/experienceMode";
+import { SPACE_ENTRY_PARAM, isSpaceExperience, nextExperienceMode, type ExperienceMode } from "../experience/experienceMode";
+import { ExperienceModeContext } from "../experience/ExperienceModeContext";
+import { useScrollAwareNav } from "../navigation/useScrollAwareNav";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -111,11 +113,22 @@ function DigitalLifeShellFrame({
     if (event.type === "OPEN_INTERACTIONS") space.openInteractions();
     if (event.type === "CLOSE_INTERACTIONS") space.closeInteractions();
   }
+  // SPACE may hand back to APP; APP can never select SPACE (nextExperienceMode seals it).
   function selectExperienceMode(target: ExperienceMode) {
     if (space.interactionsOpen) space.closeInteractions();
-    if (target === "APP") space.closeSpace();
+    if (target === "APP") {
+      space.closeSpace();
+      const url = new URL(window.location.href);
+      if (url.searchParams.has(SPACE_ENTRY_PARAM)) {
+        url.searchParams.delete(SPACE_ENTRY_PARAM);
+        window.history.replaceState(window.history.state, "", url.toString());
+      }
+    }
     setExperienceMode(current => nextExperienceMode(current, target));
   }
+
+  const location = useLocation();
+  const appNavVisible = useScrollAwareNav(!spaceMode, `${location.pathname}|${space.surface}`);
 
   // APP keeps destination chrome persistently visible; only SPACE uses the clean, gesture-revealed canvas.
   const revealApi = useMemo<RevealChromeApi>(
@@ -126,7 +139,10 @@ function DigitalLifeShellFrame({
       toggle: () => space.toggleControls(),
       open: () => undefined,
       close: () => space.toggleControls(),
-      selectDestination: () => space.collapseLaunchers(),
+      selectDestination: () => {
+        space.collapseLaunchers();
+        if (space.surface !== "APP") space.setSurface("APP");
+      },
     }),
     [space, spaceMode],
   );
@@ -168,6 +184,7 @@ function DigitalLifeShellFrame({
   const spaceHidden = !space.routerOpen;
 
   return (
+    <ExperienceModeContext.Provider value={experienceMode}>
     <HomeChromeContext.Provider value={null}>
     <RevealChromeContext.Provider value={revealEnabled ? revealApi : null}>
     <div
@@ -190,6 +207,7 @@ function DigitalLifeShellFrame({
       data-brand-live={isBrandLive(experience.liveNow) ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : undefined}
       data-home-nav={space.ui === "SUMMONED" ? "revealed" : "collapsed"}
+      data-app-nav={spaceMode ? undefined : appNavVisible ? "visible" : "hidden"}
     >
       {preview ? (
         <div className="be-preview-bar">
@@ -248,15 +266,17 @@ function DigitalLifeShellFrame({
               </section>
               <StationSurface channel="TV" experience={experience} mediaBase={mediaBase} />
               <StationSurface channel="RADIO" experience={experience} mediaBase={mediaBase} />
-              <section
-                className="space-surface space-surface--space"
-                data-space-router-overlay="true"
-                style={{ position: "fixed", inset: 0, zIndex: 95 }}
-                hidden={spaceHidden || undefined}
-                inert={spaceHidden ? true : undefined}
-              >
-                <SpaceRouterPanel experience={experience} onRevolve={spaceMode ? slug => runtime.dispatch({ type: "REVOLVE", spaceId: `space.${slug}` }) : undefined} />
-              </section>
+              {spaceMode ? (
+                <section
+                  className="space-surface space-surface--space"
+                  data-space-router-overlay="true"
+                  style={{ position: "fixed", inset: 0, zIndex: 95 }}
+                  hidden={spaceHidden || undefined}
+                  inert={spaceHidden ? true : undefined}
+                >
+                  <SpaceRouterPanel experience={experience} onRevolve={slug => runtime.dispatch({ type: "REVOLVE", spaceId: `space.${slug}` })} />
+                </section>
+              ) : null}
             </>
           )}
         </main>
@@ -280,23 +300,9 @@ function DigitalLifeShellFrame({
               <button type="button" onClick={() => selectExperienceMode("APP")}>App mode</button>
             </SpaceControls>
             </> : <>
-              <nav className="app-surface-nav" aria-label="Creator application surfaces" data-ui-mode="app">
-                {(["APP", "DIGIPEDIA", "NEWS", "TV", "RADIO"] as const).map((target) => (
-                  <button
-                    key={target}
-                    type="button"
-                    data-app-surface={target}
-                    aria-current={space.surface === target ? "page" : undefined}
-                    onClick={() => space.launch(target)}
-                  >
-                    {target === "APP" ? "Home" : target === "NEWS" ? "DigiNews" : target === "DIGIPEDIA" ? "Digipedia" : target}
-                  </button>
-                ))}
-              </nav>
               <DigitalLifeBottomNav experience={experience} basePath={basePath} primary={primary} chromeHidden={false} />
-              <button type="button" data-space-entry="true" style={{ position: "fixed", right: 20, bottom: 88, zIndex: 90 }} onClick={() => selectExperienceMode("SPACE")}>Space mode</button>
             </>}
-            {space.ui === "INTERACTION" ? (
+            {spaceMode && space.ui === "INTERACTION" ? (
               <>
                 <PostDetailsOverlay experience={experience} mediaBase={mediaBase} />
                 <InteractionsPanel experience={experience} mediaBase={mediaBase} />
@@ -310,5 +316,6 @@ function DigitalLifeShellFrame({
     </div>
     </RevealChromeContext.Provider>
     </HomeChromeContext.Provider>
+    </ExperienceModeContext.Provider>
   );
 }

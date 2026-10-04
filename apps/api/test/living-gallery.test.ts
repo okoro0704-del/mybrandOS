@@ -287,9 +287,11 @@ test("comments toggle over video; action hood stays five actions; comments stay 
   assert.equal(feed.includes("<LiveControl"), false);
   assert.match(feed, /living-gallery__bottom-bar/);
   assert.match(feed, /data-section-bar="bottom"/);
-  assert.match(chrome, /id: "live"/);
-  assert.match(chrome, /id: "contacts"/);
-  assert.match(chrome, /id: "communities"/);
+  const destinations = readFileSync(join(root, "apps/web/src/digital-life/navigation/appDestinations.ts"), "utf8");
+  assert.match(chrome, /APP_BOTTOM_NAV/);
+  assert.match(destinations, /id: "live"/);
+  assert.match(destinations, /id: "cc", short: "C & C", label: "Contacts and Communities"/);
+  assert.match(destinations, /id: "more"/);
   assert.match(dock, /data-life-control="live"/);
   assert.match(dock, /os-dock__live-label">LIVE</);
   assert.match(actions, /content-actions--hood/);

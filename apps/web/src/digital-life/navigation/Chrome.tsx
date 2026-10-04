@@ -2,10 +2,12 @@ import type { PublicBrandExperience, PublicLiveNow } from "@mybrandos/shared";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
-import { communitiesPath, contactsPath, livePath, spotlightPath } from "../routes";
+import { contactsPath, livePath, morePath, spotlightPath } from "../routes";
 import { OsWordmark } from "../personal-os/OsWordmark";
 import { useRevealChrome } from "../personal-os/RevealChromeContext";
 import { isBrandLive } from "../personal-os/usePublicLiveNow";
+import { useCreatorSpace } from "../space/CreatorSpaceContext";
+import { APP_BOTTOM_NAV, bottomNavActiveId, type AppBottomNavId } from "./appDestinations";
 
 type Primary =
   | "home"
@@ -18,6 +20,7 @@ type Primary =
   | "website"
   | "profile"
   | "vip"
+  | "more"
   | string;
 
 export function BrandLiveBadge({
@@ -94,14 +97,17 @@ export function DigitalLifeBottomNav({
   chromeHidden?: boolean;
 }) {
   const reveal = useRevealChrome();
+  const space = useCreatorSpace();
   const live = isBrandLive(experience.liveNow) ? experience.liveNow : null;
-  const items = [
-    { id: "home", label: "Home", short: "Home", to: publicHomePath(basePath), icon: Icons.home },
-    { id: "spotlight", label: "Spotlight", short: "Spotlight", to: spotlightPath(basePath), icon: Icons.favorites },
-    { id: "live", label: "Live", short: "Live", to: livePath(basePath), icon: Icons.live },
-    { id: "contacts", label: "Contacts", short: "Contacts", to: contactsPath(basePath), icon: Icons.audience },
-    { id: "communities", label: "Communities", short: "Communities", to: communitiesPath(basePath), icon: Icons.communities },
-  ] as const;
+  const routes: Record<AppBottomNavId, { to: string; icon: typeof Icons.home }> = {
+    home: { to: publicHomePath(basePath), icon: Icons.home },
+    spotlight: { to: spotlightPath(basePath), icon: Icons.favorites },
+    live: { to: livePath(basePath), icon: Icons.live },
+    cc: { to: contactsPath(basePath), icon: Icons.audience },
+    more: { to: morePath(basePath), icon: Icons.more },
+  };
+  const items = APP_BOTTOM_NAV.map((item) => ({ ...item, ...routes[item.id] }));
+  const activeId = bottomNavActiveId(primary, space.surface);
 
   return (
     <nav
@@ -114,16 +120,12 @@ export function DigitalLifeBottomNav({
     >
       {items.map((item) => {
         const Icon = item.icon;
-        const active =
-          primary === item.id ||
-          (item.id === "home" &&
-            (primary === "asset" || primary === "collection" || primary === "feed")) ||
-          (item.id === "spotlight" && primary === "vip") ||
-          (item.id === "contacts" && primary === "management");
+        const active = activeId === item.id;
         const liveOn = item.id === "live" && Boolean(live);
         return (
           <Link
             key={item.id}
+            data-nav-id={item.id}
             className={`${active ? "active" : ""}${item.id === "live" ? " os-bottom-nav__live" : ""}${liveOn ? " os-bottom-nav__live--on" : ""}`}
             to={item.to}
             aria-label={

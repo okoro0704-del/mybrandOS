@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -8,8 +9,11 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import type { PublicAssetCard, PublicBrandExperience } from "@mybrandos/shared";
+import { ASSET_TYPE_LABELS, type PublicAssetCard, type PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
+import { PostDetails } from "../digital-life/personal-os/PostDetails";
+import { useExperienceMode } from "../digital-life/experience/ExperienceModeContext";
+import { FeedVisibilityContext } from "./FeedVisibilityContext";
 import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
 import { CommentRow } from "../digital-life/personal-os/LiveConversation";
@@ -50,6 +54,9 @@ import {
 } from "../lib/immersiveFeedController";
 
 export type ImmersiveFeedCategory = "posts" | "videos";
+
+/** APP posts show the latest comments inline; the full conversation opens in place. */
+export const APP_POST_COMMENT_PREVIEW = 2;
 
 function isPostLike(asset: PublicAssetCard): boolean {
   if (asset.presentationTypes.includes("POST")) return true;
@@ -126,6 +133,7 @@ const PersistentGalleryVideo = memo(function PersistentGalleryVideo({
       fillViewport
       maxPlays={GALLERY_VIDEO_PLAYS_BEFORE_ADVANCE}
       preload={videoPreloadForSlide(active, adjacent)}
+      resumeKey={`feed:${src}`}
       onIntrinsic={onIntrinsic}
       onEnded={onEnded}
     />
@@ -205,6 +213,7 @@ function PostSlide({
 }) {
   void basePath;
   void onToggleTop;
+  const appPost = useExperienceMode() === "APP";
   const view = galleryViewState(topOpen, commentMode);
   const content = galleryContentState(asset, experience.liveNow);
   const author = experience.identity.displayName || experience.slug;
@@ -231,7 +240,7 @@ function PostSlide({
   const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
 
   const social = usePublicationComments(experience.slug, asset.id, {
-    enabled: active,
+    enabled: active || (appPost && adjacent),
     onCountChange: setCommentCount,
   });
 
@@ -307,9 +316,11 @@ function PostSlide({
     setSrcH(height);
   }, []);
 
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const onGalleryEnded = useCallback(() => {
-    if (active) onVideoEnded();
-  }, [active, onVideoEnded]);
+    if (activeRef.current) onVideoEnded();
+  }, [onVideoEnded]);
 
   const openInternalKeyboard = useCallback(() => {
     if (social.busy) return;
@@ -361,6 +372,179 @@ function PostSlide({
   const presentation = videoPresentation(asset);
   const humanTitle = humanPublicationTitle(asset.title, asset.id);
   const keyboardOpen = isCommentKeyboardOpen(keyboard) && inputMode === "internal";
+  const avatarUrl = experience.identity.hasAvatar ? `${mediaBase}/media/avatar` : null;
+  const kindLabel = ASSET_TYPE_LABELS[asset.assetType] || asset.assetType;
+
+  const commentsLayer = commentMode ? (
+    <div
+      className="living-comments-layer"
+      id={commentsId}
+      data-comments-open="true"
+      data-keyboard={keyboardOpen ? "open" : "closed"}
+      data-input-mode={inputMode}
+      data-scroll-chrome="ignore"
+      style={{ "--vv-bottom": `${Math.round(inputMode === "system" ? vvBottom : 0)}px` } as CSSProperties}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+    >
+      {social.comments.length > 0 || social.loading || social.error ? (
+        <div className="living-gallery__conversation">
+          {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
+          {social.error ? (
+            <p className="living-gallery__status living-gallery__status--error" role="alert">
+              {social.error}{" "}
+              <button type="button" className="living-comment__reply" onClick={social.retry}>
+                Retry
+              </button>
+            </p>
+          ) : null}
+          {social.comments.map((comment) => (
+            <CommentRow
+              key={comment.id}
+              comment={comment}
+              onReply={social.startReply}
+            />
+          ))}
+        </div>
+      ) : null}
+      <div className="living-gallery__composer living-gallery__composer--float post-comments__composer">
+        <div className="comment-composer__type-in">
+          {inputMode === "system" ? (
+            <div className="comment-composer__system">
+              <label className="sr-only" htmlFor={`${commentsId}-input`}>
+                Write a comment
+              </label>
+              <textarea
+                ref={composerRef}
+                id={`${commentsId}-input`}
+                className="post-comments__input"
+                value={social.draft}
+                onChange={(e) => social.setDraft(e.target.value)}
+                placeholder="Write a comment…"
+                maxLength={2000}
+                rows={1}
+                disabled={social.busy}
+                enterKeyHint="send"
+                autoComplete="off"
+                autoCorrect="on"
+                spellCheck
+                style={{ scrollMargin: 0 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendComment();
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`comment-composer__field post-comments__input${social.draft ? "" : " is-empty"}`}
+              data-comment-composer="internal"
+              aria-label="Write a comment"
+              aria-expanded={keyboardOpen}
+              disabled={social.busy}
+              onClick={openInternalKeyboard}
+            >
+              {social.draft ? social.draft : "Write a comment…"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="living-gallery__send"
+            aria-label={social.busy ? "Posting" : "Send"}
+            disabled={!canSendComment(social.draft) || social.busy}
+            onClick={() => void sendComment()}
+          >
+            <Icons.send size={18} />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="comment-composer__fallback"
+          onClick={() => {
+            if (inputMode === "system") {
+              setInputMode("internal");
+              openInternalKeyboard();
+              return;
+            }
+            setKeyboard("CLOSED");
+            setInputMode("system");
+          }}
+        >
+          {inputMode === "system" ? "On-screen keyboard" : "System keyboard"}
+        </button>
+      </div>
+      <CommentKeyboard
+        state={inputMode === "internal" ? keyboard : "CLOSED"}
+        draft={social.draft}
+        busy={social.busy}
+        onAction={(action) => {
+          if (action.type === "char") {
+            social.setDraft((prev) => applyCommentInsert(prev, action.value));
+            if (/^[a-z]$/i.test(action.value)) {
+              setKeyboard((s) => reduceCommentKeyboard(s, "LETTER"));
+            }
+            return;
+          }
+          if (action.type === "space") {
+            social.setDraft((prev) => applyCommentInsert(prev, " "));
+            return;
+          }
+          if (action.type === "backspace") {
+            social.setDraft(deleteCommentGrapheme);
+            return;
+          }
+          if (action.type === "shift") {
+            setKeyboard((s) => reduceCommentKeyboard(s, "SHIFT"));
+            return;
+          }
+          if (action.type === "symbols") {
+            setKeyboard((s) => reduceCommentKeyboard(s, "SYMBOLS"));
+            return;
+          }
+          if (action.type === "letters") {
+            setKeyboard((s) => reduceCommentKeyboard(s, "ABC"));
+            return;
+          }
+          if (action.type === "close") {
+            closeInternalKeyboard();
+            return;
+          }
+          if (action.type === "send") {
+            void sendComment();
+            return;
+          }
+          if (action.type === "paste") {
+            if (!navigator.clipboard?.readText) return;
+            void navigator.clipboard.readText().then((text) => {
+              if (text) social.setDraft((prev) => applyCommentInsert(prev, text));
+            }).catch(() => {
+              /* clipboard permission denied — keep draft */
+            });
+          }
+        }}
+      />
+    </div>
+  ) : null;
+
+  const actionBar = (
+    <ContentActionBar
+      asset={asset}
+      slug={experience.slug}
+      mediaBase={mediaBase}
+      creatorLabel={author}
+      commentCount={commentCount}
+      commentsOpen={commentMode}
+      hideComposer
+      variant="gallery"
+      onComment={onToggleComments}
+      onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
+    />
+  );
 
   return (
     <li
@@ -414,162 +598,9 @@ function PostSlide({
           onExpire={(id) => setOutcomes((prev) => prev.filter((item) => item.id !== id))}
         />
 
-        {commentMode ? (
-          <div
-            className="living-comments-layer"
-            id={commentsId}
-            data-comments-open="true"
-            data-keyboard={keyboardOpen ? "open" : "closed"}
-            data-input-mode={inputMode}
-            style={{ "--vv-bottom": `${Math.round(inputMode === "system" ? vvBottom : 0)}px` } as CSSProperties}
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerUp={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-          >
-            {social.comments.length > 0 || social.loading || social.error ? (
-              <div className="living-gallery__conversation">
-                {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
-                {social.error ? (
-                  <p className="living-gallery__status living-gallery__status--error" role="alert">
-                    {social.error}{" "}
-                    <button type="button" className="living-comment__reply" onClick={social.retry}>
-                      Retry
-                    </button>
-                  </p>
-                ) : null}
-                {social.comments.map((comment) => (
-                  <CommentRow
-                    key={comment.id}
-                    comment={comment}
-                    onReply={social.startReply}
-                  />
-                ))}
-              </div>
-            ) : null}
-            <div className="living-gallery__composer living-gallery__composer--float post-comments__composer">
-              <div className="comment-composer__type-in">
-                {inputMode === "system" ? (
-                  <div className="comment-composer__system">
-                    <label className="sr-only" htmlFor={`${commentsId}-input`}>
-                      Write a comment
-                    </label>
-                    <textarea
-                      ref={composerRef}
-                      id={`${commentsId}-input`}
-                      className="post-comments__input"
-                      value={social.draft}
-                      onChange={(e) => social.setDraft(e.target.value)}
-                      placeholder="Write a comment…"
-                      maxLength={2000}
-                      rows={1}
-                      disabled={social.busy}
-                      enterKeyHint="send"
-                      autoComplete="off"
-                      autoCorrect="on"
-                      spellCheck
-                      style={{ scrollMargin: 0 }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void sendComment();
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className={`comment-composer__field post-comments__input${social.draft ? "" : " is-empty"}`}
-                    data-comment-composer="internal"
-                    aria-label="Write a comment"
-                    aria-expanded={keyboardOpen}
-                    disabled={social.busy}
-                    onClick={openInternalKeyboard}
-                  >
-                    {social.draft ? social.draft : "Write a comment…"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="living-gallery__send"
-                  aria-label={social.busy ? "Posting" : "Send"}
-                  disabled={!canSendComment(social.draft) || social.busy}
-                  onClick={() => void sendComment()}
-                >
-                  <Icons.send size={18} />
-                </button>
-              </div>
-              <button
-                type="button"
-                className="comment-composer__fallback"
-                onClick={() => {
-                  if (inputMode === "system") {
-                    setInputMode("internal");
-                    openInternalKeyboard();
-                    return;
-                  }
-                  setKeyboard("CLOSED");
-                  setInputMode("system");
-                }}
-              >
-                {inputMode === "system" ? "On-screen keyboard" : "System keyboard"}
-              </button>
-            </div>
-            <CommentKeyboard
-              state={inputMode === "internal" ? keyboard : "CLOSED"}
-              draft={social.draft}
-              busy={social.busy}
-              onAction={(action) => {
-                if (action.type === "char") {
-                  social.setDraft((prev) => applyCommentInsert(prev, action.value));
-                  if (/^[a-z]$/i.test(action.value)) {
-                    setKeyboard((s) => reduceCommentKeyboard(s, "LETTER"));
-                  }
-                  return;
-                }
-                if (action.type === "space") {
-                  social.setDraft((prev) => applyCommentInsert(prev, " "));
-                  return;
-                }
-                if (action.type === "backspace") {
-                  social.setDraft(deleteCommentGrapheme);
-                  return;
-                }
-                if (action.type === "shift") {
-                  setKeyboard((s) => reduceCommentKeyboard(s, "SHIFT"));
-                  return;
-                }
-                if (action.type === "symbols") {
-                  setKeyboard((s) => reduceCommentKeyboard(s, "SYMBOLS"));
-                  return;
-                }
-                if (action.type === "letters") {
-                  setKeyboard((s) => reduceCommentKeyboard(s, "ABC"));
-                  return;
-                }
-                if (action.type === "close") {
-                  closeInternalKeyboard();
-                  return;
-                }
-                if (action.type === "send") {
-                  void sendComment();
-                  return;
-                }
-                if (action.type === "paste") {
-                  if (!navigator.clipboard?.readText) return;
-                  void navigator.clipboard.readText().then((text) => {
-                    if (text) social.setDraft((prev) => applyCommentInsert(prev, text));
-                  }).catch(() => {
-                    /* clipboard permission denied — keep draft */
-                  });
-                }
-              }}
-            />
-          </div>
-        ) : null}
+        {appPost ? null : commentsLayer}
 
-        {commentMode ? (
+        {appPost ? null : commentMode ? (
         <div
           ref={railRef}
           className="living-gallery__rail living-gallery__bottom-bar living-gallery__rail--summoned"
@@ -578,25 +609,87 @@ function PostSlide({
           onPointerUp={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="living-gallery__section-bar">
-            <ContentActionBar
-              asset={asset}
-              slug={experience.slug}
-              mediaBase={mediaBase}
-              creatorLabel={author}
-              commentCount={commentCount}
-              commentsOpen={commentMode}
-              hideComposer
-              variant="gallery"
-              onComment={onToggleComments}
-              onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
-            />
-          </div>
+          <div className="living-gallery__section-bar">{actionBar}</div>
         </div>
         ) : (
           <div ref={railRef} className="living-gallery__rail living-gallery__rail--pure" hidden aria-hidden />
         )}
       </div>
+
+      {appPost ? (
+        <section
+          className="app-post__panel"
+          data-post-bound="true"
+          data-post-panel="true"
+          data-scroll-chrome="ignore"
+          aria-label={humanTitle ? `${author}: ${humanTitle}` : `Post by ${author}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          <header className="app-post__identity living-gallery__brands" data-count="1">
+            {avatarUrl ? (
+              <img className="app-post__avatar" src={avatarUrl} alt="" />
+            ) : (
+              <span className="app-post__avatar app-post__avatar--mark" aria-hidden>
+                {author.slice(0, 1)}
+              </span>
+            )}
+            <strong className="app-post__brand">{author}</strong>
+          </header>
+          {commentMode ? null : (
+            <PostDetails
+              title={humanTitle}
+              body={writing ? "" : body}
+              publishedAt={asset.publishedAt}
+              kind={kindLabel}
+            />
+          )}
+          <div
+            ref={railRef}
+            className="living-gallery__rail living-gallery__bottom-bar app-post__actions"
+            data-section-bar="bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="living-gallery__section-bar">{actionBar}</div>
+          </div>
+          {commentMode ? (
+            commentsLayer
+          ) : (
+            <div className="app-post__comments" id={commentsId} data-comments-open="false" data-scroll-chrome="ignore">
+              {social.error ? (
+                <p className="living-gallery__status living-gallery__status--error" role="alert">
+                  Comments could not be loaded.{" "}
+                  <button type="button" className="living-comment__reply" onClick={social.retry}>
+                    Retry
+                  </button>
+                </p>
+              ) : social.loading && social.comments.length === 0 ? (
+                <p className="living-gallery__status">Loading comments…</p>
+              ) : (
+                <>
+                  {social.comments.slice(-APP_POST_COMMENT_PREVIEW).map((comment) => (
+                    <CommentRow
+                      key={comment.id}
+                      comment={comment}
+                      onReply={(name) => {
+                        social.startReply(name);
+                        onToggleComments();
+                      }}
+                    />
+                  ))}
+                  <button type="button" className="app-post__comments-open" onClick={onToggleComments}>
+                    {social.comments.length > APP_POST_COMMENT_PREVIEW
+                      ? `View all ${social.comments.length} comments`
+                      : social.comments.length > 0
+                        ? "Add a comment"
+                        : "Write the first comment"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      ) : null}
     </li>
   );
 }
@@ -629,7 +722,8 @@ export function ImmersivePostFeed({
   void slug;
   const space = useCreatorSpace();
   const home = useHomeExperience();
-  const galleryLive = space.surface === "APP";
+  const feedVisible = useContext(FeedVisibilityContext);
+  const galleryLive = space.surface === "APP" && feedVisible;
   const galleryLiveRef = useRef(galleryLive);
   galleryLiveRef.current = galleryLive;
   const interactionsRef = useRef(space.ui === "INTERACTION");

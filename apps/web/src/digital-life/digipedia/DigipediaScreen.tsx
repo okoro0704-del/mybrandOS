@@ -3,6 +3,7 @@ import type { PublicBrandExperience } from "@mybrandos/shared";
 import { api } from "../../lib/api";
 import { personalOsName } from "../personal-os/osIdentity";
 import { useCreatorSpace } from "../space/CreatorSpaceContext";
+import { useExperienceMode } from "../experience/ExperienceModeContext";
 import { CategoryChips } from "./CategoryChips";
 import { FeaturedKnowledgeCard } from "./FeaturedKnowledgeCard";
 import { GlassSearchBar } from "./GlassSearchBar";
@@ -56,6 +57,7 @@ export function DigipediaScreen({
   basePath: string;
 }) {
   const space = useCreatorSpace();
+  const experienceMode = useExperienceMode();
   void basePath;
   const os = personalOsName(experience.slug, experience.identity.displayName);
   const name = experience.identity.displayName || os.stem;
@@ -145,7 +147,10 @@ export function DigipediaScreen({
           <button type="button" className="pedia-sheet__close" onClick={() => setMenuOpen(false)}>
             Close
           </button>
-          {(["APP", "NEWS", "RADIO", "TV", "SPACE"] as const).map((target) => (
+          {(experienceMode === "SPACE"
+            ? (["APP", "NEWS", "RADIO", "TV", "SPACE"] as const)
+            : (["APP", "NEWS", "RADIO", "TV"] as const)
+          ).map((target) => (
             <button
               key={target}
               type="button"

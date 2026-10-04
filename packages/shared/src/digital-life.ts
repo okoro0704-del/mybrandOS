@@ -205,7 +205,8 @@ export type DigitalLifeRoutePrimary =
   | "collection"
   | "live"
   | "store"
-  | "feed";
+  | "feed"
+  | "more";
 
 export type DigitalLifeRoute = {
   surface: "app" | "website";
@@ -289,6 +290,9 @@ export function parseDigitalLifePath(rest: string | undefined): DigitalLifeRoute
   if (parts[0] === "communities" || parts[0] === "community") {
     return { surface: "app", section: "communities", primary: "communities" };
   }
+  if (parts[0] === "more") {
+    return { surface: "app", section: "more", primary: "more" };
+  }
 
   if (parts[0] === "profile" || parts[0] === "you") {
     return { surface: "app", section: "profile", primary: "profile" };
@@ -331,6 +335,10 @@ export function contactsPath(basePath: string) {
 
 export function communitiesPath(basePath: string) {
   return joinPublicPath(basePath, "communities");
+}
+
+export function morePath(basePath: string) {
+  return joinPublicPath(basePath, "more");
 }
 
 export function livePath(basePath: string) {

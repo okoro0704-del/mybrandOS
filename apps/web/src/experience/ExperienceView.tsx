@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ASSET_TYPE_LABELS,
@@ -19,6 +19,11 @@ import { PersonalOsHome } from "../digital-life/personal-os/PersonalOsHome";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
 import { AdaptiveVideoPlayer } from "../media/AdaptiveVideoPlayer";
 import { usePublicLiveNow } from "../digital-life/personal-os/usePublicLiveNow";
+import { ContactsAndCommunitiesBody, MoreBody } from "../digital-life/navigation/AppDestinationViews";
+import type { ExperienceMode } from "../digital-life/experience/experienceMode";
+import { FeedVisibilityContext } from "./FeedVisibilityContext";
+
+const HOME_ROUTE = Symbol("home-route");
 
 export function ExperienceView({
   experience,
@@ -30,6 +35,7 @@ export function ExperienceView({
   surface = "app",
   websitePageSlug,
   primary = "home",
+  executionMode = "APP",
 }: {
   experience: PublicBrandExperience;
   basePath: string;
@@ -40,6 +46,8 @@ export function ExperienceView({
   surface?: "app" | "website";
   websitePageSlug?: string;
   primary?: string;
+  /** Chosen by the entry (OS Xperience), never by the APP itself. */
+  executionMode?: ExperienceMode;
 }) {
   const [stationResume, setStationResume] = useState(experience.stationResume);
   useEffect(() => setStationResume(experience.stationResume), [experience.stationResume]);
@@ -88,11 +96,87 @@ export function ExperienceView({
           primary === "info" ||
           primary === "vip" ||
           primary === "spotlight" ||
-          primary === "live"
+          primary === "live" ||
+          primary === "more"
         ? primary
         : primary === "assets" || primary === "asset" || primary === "collection" || primary === "feed"
           ? "home"
           : "home";
+
+  // Home stays mounted behind other APP destinations so returning never remounts or refetches feed media.
+  const [homeVisited, setHomeVisited] = useState(false);
+  const routed: ReactNode | typeof HOME_ROUTE =
+    surface === "website" ? (
+      <InfoBody experience={experience} section="website" page={selectedWebsitePage} basePath={appBase} websiteBase={websiteBase} />
+    ) : assetId ? (
+      asset ? (
+        <PublicAssetBody asset={asset} experience={experience} mediaBase={mediaBase} basePath={appBase} />
+      ) : (
+        <p className="muted">This work is not available.</p>
+      )
+    ) : primary === "spotlight" || section === "spotlight" ? (
+      <SpotlightBody experience={experience} mediaBase={mediaBase} basePath={appBase} />
+    ) : primary === "vip" || section === "vip" ? (
+      <VipBody experience={experience} />
+    ) : section === "news" || section === "digipedia" ? (
+      HOME_ROUTE
+    ) : primary === "info" ||
+      section === "info" ||
+      section === "blog" ||
+      section === "website" ? (
+      <InfoBody
+        experience={experience}
+        section={
+          section === "blog" || section === "website"
+            ? section
+            : "hub"
+        }
+        page={selectedWebsitePage}
+        basePath={appBase}
+        websiteBase={websiteBase}
+      />
+    ) : primary === "favorites" || section === "favorites" ? (
+      <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+    ) : primary === "more" || section === "more" ? (
+      <MoreBody experience={experience} mediaBase={mediaBase} />
+    ) : primary === "contacts" || section === "contacts" ? (
+      <ContactsAndCommunitiesBody tab="contacts" basePath={appBase}>
+        <ContactsBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
+      </ContactsAndCommunitiesBody>
+    ) : primary === "management" || section === "management" ? (
+      <ManagementBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
+    ) : primary === "communities" || section === "communities" ? (
+      <ContactsAndCommunitiesBody tab="communities" basePath={appBase}>
+        <CommunitiesBody experience={experience} />
+      </ContactsAndCommunitiesBody>
+    ) : primary === "profile" || section === "profile" ? (
+      <ProfileBody experience={experience} mediaBase={mediaBase} websiteBase={websiteBase} preview={preview} />
+    ) : primary === "assets" || section === "assets" ? (
+      <AssetsBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+    ) : activeIs(section, "feed") ? (
+      <FeedBody experience={experience} mediaBase={mediaBase} />
+    ) : activeIs(section, "store") ? (
+      <StoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+    ) : primary === "live" || activeIs(section, "live") ? (
+      <LiveBody experience={liveExperience} />
+    ) : (collection && section) || section === "podcasts" ? (
+      <WorkGrid
+        title={collection?.label || (section === "podcasts" ? "Podcasts" : "Work")}
+        empty={`No published ${(collection?.label || "podcasts").toLowerCase()} yet.`}
+        assets={collectionAssets}
+        basePath={appBase}
+        mediaBase={mediaBase}
+        experience={experience}
+      />
+    ) : (
+      HOME_ROUTE
+    );
+
+  const onHome = routed === HOME_ROUTE;
+  useEffect(() => {
+    if (onHome) setHomeVisited(true);
+  }, [onHome]);
+  const keepHome = surface !== "website" && (onHome || homeVisited);
 
   return (
     <DigitalLifeShell
@@ -106,73 +190,24 @@ export function ExperienceView({
       initialSurface={
         section === "news" ? "NEWS" : section === "digipedia" ? "DIGIPEDIA" : "APP"
       }
+      initialExperienceMode={executionMode}
     >
-      {surface === "website" ? (
-        <InfoBody experience={experience} section="website" page={selectedWebsitePage} basePath={appBase} websiteBase={websiteBase} />
-      ) : assetId ? (
-        asset ? (
-          <PublicAssetBody asset={asset} experience={experience} mediaBase={mediaBase} basePath={appBase} />
-        ) : (
-          <p className="muted">This work is not available.</p>
-        )
-      ) : primary === "spotlight" || section === "spotlight" ? (
-        <SpotlightBody experience={experience} mediaBase={mediaBase} basePath={appBase} />
-      ) : primary === "vip" || section === "vip" ? (
-        <VipBody experience={experience} />
-      ) : section === "news" || section === "digipedia" ? (
-        <AppHomeBody
-          experience={experience}
-          basePath={appBase}
-          mediaBase={mediaBase}
-        />
-      ) : primary === "info" ||
-        section === "info" ||
-        section === "blog" ||
-        section === "website" ? (
-        <InfoBody
-          experience={experience}
-          section={
-            section === "blog" || section === "website"
-              ? section
-              : "hub"
-          }
-          page={selectedWebsitePage}
-          basePath={appBase}
-          websiteBase={websiteBase}
-        />
-      ) : primary === "favorites" || section === "favorites" ? (
-        <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
-      ) : primary === "contacts" || section === "contacts" ? (
-        <ContactsBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
-      ) : primary === "management" || section === "management" ? (
-        <ManagementBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
-      ) : primary === "communities" || section === "communities" ? (
-        <CommunitiesBody experience={experience} />
-      ) : primary === "profile" || section === "profile" ? (
-        <ProfileBody experience={experience} mediaBase={mediaBase} websiteBase={websiteBase} preview={preview} />
-      ) : primary === "assets" || section === "assets" ? (
-        <AssetsBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
-      ) : activeIs(section, "feed") ? (
-        <FeedBody experience={experience} mediaBase={mediaBase} />
-      ) : activeIs(section, "store") ? (
-        <StoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
-      ) : primary === "live" || activeIs(section, "live") ? (
-        <LiveBody experience={liveExperience} />
-      ) : (collection && section) || section === "podcasts" ? (
-        <WorkGrid
-          title={collection?.label || (section === "podcasts" ? "Podcasts" : "Work")}
-          empty={`No published ${(collection?.label || "podcasts").toLowerCase()} yet.`}
-          assets={collectionAssets}
-          basePath={appBase}
-          mediaBase={mediaBase}
-          experience={experience}
-        />
-      ) : (
-        <AppHomeBody
-          experience={experience}
-          basePath={appBase}
-          mediaBase={mediaBase}
-        />
+      {keepHome ? (
+        <FeedVisibilityContext.Provider value={onHome}>
+          <div
+            className="app-home-keepalive"
+            data-keepalive={onHome ? "active" : "hidden"}
+            aria-hidden={onHome ? undefined : true}
+            inert={onHome ? undefined : true}
+          >
+            <AppHomeBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
+          </div>
+        </FeedVisibilityContext.Provider>
+      ) : null}
+      {routed === HOME_ROUTE ? null : (
+        <div key={`${primary}|${section ?? ""}|${assetId ?? ""}`} className="app-page" data-app-page="true">
+          {routed}
+        </div>
       )}
     </DigitalLifeShell>
   );
@@ -291,8 +326,8 @@ function ContactsBody({
       <header className="dl-section-head">
         <div>
           <p className="eyebrow">Contacts</p>
-          <h1>People and direct communication</h1>
-          <p className="be-lead">Direct messaging stays here. Communities are a different space.</p>
+          <h2>People and direct communication</h2>
+          <p className="be-lead">Direct messaging stays here. Communities have their own tab in C &amp; C.</p>
         </div>
       </header>
 
@@ -360,7 +395,7 @@ function CommunitiesBody({
       <header className="dl-section-head">
         <div>
           <p className="eyebrow">Communities</p>
-          <h1>{creatorName}</h1>
+          <h2>{creatorName}</h2>
           <p className="be-lead">Persistent spaces around this Digital Life, its work, and specific publications. Not comments. Not DMs.</p>
         </div>
       </header>

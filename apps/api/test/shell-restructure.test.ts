@@ -21,7 +21,7 @@ test("public APP uses destination chrome; SPACE keeps edge launchers", () => {
   assert.match(shell, /HomeEdgeNav/);
   assert.match(shell, /DigitalLifeBottomNav/);
   assert.match(shell, /DigitalLifeTopBar/);
-  assert.match(shell, /data-app-surface/);
+  assert.match(shell, /data-app-nav=/);
   assert.match(shell, /spaceMode \? <>/);
   assert.equal(chrome.includes('label: "Management"'), false);
   assert.equal(chrome.includes('label: "Info"'), false);

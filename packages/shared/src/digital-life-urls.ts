@@ -60,6 +60,11 @@ export function publicApplicationUrl(slug: string, path = ""): string {
   return digitalLifeUrl({ slug, surface: "public_app", path });
 }
 
+/** SPACE entry for OS Xperience. The APP itself never links here. */
+export function publicSpaceEntryUrl(slug: string): string {
+  return `${publicApplicationUrl(slug)}?entry=space`;
+}
+
 export function studioPath(path = "/", hostname?: string | null): string {
   return digitalLifePath({ surface: "workstation", path, hostname });
 }

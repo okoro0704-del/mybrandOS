@@ -5,6 +5,7 @@ export {
   favoritesPath,
   managementPath,
   communitiesPath,
+  morePath,
   profilePath,
   vipPath,
   spotlightPath,

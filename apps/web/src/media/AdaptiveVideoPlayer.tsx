@@ -1,5 +1,17 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { PresentationType } from "@mybrandos/shared";
+import {
+  initialMediaState,
+  mediaHasFrame,
+  mediaIsBroken,
+  mediaShowsPoster,
+  reduceMediaState,
+  stickyPreload,
+  type MediaEvent,
+  type MediaPreload,
+  type MediaState,
+} from "./mediaState";
+import { recordMediaMetric } from "./mediaMetrics";
 import {
   GALLERY_VIDEO_TAP_MS,
   getImmersiveSessionMuted,
@@ -41,6 +53,8 @@ export function readLayoutMode(source?: {
     (typeof window !== "undefined" ? window.innerHeight : 844);
   return w > h * 1.05 ? "landscape" : "portrait";
 }
+
+const resumePositions = new Map<string, number>();
 
 export type PlayAttemptResult = {
   playing: boolean;
@@ -87,6 +101,7 @@ export function AdaptiveVideoPlayer({
   loop = false,
   maxPlays = 1,
   preload = "metadata",
+  resumeKey,
   startAtMs,
   onIntrinsic,
   onEnded,
@@ -109,6 +124,8 @@ export function AdaptiveVideoPlayer({
   /** Gallery videos replay locally this many times, then call onEnded. */
   maxPlays?: number;
   preload?: "auto" | "metadata" | "none";
+  /** Opt-in: playback position survives this element being evicted and remounted under the same key. */
+  resumeKey?: string;
   /** Opt-in: seek here once the media's metadata loads (e.g. a station program resumed after live). */
   startAtMs?: number;
   onIntrinsic?: (width: number, height: number) => void;
@@ -120,7 +137,21 @@ export function AdaptiveVideoPlayer({
   const lastTapRef = useRef(0);
   const pointerRef = useRef({ x: 0, y: 0, moved: false });
   const [layout, setLayout] = useState<AdaptiveLayoutMode>(() => (fillViewport ? "portrait" : readLayoutMode()));
-  const [ready, setReady] = useState(false);
+  const [media, setMedia] = useState<{ src: string; state: MediaState }>(() => ({ src, state: initialMediaState(src) }));
+  const mediaState = media.src === src ? media.state : initialMediaState(src);
+  const ready = mediaHasFrame(mediaState);
+  const dispatchMedia = useCallback(
+    (event: MediaEvent) => {
+      setMedia((current) => {
+        const base = current.src === src ? current.state : initialMediaState(src);
+        const next = reduceMediaState(base, event);
+        return next === current.state && current.src === src ? current : { src, state: next };
+      });
+    },
+    [src],
+  );
+  const preloadRef = useRef<MediaPreload>(preload);
+  preloadRef.current = stickyPreload(preloadRef.current, preload);
   const [muted, setMuted] = useState(() => (fillViewport ? getImmersiveSessionMuted() : true));
   const [paused, setPaused] = useState(!active);
   const [playBlocked, setPlayBlocked] = useState(false);
@@ -129,6 +160,15 @@ export function AdaptiveVideoPlayer({
   useEffect(() => {
     playCountRef.current = 0;
   }, [src, active]);
+
+  useEffect(() => {
+    recordMediaMetric(src, "mount");
+    const el = videoRef.current;
+    return () => {
+      recordMediaMetric(src, "unmount");
+      if (resumeKey && el && el.currentTime > 0.5 && !el.ended) resumePositions.set(resumeKey, el.currentTime);
+    };
+  }, [src, resumeKey]);
 
   useEffect(() => {
     if (fillViewport) return;
@@ -175,10 +215,33 @@ export function AdaptiveVideoPlayer({
     });
   }, [autoPlayMuted, src, active, fillViewport]);
 
+  const retry = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    recordMediaMetric(src, "retry");
+    dispatchMedia({ type: "RETRY" });
+    el.load();
+    if (active && autoPlayMuted) {
+      void playActiveVideo(el, fillViewport ? !getImmersiveSessionMuted() : false).then((result) => {
+        setMuted(result.muted);
+        setPaused(!result.playing);
+        setPlayBlocked(!result.playing);
+      });
+    }
+  }, [src, dispatchMedia, active, autoPlayMuted, fillViewport]);
+
+  const brokenRef = useRef(false);
+  brokenRef.current = mediaIsBroken(mediaState);
+
   useEffect(() => {
     const onOnline = () => {
       const el = videoRef.current;
       if (!el) return;
+      dispatchMedia({ type: "ONLINE" });
+      if (brokenRef.current) {
+        retry();
+        return;
+      }
       if (renderedRef.current) {
         if (active && autoPlayMuted && el.paused) {
           void playActiveVideo(el, fillViewport ? !getImmersiveSessionMuted() : !el.muted);
@@ -189,9 +252,14 @@ export function AdaptiveVideoPlayer({
         void playActiveVideo(el, false);
       }
     };
+    const onOffline = () => dispatchMedia({ type: "OFFLINE" });
     window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
-  }, [active, autoPlayMuted, fillViewport]);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [active, autoPlayMuted, fillViewport, dispatchMedia, retry]);
 
   const landscapeImmersive =
     !fillViewport && (presentation === "WATCH" || presentation === "CINEMA") && layout === "landscape";
@@ -304,6 +372,7 @@ export function AdaptiveVideoPlayer({
       data-fill={fillViewport ? "true" : undefined}
       data-gallery-fit={fillViewport ? "contain" : undefined}
       data-play-blocked={playBlocked ? "true" : undefined}
+      data-media-state={mediaState}
     >
       <div
         className="adaptive-video__stage"
@@ -325,11 +394,17 @@ export function AdaptiveVideoPlayer({
           data-sound-enabled={fillViewport ? String(getSoundEnabledByUser() && !muted) : undefined}
           data-session-muted={fillViewport ? String(getImmersiveSessionMuted()) : undefined}
           loop={loop}
-          preload={preload}
+          preload={preloadRef.current}
           aria-label={fillViewport ? (paused ? "Video, paused. Activate to play." : "Video, playing. Activate to pause.") : undefined}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
-            if (startAtMs && startAtMs > 0) {
+            recordMediaMetric(src, "metadata");
+            dispatchMedia({ type: "METADATA" });
+            const resumeAt = resumeKey ? resumePositions.get(resumeKey) : undefined;
+            if (resumeKey && resumeAt !== undefined) {
+              resumePositions.delete(resumeKey);
+              if (!(v.duration > 0) || resumeAt < v.duration - 0.5) v.currentTime = resumeAt;
+            } else if (startAtMs && startAtMs > 0) {
               const at = startAtMs / 1000;
               if (!(v.duration > 0) || at < v.duration - 0.5) v.currentTime = at;
             }
@@ -340,13 +415,25 @@ export function AdaptiveVideoPlayer({
           }}
           onLoadedData={() => {
             renderedRef.current = true;
-            setReady(true);
+            recordMediaMetric(src, "frame");
+            dispatchMedia({ type: "FRAME" });
+          }}
+          onCanPlay={() => {
+            recordMediaMetric(src, "canplay");
+            dispatchMedia({ type: "FRAME" });
+          }}
+          onPlaying={() => {
+            recordMediaMetric(src, "playing");
+            dispatchMedia({ type: "PLAYING" });
           }}
           onPlay={() => {
             setPaused(false);
             setPlayBlocked(false);
           }}
-          onPause={() => setPaused(true)}
+          onPause={() => {
+            setPaused(true);
+            dispatchMedia({ type: "PAUSE" });
+          }}
           onEnded={() => {
             if (!active || loop) return;
             const el = videoRef.current;
@@ -360,10 +447,33 @@ export function AdaptiveVideoPlayer({
             onEnded?.();
           }}
           onError={() => {
-            if (!renderedRef.current) setReady(false);
+            recordMediaMetric(src, "error");
+            dispatchMedia({ type: "ERROR", online: typeof navigator === "undefined" || navigator.onLine !== false });
             setPlayBlocked(true);
           }}
         />
+        {poster ? (
+          <img
+            className="adaptive-video__poster"
+            src={poster}
+            alt=""
+            aria-hidden
+            decoding="async"
+            data-visible={mediaShowsPoster(mediaState) ? "true" : "false"}
+          />
+        ) : null}
+        {mediaIsBroken(mediaState) ? (
+          <div className="adaptive-video__status" role="status" data-media-status={mediaState}>
+            <p>
+              {mediaState === "OFFLINE"
+                ? "You're offline. This video will load when the connection returns."
+                : "This video could not be loaded."}
+            </p>
+            <button type="button" className="adaptive-video__retry" onClick={retry}>
+              Retry
+            </button>
+          </div>
+        ) : null}
         {reelLandscape && !fillViewport ? <div className="adaptive-video__pillar" aria-hidden /> : null}
       </div>
       {fillViewport ? (

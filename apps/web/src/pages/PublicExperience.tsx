@@ -5,6 +5,7 @@ import { publicExperienceBasePath, studioPath } from "@mybrandos/shared";
 import { api, ApiError } from "../lib/api";
 import { ExperienceView } from "../experience/ExperienceView";
 import { parseDigitalLifePath } from "../digital-life/routes";
+import { resolveEntryExecutionMode } from "../digital-life/experience/experienceMode";
 
 export function BrandPreviewPage() {
   const { "*": rest } = useParams();
@@ -55,6 +56,8 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
   const rest = props?.restOverride !== undefined ? props.restOverride : params["*"];
   const [experience, setExperience] = useState<PublicBrandExperience | null>(null);
   const [error, setError] = useState("");
+  // Resolved once per document: in-app navigation and network changes never re-decide execution.
+  const [entryExecutionMode] = useState(() => resolveEntryExecutionMode(window.location.search));
 
   useEffect(() => {
     if (!slug) return;
@@ -97,6 +100,7 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
       experience={experience}
       basePath={basePath}
       mediaBase={`/api/public/${slug}`}
+      executionMode={entryExecutionMode}
       section={parsed.section}
       assetId={parsed.assetId}
       surface={parsed.surface}
