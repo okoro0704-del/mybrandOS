@@ -1,14 +1,24 @@
-import type { PresentationType, StationChannel, StationPlaybackCursor, StationProgramming } from "@mybrandos/shared";
+import {
+  nextLocalCaptureStatus,
+  type CaptureEditMetadata,
+  type LocalCaptureEvent,
+  type LocalCaptureStatus,
+  type PresentationType,
+  type StationChannel,
+  type StationPlaybackCursor,
+  type StationProgramming,
+} from "@mybrandos/shared";
 
 /** Canonical Offline Kernel DB — TV/Radio consume this store, they do not open another. */
 export const OFFLINE_KERNEL_DB = "mybrandos-offline-kernel";
 const DB_NAME = OFFLINE_KERNEL_DB;
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE = "publications";
 const BLOB_STORE = "media-blobs";
 const STATION_STORE = "station-programming";
 const PLAYBACK_STORE = "station-playback";
 const ANALYTICS_STORE = "station-analytics";
+const CAPTURE_STORE = "captures";
 
 export type OfflinePublication = {
   id: string;
@@ -43,6 +53,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(ANALYTICS_STORE)) {
         db.createObjectStore(ANALYTICS_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(CAPTURE_STORE)) {
+        db.createObjectStore(CAPTURE_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -363,4 +376,102 @@ export async function flushPendingStationAnalytics(): Promise<number> {
 export async function listLocallyAvailableAssetIds(): Promise<string[]> {
   const rows = await listOfflinePublications();
   return rows.filter((row) => row.mediaCached).map((row) => row.id);
+}
+
+/** Camera capture held on this device. The original bytes are never rewritten. */
+export type LocalCapture = {
+  id: string;
+  mode: "PHOTO" | "VIDEO";
+  mimeType: string;
+  filename: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  createdAt: string;
+  updatedAt: string;
+  status: LocalCaptureStatus;
+  /** Set only after the server confirmed the upload. */
+  remoteAssetId: string | null;
+  edits: CaptureEditMetadata;
+  error: string | null;
+  blob: Blob;
+};
+
+export async function saveLocalCapture(
+  input: Omit<LocalCapture, "status" | "remoteAssetId" | "error" | "createdAt" | "updatedAt">,
+): Promise<LocalCapture> {
+  const at = new Date().toISOString();
+  const row: LocalCapture = { ...input, status: "SAVED_LOCAL", remoteAssetId: null, error: null, createdAt: at, updatedAt: at };
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_STORE, "readwrite");
+    tx.objectStore(CAPTURE_STORE).put(row);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("capture_save_failed"));
+  });
+  return row;
+}
+
+export async function listLocalCaptures(): Promise<LocalCapture[]> {
+  const db = await openDb();
+  const rows = await new Promise<LocalCapture[]>((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_STORE, "readonly");
+    const req = tx.objectStore(CAPTURE_STORE).getAll();
+    req.onsuccess = () => resolve((req.result as LocalCapture[]) ?? []);
+    req.onerror = () => reject(req.error);
+  });
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function getLocalCapture(id: string): Promise<LocalCapture | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_STORE, "readonly");
+    const req = tx.objectStore(CAPTURE_STORE).get(id);
+    req.onsuccess = () => resolve((req.result as LocalCapture) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function putLocalCapture(row: LocalCapture): Promise<LocalCapture> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_STORE, "readwrite");
+    tx.objectStore(CAPTURE_STORE).put(row);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  return row;
+}
+
+export async function updateLocalCaptureEdits(id: string, edits: CaptureEditMetadata): Promise<LocalCapture | null> {
+  const row = await getLocalCapture(id);
+  if (!row) return null;
+  return putLocalCapture({ ...row, edits, updatedAt: new Date().toISOString() });
+}
+
+export async function transitionLocalCapture(
+  id: string,
+  event: LocalCaptureEvent,
+  opts?: { remoteAssetId?: string | null; error?: string | null },
+): Promise<LocalCapture | null> {
+  const row = await getLocalCapture(id);
+  if (!row) return null;
+  const status = nextLocalCaptureStatus(row.status, event, opts?.remoteAssetId);
+  return putLocalCapture({
+    ...row,
+    status,
+    remoteAssetId: status === "SYNCED" ? opts?.remoteAssetId ?? null : row.remoteAssetId,
+    error: status === "SYNC_FAILED" ? opts?.error ?? "upload_failed" : null,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteLocalCapture(id: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(CAPTURE_STORE, "readwrite");
+    tx.objectStore(CAPTURE_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }

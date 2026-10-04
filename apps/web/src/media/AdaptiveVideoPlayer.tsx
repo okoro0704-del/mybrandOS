@@ -87,6 +87,7 @@ export function AdaptiveVideoPlayer({
   loop = false,
   maxPlays = 1,
   preload = "metadata",
+  startAtMs,
   onIntrinsic,
   onEnded,
 }: {
@@ -108,6 +109,8 @@ export function AdaptiveVideoPlayer({
   /** Gallery videos replay locally this many times, then call onEnded. */
   maxPlays?: number;
   preload?: "auto" | "metadata" | "none";
+  /** Opt-in: seek here once the media's metadata loads (e.g. a station program resumed after live). */
+  startAtMs?: number;
   onIntrinsic?: (width: number, height: number) => void;
   onEnded?: () => void;
 }) {
@@ -326,6 +329,10 @@ export function AdaptiveVideoPlayer({
           aria-label={fillViewport ? (paused ? "Video, paused. Activate to play." : "Video, playing. Activate to pause.") : undefined}
           onLoadedMetadata={(e) => {
             const v = e.currentTarget;
+            if (startAtMs && startAtMs > 0) {
+              const at = startAtMs / 1000;
+              if (!(v.duration > 0) || at < v.duration - 0.5) v.currentTime = at;
+            }
             if (v.videoWidth && v.videoHeight) {
               v.dataset.intrinsic = `${v.videoWidth}x${v.videoHeight}`;
               onIntrinsic?.(v.videoWidth, v.videoHeight);

@@ -19,7 +19,11 @@ import {
   parsePresentationTypes,
   parsePublicSurfaceDestinations,
   liveNowFromSession,
+  liveRecoveryAction,
+  liveSessionKindOf,
+  isProductionLive,
   publicAppEligibleAsset,
+  type PublicStationResume,
   type BrandConfigPayload,
   type BrandCta,
   type BrandMedia,
@@ -632,6 +636,7 @@ async function experienceFrom(
     publicLinks: readJson<PublicLink[]>(space.links, []),
     messaging,
     liveNow,
+    stationResume: await publicStationResumeForOwner(space.ownerId),
     offers,
     presentation: normalizePresentation(
       readJson<Partial<PublicExperiencePresentation>>(
@@ -652,6 +657,17 @@ async function publicLiveNowForOwner(ownerId: string, creatorName: string): Prom
     orderBy: { startedAt: "desc" },
   });
   if (!row?.startedAt) return null;
+  const extra = readJson<Record<string, unknown>>(row.extra, {});
+  const lost = liveRecoveryAction(
+    {
+      status: row.status,
+      managed: isProductionLive(extra),
+      heartbeatAt: typeof extra.heartbeatAt === "string" ? extra.heartbeatAt : null,
+      startedAt: row.startedAt.toISOString(),
+    },
+    Date.now(),
+  );
+  if (lost !== "NONE") return null;
   if (!(await isDistributedLiveToLifeOs(row.id))) return null;
   return liveNowFromSession(
     {
@@ -662,7 +678,35 @@ async function publicLiveNowForOwner(ownerId: string, creatorName: string): Prom
       startedAt: row.startedAt.toISOString(),
     },
     creatorName,
+    isProductionLive(extra) ? liveSessionKindOf(extra) : null,
   );
+}
+
+const STATION_RESUME_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+async function publicStationResumeForOwner(ownerId: string): Promise<PublicStationResume[]> {
+  const since = new Date(Date.now() - STATION_RESUME_WINDOW_MS);
+  const rows = await prisma.liveSession.findMany({
+    where: { ownerId, visibility: "public", endedAt: { gte: since } },
+    orderBy: { endedAt: "desc" },
+    take: 10,
+  });
+  const out: PublicStationResume[] = [];
+  for (const row of rows) {
+    const extra = readJson<Record<string, unknown>>(row.extra, {});
+    const resume = extra.resume as Partial<PublicStationResume> | undefined;
+    if (!isProductionLive(extra) || !resume?.channel || !resume.resumedAt) continue;
+    if (out.some((item) => item.channel === resume.channel)) continue;
+    out.push({
+      channel: resume.channel,
+      policy: resume.policy ?? "SKIP_TO_CURRENT_SCHEDULE",
+      itemId: resume.itemId ?? null,
+      offsetMs: Number(resume.offsetMs) || 0,
+      resumedAt: resume.resumedAt,
+      sessionId: row.id,
+    });
+  }
+  return out;
 }
 
 export async function buildBrandPreview(
@@ -725,9 +769,11 @@ export async function getPublicBrandExperience(
   return experienceFrom(space, eligible, messaging, space.displayName || "Creator", liveNow, primitives);
 }
 
-export async function getPublicLive(slug: string): Promise<{ liveNow: PublicLiveNow | null }> {
+export async function getPublicLive(
+  slug: string,
+): Promise<{ liveNow: PublicLiveNow | null; stationResume: PublicStationResume[] }> {
   const experience = await getPublicBrandExperience(slug);
-  return { liveNow: experience.liveNow };
+  return { liveNow: experience.liveNow, stationResume: experience.stationResume ?? [] };
 }
 
 export async function getPublicAssets(slug: string) {

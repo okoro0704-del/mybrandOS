@@ -93,13 +93,14 @@ export async function startLiveSession(
   ownerId: string,
   sessionId: string,
   primitives: PrimitiveBindings,
-  input?: { destinations?: string[] },
+  input?: { destinations?: string[]; failStatus?: "SCHEDULED" | "FAILED" },
 ): Promise<LiveSession> {
   const row = await ownedSession(ownerId, sessionId);
   if (row.status === "LIVE") return toLiveSession(row);
-  if (row.status !== "SCHEDULED" && row.status !== "FAILED") {
+  if (!["SCHEDULED", "PREPARING", "STARTING", "FAILED"].includes(row.status)) {
     throw conflict("live_not_startable", "This live session cannot go live from its current state.");
   }
+  const failStatus = input?.failStatus ?? "SCHEDULED";
 
   await ensureDistributionIntents(row.id, input?.destinations);
 
@@ -108,7 +109,7 @@ export async function startLiveSession(
     await prisma.liveSession.update({
       where: { id: row.id },
       data: {
-        status: "SCHEDULED",
+        status: failStatus,
         detail: capability.detail,
         extra: writeJson({
           ...readJson<Record<string, unknown>>(row.extra, {}),
@@ -129,7 +130,7 @@ export async function startLiveSession(
     await prisma.liveSession.update({
       where: { id: row.id },
       data: {
-        status: "SCHEDULED",
+        status: failStatus,
         detail: started.detail,
       },
     });
@@ -209,7 +210,7 @@ export async function endLiveSession(
   primitives: PrimitiveBindings,
 ): Promise<LiveSession> {
   const row = await ownedSession(ownerId, sessionId);
-  if (row.status !== "LIVE") {
+  if (row.status !== "LIVE" && row.status !== "ENDING") {
     throw conflict("live_not_active", "Only an active live session can be ended.");
   }
   if (row.broadcastId) {
@@ -236,7 +237,7 @@ export async function endLiveSession(
 
 export async function cancelLiveSession(ownerId: string, sessionId: string): Promise<LiveSession> {
   const row = await ownedSession(ownerId, sessionId);
-  if (row.status === "LIVE") {
+  if (row.status === "LIVE" || row.status === "STARTING" || row.status === "ENDING") {
     throw conflict("live_active", "End the live session before cancelling.");
   }
   if (row.status === "READY") return toLiveSession(row);

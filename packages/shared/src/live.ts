@@ -4,7 +4,10 @@ import { DESTINATION_KINDS, DISTRIBUTION_DESTINATIONS, type DestinationKind, typ
 
 export const LIVE_SESSION_STATUSES = [
   "SCHEDULED",
+  "PREPARING",
+  "STARTING",
   "LIVE",
+  "ENDING",
   "ENDED",
   "PROCESSING",
   "READY",
@@ -106,6 +109,15 @@ export interface PublicLiveNow {
   creatorName: string;
   startedAt: string;
   watchLabel: "Watch Live";
+  /** VIDEO, TV or RADIO. Absent on legacy sessions (treated as a station-wide override). */
+  kind?: LiveSessionKind;
+}
+
+export const LIVE_SESSION_KINDS = ["VIDEO", "TV", "RADIO"] as const;
+export type LiveSessionKind = (typeof LIVE_SESSION_KINDS)[number];
+
+export function isLiveSessionKind(value: unknown): value is LiveSessionKind {
+  return LIVE_SESSION_KINDS.includes(value as LiveSessionKind);
 }
 
 export interface LiveStudioState {
@@ -139,6 +151,7 @@ export function isLiveDistributionStatus(value: unknown): value is LiveDistribut
 export function liveNowFromSession(
   session: Pick<LiveSession, "id" | "title" | "status" | "visibility" | "startedAt">,
   creatorName: string,
+  kind?: LiveSessionKind | null,
 ): PublicLiveNow | null {
   if (session.status !== "LIVE" || session.visibility !== "public" || !session.startedAt) return null;
   return {
@@ -147,6 +160,7 @@ export function liveNowFromSession(
     creatorName,
     startedAt: session.startedAt,
     watchLabel: "Watch Live",
+    ...(kind ? { kind } : {}),
   };
 }
 

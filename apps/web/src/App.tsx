@@ -32,6 +32,8 @@ import { PreviewJoinPage, RecordingListPage, RecordingStudioPage } from "./pages
 import { ProcessingPage } from "./pages/Processing";
 import { PublishCenterPage } from "./pages/PublishCenter";
 import { CameraCapabilityPage } from "./pages/CameraCapability";
+import { VideoProductionStudio } from "./production-studio/VideoProductionStudio";
+import { StationProductionStudio } from "./production-studio/StationProductionStudio";
 import {
   AiPage,
   AnalyticsPage,
@@ -69,6 +71,9 @@ function WorkstationRoutes() {
           <Route path={s("/recording")} element={<RecordingListPage />} />
           <Route path={s("/recording/:id")} element={<RecordingStudioPage />} />
           <Route path={s("/production")} element={<ProductionListPage />} />
+          <Route path={s("/production/video")} element={<VideoProductionStudio />} />
+          <Route path={s("/production/tv")} element={<StationProductionStudio key="tv" channel="TV" />} />
+          <Route path={s("/production/radio")} element={<StationProductionStudio key="radio" channel="RADIO" />} />
           <Route path={s("/production/:id")} element={<ProductionStudioPage />} />
           <Route path={s("/processing")} element={<ProcessingPage />} />
           <Route path={s("/activity")} element={<ActivityPage />} />

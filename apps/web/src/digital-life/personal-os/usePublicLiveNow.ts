@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { PublicLiveNow } from "@mybrandos/shared";
+import { useEffect, useRef, useState } from "react";
+import type { PublicLiveNow, PublicStationResume } from "@mybrandos/shared";
 import { api } from "../../lib/api";
 
 /** Public live presence poll — no fake broadcasts. Relies on GET /public/:slug/live. */
@@ -13,8 +13,12 @@ export function usePublicLiveNow(
   slug: string | undefined,
   initial: PublicLiveNow | null,
   enabled = true,
+  onStationResume?: (resume: PublicStationResume[]) => void,
 ): PublicLiveNow | null {
   const [liveNow, setLiveNow] = useState<PublicLiveNow | null>(initial);
+  const resumeRef = useRef(onStationResume);
+  resumeRef.current = onStationResume;
+  const resumeKey = useRef("");
 
   useEffect(() => {
     setLiveNow(initial);
@@ -25,9 +29,17 @@ export function usePublicLiveNow(
     let cancelled = false;
 
     function tick() {
-      void api<{ liveNow: PublicLiveNow | null }>(`/public/${slug}/live`)
+      void api<{ liveNow: PublicLiveNow | null; stationResume?: PublicStationResume[] }>(`/public/${slug}/live`)
         .then((data) => {
-          if (!cancelled) setLiveNow(data.liveNow);
+          if (cancelled) return;
+          setLiveNow((current) =>
+            current?.sessionId === data.liveNow?.sessionId && current?.kind === data.liveNow?.kind ? current : data.liveNow,
+          );
+          const key = JSON.stringify(data.stationResume ?? []);
+          if (key !== resumeKey.current) {
+            resumeKey.current = key;
+            resumeRef.current?.(data.stationResume ?? []);
+          }
         })
         .catch(() => {
           /* keep last known honest state */

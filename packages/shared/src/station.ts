@@ -82,6 +82,26 @@ export type StationPlaybackCursor = {
   offsetMs: number;
 };
 
+export const STATION_RESUME_POLICIES = ["RESUME_CURRENT", "SKIP_TO_CURRENT_SCHEDULE", "RESUME_NEXT"] as const;
+export type StationResumePolicy = (typeof STATION_RESUME_POLICIES)[number];
+/** V1 default: rejoin the wall clock, matching broadcast behaviour and `resumeAfterLive`. */
+export const DEFAULT_STATION_RESUME_POLICY: StationResumePolicy = "SKIP_TO_CURRENT_SCHEDULE";
+
+export function isStationResumePolicy(value: unknown): value is StationResumePolicy {
+  return STATION_RESUME_POLICIES.includes(value as StationResumePolicy);
+}
+
+/** Public, owner-free description of how a channel continues after a live interruption. */
+export type PublicStationResume = {
+  channel: StationChannel;
+  policy: StationResumePolicy;
+  itemId: string | null;
+  offsetMs: number;
+  /** When scheduled programming took over again (the live end). */
+  resumedAt: string;
+  sessionId: string;
+};
+
 export type StationNow = {
   channel: StationChannel;
   item: StationMediaItem | null;
@@ -448,6 +468,33 @@ export function stationProgramById(programming: StationProgramming, id: string |
   return programming.fallback.items.find((item) => item.id === id) ?? null;
 }
 
+/** TV live overrides TV, Radio live overrides Radio, Video live overrides neither. */
+export function liveOverridesChannel(liveNow: PublicLiveNow | null | undefined, channel: StationChannel): boolean {
+  if (!liveNow?.sessionId) return false;
+  return !liveNow.kind || liveNow.kind === channel;
+}
+
+/**
+ * Viewer cursor for an explicit after-live policy. Returns null once the resumed
+ * program would have finished, so the channel rejoins the clock deterministically.
+ */
+export function stationResumeCursor(
+  resume: PublicStationResume | null | undefined,
+  programming: StationProgramming,
+  at: Date | number,
+): StationPlaybackCursor | null {
+  if (!resume || resume.channel !== programming.channel) return null;
+  if (resume.policy === "SKIP_TO_CURRENT_SCHEDULE" || !resume.itemId) return null;
+  const item = stationProgramById(programming, resume.itemId);
+  if (!item) return null;
+  const elapsed = (at instanceof Date ? at.getTime() : at) - Date.parse(resume.resumedAt);
+  if (!Number.isFinite(elapsed) || elapsed < 0) return null;
+  const offsetMs = Math.max(0, resume.offsetMs) + elapsed;
+  const duration = itemDurationMs(item);
+  if (!Number.isFinite(duration) || offsetMs >= duration) return null;
+  return { itemId: item.id, offsetMs };
+}
+
 /**
  * One engine for TV and Radio. Live overrides the clock. Offline skips live and
  * remote-only items, then uses locally available scheduled/fallback programming.
@@ -460,6 +507,7 @@ export function resolveStationNow(input: {
   online?: boolean;
   locallyAvailableIds?: Iterable<string> | null;
   resumeCursor?: StationPlaybackCursor | null;
+  stationResume?: PublicStationResume | null;
 }): StationNow {
   const at = input.at instanceof Date ? input.at : new Date(input.at ?? Date.now());
   const online = input.online !== false;
@@ -468,18 +516,20 @@ export function resolveStationNow(input: {
   const fallback = input.programming.fallback;
   const local = localSet(input.locallyAvailableIds);
 
-  if (online && input.liveNow?.sessionId) {
+  if (online && input.liveNow && liveOverridesChannel(input.liveNow, channel)) {
     const item = liveItem(input.liveNow);
     const offsetMs = Math.max(0, at.getTime() - new Date(input.liveNow.startedAt).getTime());
     const scheduled = scheduledCover(schedule, at);
     return pack(channel, item, "live-override", offsetMs, scheduled?.block.item.id ?? fallback.items[0]?.id ?? null);
   }
 
-  const playable = (item: StationMediaItem) => (online ? item.kind !== "LIVE" || Boolean(input.liveNow) : itemPlayableOffline(item, local));
+  const playable = (item: StationMediaItem) => (online ? item.kind !== "LIVE" || liveOverridesChannel(input.liveNow, channel) : itemPlayableOffline(item, local));
 
-  if (input.resumeCursor) {
-    const fromSchedule = schedule.find((block) => block.item.id === input.resumeCursor!.itemId);
-    const fromFallback = fallback.items.find((item) => item.id === input.resumeCursor!.itemId);
+  const resumeCursor =
+    input.resumeCursor ?? (online ? stationResumeCursor(input.stationResume, input.programming, at) : null);
+  if (resumeCursor) {
+    const fromSchedule = schedule.find((block) => block.item.id === resumeCursor.itemId);
+    const fromFallback = fallback.items.find((item) => item.id === resumeCursor.itemId);
     const resumed = fromSchedule?.item ?? fromFallback ?? null;
     if (resumed && playable(resumed)) {
       const reason = fromSchedule
@@ -489,7 +539,7 @@ export function resolveStationNow(input: {
         : online
           ? "fallback-playlist"
           : "offline-fallback";
-      return pack(channel, resumed, reason, input.resumeCursor.offsetMs, nextInList(
+      return pack(channel, resumed, reason, resumeCursor.offsetMs, nextInList(
         fromSchedule ? schedule.map((block) => block.item) : fallback.items.filter(playable),
         resumed.id,
       ));
@@ -558,6 +608,7 @@ export function reconcileStationNow(input: {
   online?: boolean;
   locallyAvailableIds?: Iterable<string> | null;
   resumeCursor?: StationPlaybackCursor | null;
+  stationResume?: PublicStationResume | null;
 }): StationNow {
   const next = resolveStationNow({
     programming: input.programming,
@@ -566,6 +617,7 @@ export function reconcileStationNow(input: {
     online: input.online,
     locallyAvailableIds: input.locallyAvailableIds,
     resumeCursor: input.online === false ? input.resumeCursor : null,
+    stationResume: input.stationResume,
   });
   if (input.online !== false && sameStationProgram(input.previous, next) && input.previous) {
     return { ...next, offsetMs: input.previous.offsetMs };

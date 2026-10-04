@@ -4,6 +4,7 @@ import {
   radioShouldPlay,
   reconcileStationNow,
   stationProgramById,
+  stationResumeCursor,
   type PublicBrandExperience,
   type StationChannel,
   type StationNow,
@@ -139,6 +140,10 @@ export function StationSurface({
   }, [online, channel, experience.slug, liveProgramming]);
 
   const programming = !online && cached ? cached : liveProgramming;
+  const stationResume = useMemo(
+    () => experience.stationResume?.find((row) => row.channel === channel) ?? null,
+    [experience.stationResume, channel],
+  );
   const resolved: StationNow = useMemo(() => {
     const next = reconcileStationNow({
       previous: previousNowRef.current,
@@ -148,10 +153,11 @@ export function StationSurface({
       online,
       locallyAvailableIds: localIds,
       resumeCursor: online ? null : resume,
+      stationResume,
     });
     previousNowRef.current = next;
     return next;
-  }, [programming, experience.liveNow, now, online, localIds, resume]);
+  }, [programming, experience.liveNow, now, online, localIds, resume, stationResume]);
 
   useEffect(() => {
     if (!resolved.item || resolved.item.id === lastItemRef.current) return;
@@ -178,6 +184,10 @@ export function StationSurface({
   const liveVisual = item?.kind === "LIVE";
   const src = canPlayMedia && assetId ? mediaSrc(mediaBase, assetId) : "";
   const poster = assetId && item?.coverAvailable ? coverSrc(mediaBase, assetId) : null;
+  const afterLiveStartMs =
+    online && stationResume && item && stationResumeCursor(stationResume, programming, now)?.itemId === item.id
+      ? resolved.offsetMs
+      : undefined;
   const nextItem = stationProgramById(programming, resolved.nextItemId);
   const nowTitle = item?.title || "On air";
   const nextTitle = nextItem?.title || "Continues after this program";
@@ -218,6 +228,7 @@ export function StationSurface({
               active={playing}
               fillViewport
               maxPlays={1}
+              startAtMs={afterLiveStartMs}
               preload={playing || warm ? "auto" : "metadata"}
               onEnded={() => {
                 setResume(null);

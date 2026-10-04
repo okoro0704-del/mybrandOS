@@ -42,6 +42,38 @@ export function ProductionListPage() {
         <h1>Operate your Digital Life from one workstation</h1>
         <p>Devices are instruments. Assets are the work. The Production Session is the workspace.</p>
       </header>
+      <div className="production-cards" data-production-home="true">
+        <article className="production-card production-card--video">
+          <h2>Video Production Studio</h2>
+          <p>Edit recordings and camera captures, publish, or go live.</p>
+          <div className="production-card__actions">
+            <Link className="btn ghost" to="/create">Create</Link>
+            <Link className="btn ghost" to="/production/video">Edit</Link>
+            <Link className="btn" to="/production/video?panel=live">Go Live</Link>
+          </div>
+        </article>
+        <article className="production-card production-card--tv">
+          <h2>TV Production Studio</h2>
+          <p>Your channel’s programs, schedule and playlist. Live interrupts and the schedule resumes.</p>
+          <div className="production-card__actions">
+            <Link className="btn ghost" to="/production/tv?tab=programs">Programs</Link>
+            <Link className="btn ghost" to="/production/tv?tab=schedule">Schedule</Link>
+            <Link className="btn ghost" to="/production/tv?tab=programs">Playlist</Link>
+            <Link className="btn" to="/production/tv?tab=golive">Go Live</Link>
+          </div>
+        </article>
+        <article className="production-card production-card--radio">
+          <h2>Radio Production Studio</h2>
+          <p>Your station’s shows and schedule, with a live microphone console.</p>
+          <div className="production-card__actions">
+            <Link className="btn ghost" to="/production/radio?tab=programs">Programs</Link>
+            <Link className="btn ghost" to="/production/radio?tab=schedule">Schedule</Link>
+            <Link className="btn ghost" to="/production/radio?tab=programs">Playlist</Link>
+            <Link className="btn" to="/production/radio?tab=golive">Go Live</Link>
+          </div>
+        </article>
+      </div>
+      <h2 className="production-sessions-title">Multi-device Production Sessions</h2>
       {error ? <p className="placeholder-note">{error}</p> : null}
       <div className="actions" style={{ marginBottom: 16 }}>
         <button className="btn" onClick={() => void create()}>New Production Session</button>

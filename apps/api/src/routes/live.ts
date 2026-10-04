@@ -1,7 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
-import { PRESENTATION_PROFILE_IDS, PRESENTATION_TYPES, DISTRIBUTION_DESTINATIONS } from "@mybrandos/shared";
+import {
+  DISTRIBUTION_DESTINATIONS,
+  LIVE_SESSION_KINDS,
+  PRESENTATION_PROFILE_IDS,
+  PRESENTATION_TYPES,
+  STATION_RESUME_POLICIES,
+  STATION_SLOT_KINDS,
+} from "@mybrandos/shared";
 import { requireIdentity } from "../lib/auth.js";
 import {
   cancelLiveSession,
@@ -21,8 +28,102 @@ import {
   retryDestinationDistribution,
 } from "../live/distributions.js";
 import { addPresentationProfile, deriveReel, listHighlightCandidates, publishAsPost, requestAdaptation } from "../video/presentations.js";
+import {
+  cancelProductionLive,
+  endProductionLive,
+  heartbeatProductionLive,
+  prepareProductionLive,
+  productionLiveOverview,
+  saveStationSchedule,
+  startProductionLive,
+  stationStudioState,
+} from "../live/production-live.js";
+
+const stationChannelParam = z.object({ channel: z.enum(["tv", "radio"]) });
 
 export function registerLiveRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
+  app.get("/production/live", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    return productionLiveOverview(session.identity, primitives);
+  });
+
+  app.post("/production/live", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const body = z
+      .object({
+        kind: z.enum(LIVE_SESSION_KINDS),
+        title: z.string().max(200).optional(),
+        description: z.string().max(5000).optional(),
+        visibility: z.enum(["private", "unlisted", "public"]).optional(),
+        sourceAssetId: z.string().optional(),
+        resumePolicy: z.enum(STATION_RESUME_POLICIES).optional(),
+        destinations: z.array(z.string()).optional(),
+        source: z.enum(["camera", "screen", "asset"]).optional(),
+      })
+      .parse(req.body ?? {});
+    return reply.code(201).send(await prepareProductionLive(session.identity, primitives, body));
+  });
+
+  app.post("/production/live/:id/start", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    return startProductionLive(session.identity, (req.params as { id: string }).id, primitives);
+  });
+
+  app.post("/production/live/:id/heartbeat", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const body = z.object({ connection: z.enum(["CONNECTED", "RECONNECTING"]).optional() }).parse(req.body ?? {});
+    return heartbeatProductionLive(session.identity, (req.params as { id: string }).id, primitives, body);
+  });
+
+  app.post("/production/live/:id/end", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    return endProductionLive(session.identity, (req.params as { id: string }).id, primitives);
+  });
+
+  app.post("/production/live/:id/cancel", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    return cancelProductionLive(session.identity, (req.params as { id: string }).id);
+  });
+
+  app.get("/production/stations/:channel", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const { channel } = stationChannelParam.parse(req.params);
+    return stationStudioState(session.identity, channel === "tv" ? "TV" : "RADIO", primitives);
+  });
+
+  app.put("/production/stations/:channel/schedule", async (req, reply) => {
+    const session = await requireIdentity(req, reply, primitives);
+    if (!session) return;
+    const { channel } = stationChannelParam.parse(req.params);
+    const body = z
+      .object({
+        enabled: z.boolean().optional(),
+        schedule: z
+          .array(
+            z.object({
+              id: z.string().max(80).optional(),
+              title: z.string().max(200),
+              startMinute: z.number().int().min(0).max(1439),
+              durationMs: z.number().int().min(0).max(24 * 60 * 60 * 1000).optional(),
+              assetId: z.string().nullable().optional(),
+              kind: z.enum(STATION_SLOT_KINDS).optional(),
+              sponsored: z.boolean().optional(),
+            }),
+          )
+          .max(96),
+      })
+      .parse(req.body ?? {});
+    const programming = await saveStationSchedule(session.identity, channel === "tv" ? "TV" : "RADIO", body, primitives);
+    return { programming };
+  });
+
   app.get("/live/capability", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;

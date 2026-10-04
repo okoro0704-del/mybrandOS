@@ -41,10 +41,15 @@ export function ExperienceView({
   websitePageSlug?: string;
   primary?: string;
 }) {
-  const liveNow = usePublicLiveNow(experience.slug, experience.liveNow, !preview);
+  const [stationResume, setStationResume] = useState(experience.stationResume);
+  useEffect(() => setStationResume(experience.stationResume), [experience.stationResume]);
+  const liveNow = usePublicLiveNow(experience.slug, experience.liveNow, !preview, setStationResume);
   const liveExperience = useMemo(
-    () => (liveNow === experience.liveNow ? experience : { ...experience, liveNow }),
-    [experience, liveNow],
+    () =>
+      liveNow === experience.liveNow && stationResume === experience.stationResume
+        ? experience
+        : { ...experience, liveNow, stationResume },
+    [experience, liveNow, stationResume],
   );
   const appNav = liveExperience.appNavigation?.length ? liveExperience.appNavigation : liveExperience.navigation;
   const appBase = basePath;

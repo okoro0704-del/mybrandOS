@@ -18,6 +18,8 @@ export * from "./software.js";
 export * from "./collaboration.js";
 export * from "./presentation.js";
 export * from "./live.js";
+export * from "./live-production.js";
+export * from "./camera-studio.js";
 export * from "./intelligence.js";
 export * from "./primitives.js";
 export * from "./workstation.js";
