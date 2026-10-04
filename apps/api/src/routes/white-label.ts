@@ -49,7 +49,7 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
       false,
     );
     try {
-      const issued = await issueSession(identity, reply);
+      const issued = await issueSession(identity, reply, "white_label");
       await updateBrandConfig(
         identity,
         {

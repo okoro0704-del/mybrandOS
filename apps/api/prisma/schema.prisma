@@ -73,6 +73,8 @@ model Session {
   tokenHash String   @unique
   ownerId   String
   identity  String
+  /// How the session was issued: trustid | white_label | dev_bypass | dev_local | legacy (pre-method rows).
+  authMethod String  @default("legacy")
   expiresAt DateTime
   createdAt DateTime @default(now())
 

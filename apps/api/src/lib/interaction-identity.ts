@@ -45,7 +45,7 @@ export async function resolveInteractionIdentity(
   reply: FastifyReply,
   primitives: PrimitiveBindings,
 ): Promise<InteractionIdentity> {
-  const trust = await resolveRequestIdentity(req, primitives);
+  const trust = await resolveRequestIdentity(req, primitives, reply);
   if (trust?.ownerId) {
     const name =
       typeof trust.identity.displayName === "string" && trust.identity.displayName.trim()

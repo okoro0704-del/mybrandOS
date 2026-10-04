@@ -20,8 +20,13 @@ try {
   const publishIdem = await prisma.$queryRawUnsafe(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='DigiAiPublishIdempotency' LIMIT 1",
   );
+  const sessionCols = await prisma.$queryRawUnsafe("PRAGMA table_info(Session)");
+  const sessionNames = Array.isArray(sessionCols)
+    ? sessionCols.map((c) => String(c && typeof c === "object" && "name" in c ? c.name : ""))
+    : [];
   await prisma.$disconnect();
   if (!names.includes("presentationConfig")) process.exit(2);
+  if (!sessionNames.includes("authMethod")) process.exit(2);
   if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
   if (!Array.isArray(publishIdem) || publishIdem.length === 0) process.exit(2);
   process.exit(0);

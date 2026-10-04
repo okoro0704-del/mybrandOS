@@ -39,7 +39,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
       publicPath: brand?.slug ? digitalLifePath({ surface: "public_app", slug: brand.slug }) : null };
   });
   app.get("/auth/me", async (req, reply) => {
-    const session = await resolveRequestIdentity(req, primitives);
+    const session = await resolveRequestIdentity(req, primitives, reply);
     if (!session) {
       return reply.code(401).send({ error: "unauthorized" });
     }
@@ -76,7 +76,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
       },
       primitives.trustId.bound && !config.authBypass,
     );
-    const issued = await issueSession(identity, reply);
+    const issued = await issueSession(identity, reply, config.authBypass ? "dev_bypass" : "dev_local");
     return { token: issued.token, user: identity, authBypass: config.authBypass };
   });
 
@@ -131,7 +131,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
       return reply.code(401).send({ error: "userinfo_failed" });
     }
     const identity = toIdentity(proof, true);
-    const issued = await issueSession(identity, reply);
+    const issued = await issueSession(identity, reply, "trustid");
     return { token: issued.token, user: identity };
   });
 

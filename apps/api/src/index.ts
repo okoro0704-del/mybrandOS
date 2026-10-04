@@ -45,6 +45,7 @@ import {
 } from "./lib/s2s.js";
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
+import { purgeUnpermittedSessions } from "./lib/auth.js";
 
 console.log("mybrandos: boot", { node: process.version, cwd: process.cwd(), port: config.port });
 
@@ -215,6 +216,13 @@ const shutdown = async () => {
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+
+// Request-time validation is the enforcement point; this only removes rows it would reject.
+try {
+  app.log.info(await purgeUnpermittedSessions(primitives), "session purge");
+} catch (err) {
+  app.log.error({ err }, "session purge failed");
+}
 
 await app.listen({ port: config.port, host: config.host });
 

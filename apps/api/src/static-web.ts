@@ -44,7 +44,7 @@ export async function registerStaticWeb(app: FastifyInstance, publicOrigin: stri
     if (/^\/(api|auth|enter|internal|\.well-known)(\/|$)/.test(path)) return;
     const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0]!.trim();
     if (resolveDigitalLifeRequest(host, path).surface !== "workstation") return;
-    if (!(await resolveRequestIdentity(req, primitives))) {
+    if (!(await resolveRequestIdentity(req, primitives, reply))) {
       return reply.header("cache-control", "private, no-store").redirect(`/enter?returnTo=${encodeURIComponent(req.url)}`);
     }
     // Authorization is enforced before serving Studio HTML, as well as at every private API.

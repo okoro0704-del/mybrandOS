@@ -28,7 +28,7 @@ let postId = "";
 async function fixtureToken(trustId: string) {
   const reply = { setCookie: () => reply } as unknown as FastifyReply;
   const identity = toIdentity({ trustId, displayName: trustId, status: "local" }, false);
-  return (await issueSession(identity, reply)).token;
+  return (await issueSession(identity, reply, "dev_local")).token;
 }
 
 async function cleanup() {

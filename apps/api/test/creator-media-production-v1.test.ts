@@ -649,7 +649,7 @@ test("32 public consumption gains no management authority", async () => {
   const anonStation = await fastify.inject({ method: "PUT", url: "/production/stations/tv/schedule", payload: { schedule: [] } });
   assert.equal(anonStation.statusCode, 401);
 
-  const { token } = await issueSession(identity(OTHER), { setCookie() {} } as never);
+  const { token } = await issueSession(identity(OTHER), { setCookie() {} } as never, "dev_local");
   const foreign = await fastify.inject({
     method: "POST",
     url: `/production/live/${started.live.id}/end`,
