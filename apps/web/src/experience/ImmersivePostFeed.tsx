@@ -11,8 +11,9 @@ import {
 } from "react";
 import { ASSET_TYPE_LABELS, type PublicAssetCard, type PublicBrandExperience } from "@mybrandos/shared";
 import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
-import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { useExperienceMode } from "../digital-life/experience/ExperienceModeContext";
+import { PostInteractionDock } from "./PostInteractionDock";
+import { isInteractionOpen, togglePostInteraction, type PostInteraction } from "./postInteraction";
 import { FeedVisibilityContext } from "./FeedVisibilityContext";
 import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
@@ -54,9 +55,6 @@ import {
 } from "../lib/immersiveFeedController";
 
 export type ImmersiveFeedCategory = "posts" | "videos";
-
-/** APP posts show the latest comments inline; the full conversation opens in place. */
-export const APP_POST_COMMENT_PREVIEW = 2;
 
 function isPostLike(asset: PublicAssetCard): boolean {
   if (asset.presentationTypes.includes("POST")) return true;
@@ -193,9 +191,9 @@ function PostSlide({
   active,
   adjacent,
   topOpen,
-  commentMode,
+  interaction,
   onToggleTop,
-  onToggleComments,
+  onInteraction,
   onVideoEnded,
 }: {
   asset: PublicAssetCard;
@@ -205,15 +203,19 @@ function PostSlide({
   active: boolean;
   adjacent: boolean;
   topOpen: boolean;
-  commentMode: boolean;
+  interaction: PostInteraction;
   onToggleTop: () => void;
-  onToggleComments: () => void;
+  onInteraction: (requested: PostInteraction) => void;
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
   void basePath;
   void onToggleTop;
   const appPost = useExperienceMode() === "APP";
+  const commentMode = interaction === "COMMENTS";
+  const interactionOpen = isInteractionOpen(interaction);
+  const onToggleComments = useCallback(() => onInteraction("COMMENTS"), [onInteraction]);
+  const [frozenHeight, setFrozenHeight] = useState<number | null>(null);
   const view = galleryViewState(topOpen, commentMode);
   const content = galleryContentState(asset, experience.liveNow);
   const author = experience.identity.displayName || experience.slug;
@@ -277,6 +279,17 @@ function PostSlide({
     window.addEventListener("orientationchange", freeze);
     return () => window.removeEventListener("orientationchange", freeze);
   }, []);
+
+  // Pin the slide at its current pixel height while a layer is open, so a browser that resizes
+  // the layout viewport for the keyboard cannot shrink the media underneath.
+  useLayoutEffect(() => {
+    if (!appPost || !interactionOpen) {
+      setFrozenHeight(null);
+      return;
+    }
+    const height = slideRef.current?.getBoundingClientRect().height ?? 0;
+    if (height > 0) setFrozenHeight(height);
+  }, [appPost, interactionOpen]);
 
   useEffect(() => {
     if (!commentMode) {
@@ -389,6 +402,9 @@ function PostSlide({
       onClick={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
     >
+      {appPost && social.comments.length === 0 && !social.loading && !social.error ? (
+        <p className="living-gallery__status living-gallery__empty">No comments yet. Be the first.</p>
+      ) : null}
       {social.comments.length > 0 || social.loading || social.error ? (
         <div className="living-gallery__conversation">
           {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
@@ -560,8 +576,10 @@ function PostSlide({
       data-top-open={topOpen ? "true" : "false"}
       data-view-state={view}
       data-content-state={content}
+      data-interaction={interaction}
       data-ui-mode={view === "IMMERSIVE" ? "pure" : "interaction"}
       aria-hidden={!active}
+      style={frozenHeight ? { height: frozenHeight, minHeight: frozenHeight, maxHeight: frozenHeight } : undefined}
     >
       <div
         ref={contextRef}
@@ -598,6 +616,21 @@ function PostSlide({
           onExpire={(id) => setOutcomes((prev) => prev.filter((item) => item.id !== id))}
         />
 
+        {appPost && interactionOpen ? (
+          <button
+            type="button"
+            className="post-overlay-scrim"
+            aria-label="Close and return to the post"
+            data-scroll-chrome="ignore"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onInteraction("NONE");
+            }}
+          />
+        ) : null}
+
         {appPost ? null : commentsLayer}
 
         {appPost ? null : commentMode ? (
@@ -617,78 +650,23 @@ function PostSlide({
       </div>
 
       {appPost ? (
-        <section
-          className="app-post__panel"
-          data-post-bound="true"
-          data-post-panel="true"
-          data-scroll-chrome="ignore"
-          aria-label={humanTitle ? `${author}: ${humanTitle}` : `Post by ${author}`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-        >
-          <header className="app-post__identity living-gallery__brands" data-count="1">
-            {avatarUrl ? (
-              <img className="app-post__avatar" src={avatarUrl} alt="" />
-            ) : (
-              <span className="app-post__avatar app-post__avatar--mark" aria-hidden>
-                {author.slice(0, 1)}
-              </span>
-            )}
-            <strong className="app-post__brand">{author}</strong>
-          </header>
-          {commentMode ? null : (
-            <PostDetails
-              title={humanTitle}
-              body={writing ? "" : body}
-              publishedAt={asset.publishedAt}
-              kind={kindLabel}
-            />
-          )}
-          <div
-            ref={railRef}
-            className="living-gallery__rail living-gallery__bottom-bar app-post__actions"
-            data-section-bar="bottom"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="living-gallery__section-bar">{actionBar}</div>
-          </div>
-          {commentMode ? (
-            commentsLayer
-          ) : (
-            <div className="app-post__comments" id={commentsId} data-comments-open="false" data-scroll-chrome="ignore">
-              {social.error ? (
-                <p className="living-gallery__status living-gallery__status--error" role="alert">
-                  Comments could not be loaded.{" "}
-                  <button type="button" className="living-comment__reply" onClick={social.retry}>
-                    Retry
-                  </button>
-                </p>
-              ) : social.loading && social.comments.length === 0 ? (
-                <p className="living-gallery__status">Loading comments…</p>
-              ) : (
-                <>
-                  {social.comments.slice(-APP_POST_COMMENT_PREVIEW).map((comment) => (
-                    <CommentRow
-                      key={comment.id}
-                      comment={comment}
-                      onReply={(name) => {
-                        social.startReply(name);
-                        onToggleComments();
-                      }}
-                    />
-                  ))}
-                  <button type="button" className="app-post__comments-open" onClick={onToggleComments}>
-                    {social.comments.length > APP_POST_COMMENT_PREVIEW
-                      ? `View all ${social.comments.length} comments`
-                      : social.comments.length > 0
-                        ? "Add a comment"
-                        : "Write the first comment"}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </section>
+        <PostInteractionDock
+          asset={asset}
+          slug={experience.slug}
+          mediaBase={mediaBase}
+          author={author}
+          avatarUrl={avatarUrl}
+          title={humanTitle}
+          body={writing ? "" : body}
+          publishedAt={asset.publishedAt}
+          kind={kindLabel}
+          interaction={interaction}
+          onInteraction={onInteraction}
+          commentCount={commentCount}
+          comments={commentsLayer}
+          keyboardOpen={keyboardOpen || (commentMode && inputMode === "system" && vvBottom > 0)}
+          onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
+        />
       ) : null}
     </li>
   );
@@ -739,9 +717,11 @@ export function ImmersivePostFeed({
   const activeIndexRef = useRef(activeIndex);
   activeIndexRef.current = activeIndex;
   const didInitScroll = useRef(false);
-  const [commentMode, setCommentMode] = useState(false);
-  const commentModeRef = useRef(false);
-  commentModeRef.current = commentMode;
+  const [interaction, setInteraction] = useState<PostInteraction>("NONE");
+  const commentMode = interaction === "COMMENTS";
+  const interactionOpen = isInteractionOpen(interaction);
+  const interactionOpenRef = useRef(false);
+  interactionOpenRef.current = interactionOpen;
   const [topOpen, setTopOpen] = useState(false);
   const topOpenRef = useRef(false);
   topOpenRef.current = topOpen;
@@ -781,7 +761,7 @@ export function ImmersivePostFeed({
   const suspendGate = useCallback(
     () =>
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: commentModeRef.current,
+        commentsOpen: interactionOpenRef.current,
         topOpen: topOpenRef.current || detailsOpenRef.current,
         dragging: draggingRef.current,
         documentHidden:
@@ -802,7 +782,7 @@ export function ImmersivePostFeed({
       holdRemainingRef.current = GALLERY_END_HOLD_MS;
       photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
       advanceGenRef.current += 1;
-      setCommentMode(false);
+      setInteraction("NONE");
       setTopOpen(false);
       setActiveIndex(next);
       snapToIndex(next);
@@ -824,8 +804,39 @@ export function ImmersivePostFeed({
     }, Math.max(0, holdRemainingRef.current));
   }, [advanceToNextPublication, clearHoldTimer, suspendGate]);
 
-  const toggleComments = useCallback(() => {
-    setCommentMode((open) => !open);
+  const requestInteraction = useCallback((requested: PostInteraction) => {
+    setInteraction((current) => togglePostInteraction(current, requested));
+  }, []);
+
+  // Back closes an open layer instead of leaving the feed: one history entry per open session.
+  const historyEntryRef = useRef(false);
+  const ignoredPopsRef = useRef(0);
+  useEffect(() => {
+    if (interactionOpen) {
+      if (historyEntryRef.current) return;
+      historyEntryRef.current = true;
+      window.history.pushState({ ...(window.history.state ?? {}), postInteraction: true }, "");
+      return;
+    }
+    if (!historyEntryRef.current) return;
+    historyEntryRef.current = false;
+    if (window.history.state?.postInteraction) {
+      ignoredPopsRef.current += 1;
+      window.history.back();
+    }
+  }, [interactionOpen]);
+  useEffect(() => {
+    const onPop = () => {
+      if (ignoredPopsRef.current > 0) {
+        ignoredPopsRef.current -= 1;
+        return;
+      }
+      if (!historyEntryRef.current) return;
+      historyEntryRef.current = false;
+      setInteraction("NONE");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const toggleTop = useCallback(() => {
@@ -849,7 +860,7 @@ export function ImmersivePostFeed({
         dir === "next"
           ? nextFeedIndex(activeIndexRef.current, items.length)
           : previousFeedIndex(activeIndexRef.current, items.length);
-      setCommentMode(false);
+      setInteraction("NONE");
       setTopOpen(false);
       setActiveIndex(next);
       snapToIndex(next);
@@ -883,14 +894,14 @@ export function ImmersivePostFeed({
 
   useEffect(() => {
     const root = listRef.current;
-    if (!root || !shouldLockFeedSwipe(commentMode ? "comments" : "feed")) return;
+    if (!root || !shouldLockFeedSwipe(interactionOpen ? "comments" : "feed")) return;
     const locked = root.scrollTop;
     const keep = () => {
       if (root.scrollTop !== locked) root.scrollTop = locked;
     };
     root.addEventListener("scroll", keep);
     return () => root.removeEventListener("scroll", keep);
-  }, [commentMode]);
+  }, [interactionOpen]);
 
   useEffect(() => {
     photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
@@ -903,7 +914,7 @@ export function ImmersivePostFeed({
     if (!pendingEndedRef.current) return;
     if (
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: commentMode,
+        commentsOpen: interactionOpen,
         topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
         documentHidden: documentHidden || space.ui === "INTERACTION",
@@ -916,7 +927,7 @@ export function ImmersivePostFeed({
       return;
     }
     scheduleEndHold();
-  }, [commentMode, topOpen, documentHidden, interactionNonce, space.ui, scheduleEndHold, clearHoldTimer]);
+  }, [interactionOpen, topOpen, documentHidden, interactionNonce, space.ui, scheduleEndHold, clearHoldTimer]);
 
   useEffect(() => {
     const asset = items[activeIndex];
@@ -925,7 +936,7 @@ export function ImmersivePostFeed({
     if (!galleryUsesPhotoDwell(state)) return;
     if (
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: commentMode,
+        commentsOpen: interactionOpen,
         topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
         documentHidden: documentHidden || space.ui === "INTERACTION",
@@ -941,7 +952,7 @@ export function ImmersivePostFeed({
       window.clearTimeout(t);
       photoRemainingRef.current = Math.max(0, photoRemainingRef.current - (Date.now() - started));
     };
-  }, [activeIndex, commentMode, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.ui, advanceToNextPublication]);
+  }, [activeIndex, interactionOpen, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.ui, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;
@@ -962,7 +973,7 @@ export function ImmersivePostFeed({
           advanceGenRef.current += 1;
           pendingEndedRef.current = false;
           setActiveIndex(next);
-          setCommentMode(false);
+          setInteraction("NONE");
           setTopOpen(false);
         }
       });
@@ -985,7 +996,7 @@ export function ImmersivePostFeed({
         root.matches(":focus-within");
       if (!focusOk) return;
       if (e.key === "Escape") {
-        if (commentModeRef.current) setCommentMode(false);
+        if (interactionOpenRef.current) setInteraction("NONE");
         else if (topOpenRef.current) setTopOpen(false);
         (document.activeElement as HTMLElement | null)?.blur?.();
         return;
@@ -995,7 +1006,7 @@ export function ImmersivePostFeed({
         advanceGenRef.current += 1;
         pendingEndedRef.current = false;
         const next = nextFeedIndex(activeIndexRef.current, items.length);
-        setCommentMode(false);
+        setInteraction("NONE");
         setTopOpen(false);
         setActiveIndex(next);
         snapToIndex(next);
@@ -1004,7 +1015,7 @@ export function ImmersivePostFeed({
         advanceGenRef.current += 1;
         pendingEndedRef.current = false;
         const prev = previousFeedIndex(activeIndexRef.current, items.length);
-        setCommentMode(false);
+        setInteraction("NONE");
         setTopOpen(false);
         setActiveIndex(prev);
         snapToIndex(prev);
@@ -1069,9 +1080,9 @@ export function ImmersivePostFeed({
             active={active && galleryLive}
             adjacent={Math.abs(index - activeIndex) === 1}
             topOpen={topOpen && active}
-            commentMode={commentMode && active}
+            interaction={active ? interaction : "NONE"}
             onToggleTop={toggleTop}
-            onToggleComments={toggleComments}
+            onInteraction={requestInteraction}
             onPublicationHandoff={handoffPublication}
             onVideoEnded={onVideoEnded}
           />

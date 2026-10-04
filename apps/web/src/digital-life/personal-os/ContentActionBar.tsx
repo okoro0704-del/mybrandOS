@@ -24,33 +24,19 @@ type SocialState = {
   comments: PublicComment[];
 };
 
-export function ContentActionBar({
+/** Love / save / download / share / reuse for one publication — shared by every action surface. */
+export function usePublicationActions({
   asset,
   slug,
   mediaBase,
   creatorLabel,
-  onComment,
-  commentCount,
-  commentsOpen: commentsOpenProp,
-  onDetails,
-  detailsOpen = false,
   onOutcome,
-  hideComposer = false,
-  variant = "default",
 }: {
   asset: PublicAssetCard;
   slug: string;
   mediaBase: string;
   creatorLabel?: string;
-  /** When set, Comment opens the shared conversation layer instead of a second UI. */
-  onComment?: () => void;
-  commentCount?: number;
-  commentsOpen?: boolean;
-  onDetails?: () => void;
-  detailsOpen?: boolean;
   onOutcome?: (outcome: MediaOutcome) => void;
-  hideComposer?: boolean;
-  variant?: "default" | "compact" | "gallery" | "interaction";
 }) {
   const [social, setSocial] = useState<SocialState>({
     loves: asset.engagement?.loves ?? 0,
@@ -63,9 +49,6 @@ export function ContentActionBar({
   const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState("");
   const [busyLove, setBusyLove] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const longPressTimer = useRef<number | null>(null);
-  const longPressFired = useRef(false);
   const mediaUrl = asset.mediaAvailable ? `${mediaBase}/assets/${asset.id}/media` : null;
   const coverUrl = asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null;
 
@@ -180,6 +163,117 @@ export function ContentActionBar({
     }
   }
 
+  function shareUrl() {
+    return window.location.origin + window.location.pathname.replace(/\/$/, "") + `/a/${asset.id}`;
+  }
+
+  async function onShare() {
+    if (social.allowSharing === false) {
+      flash("Sharing is disabled for this publication.");
+      return;
+    }
+    const url = shareUrl();
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: asset.title, text: creatorLabel, url });
+      } else {
+        await navigator.clipboard?.writeText(url);
+        flash("Link copied");
+      }
+    } catch {
+      try {
+        await navigator.clipboard?.writeText(url);
+        flash("Link copied");
+      } catch {
+        flash("Could not share.");
+      }
+    }
+  }
+
+  async function copyLink() {
+    if (social.allowSharing === false) {
+      flash("Sharing is disabled for this publication.");
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(shareUrl());
+      flash("Link copied");
+    } catch {
+      flash("Could not copy the link.");
+    }
+  }
+
+  async function onReuse() {
+    if (!getToken()) {
+      flash("Only creators can reuse");
+      return;
+    }
+    try {
+      const studio = await api<{ slug: string | null }>("/auth/studio");
+      if (!studio.slug) {
+        flash("Only creators can reuse");
+        return;
+      }
+    } catch {
+      flash("Only creators can reuse");
+      return;
+    }
+    if (!social.allowReuse) {
+      flash("Only creators can reuse");
+      return;
+    }
+    window.location.href = studioPath("/create", window.location.hostname);
+  }
+
+  return {
+    social,
+    saved,
+    toast,
+    busyLove,
+    canNativeShare: typeof navigator !== "undefined" && typeof navigator.share === "function",
+    toggleLove,
+    toggleSaveOffline,
+    downloadToDevice,
+    onShare,
+    copyLink,
+    onReuse,
+  };
+}
+
+export function ContentActionBar({
+  asset,
+  slug,
+  mediaBase,
+  creatorLabel,
+  onComment,
+  commentCount,
+  commentsOpen: commentsOpenProp,
+  onDetails,
+  detailsOpen = false,
+  onOutcome,
+  hideComposer = false,
+  variant = "default",
+}: {
+  asset: PublicAssetCard;
+  slug: string;
+  mediaBase: string;
+  creatorLabel?: string;
+  /** When set, Comment opens the shared conversation layer instead of a second UI. */
+  onComment?: () => void;
+  commentCount?: number;
+  commentsOpen?: boolean;
+  onDetails?: () => void;
+  detailsOpen?: boolean;
+  onOutcome?: (outcome: MediaOutcome) => void;
+  hideComposer?: boolean;
+  variant?: "default" | "compact" | "gallery" | "interaction";
+}) {
+  const { social, saved, toast, toggleLove, toggleSaveOffline, downloadToDevice, onShare, onReuse } =
+    usePublicationActions({ asset, slug, mediaBase, creatorLabel, onOutcome });
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
+
   function clearLongPress() {
     if (longPressTimer.current) {
       window.clearTimeout(longPressTimer.current);
@@ -208,51 +302,6 @@ export function ContentActionBar({
 
   function onSaveContextMenu(e: MouseEvent) {
     e.preventDefault();
-  }
-
-  async function onShare() {
-    if (social.allowSharing === false) {
-      flash("Sharing is disabled for this publication.");
-      return;
-    }
-    const url = window.location.origin + window.location.pathname.replace(/\/$/, "") + `/a/${asset.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: asset.title, text: creatorLabel, url });
-      } else {
-        await navigator.clipboard?.writeText(url);
-        flash("Link copied");
-      }
-    } catch {
-      try {
-        await navigator.clipboard?.writeText(url);
-        flash("Link copied");
-      } catch {
-        flash("Could not share.");
-      }
-    }
-  }
-
-  async function onReuse() {
-    if (!getToken()) {
-      flash("Only creators can reuse");
-      return;
-    }
-    try {
-      const studio = await api<{ slug: string | null }>("/auth/studio");
-      if (!studio.slug) {
-        flash("Only creators can reuse");
-        return;
-      }
-    } catch {
-      flash("Only creators can reuse");
-      return;
-    }
-    if (!social.allowReuse) {
-      flash("Only creators can reuse");
-      return;
-    }
-    window.location.href = studioPath("/create", window.location.hostname);
   }
 
   const commentsTotal = commentCount ?? social.comments.length;
@@ -422,7 +471,7 @@ export function ContentActionBar({
   );
 }
 
-function ActionBtn({
+export function ActionBtn({
   label,
   icon,
   count,

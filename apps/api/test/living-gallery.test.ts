@@ -283,7 +283,7 @@ test("comments toggle over video; action hood stays five actions; comments stay 
   const media = readFileSync(join(root, "apps/api/src/services/brand-service.ts"), "utf8");
   assert.match(feed, /commentsOpen=\{commentMode\}/);
   assert.match(feed, /onComment=\{onToggleComments\}/);
-  assert.match(feed, /setCommentMode\(\(open\) => !open\)/);
+  assert.match(feed, /setInteraction\(\(current\) => togglePostInteraction\(current, requested\)\)/);
   assert.equal(feed.includes("<LiveControl"), false);
   assert.match(feed, /living-gallery__bottom-bar/);
   assert.match(feed, /data-section-bar="bottom"/);
