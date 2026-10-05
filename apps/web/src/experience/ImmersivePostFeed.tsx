@@ -9,11 +9,15 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { ASSET_TYPE_LABELS, type PublicAssetCard, type PublicBrandExperience } from "@mybrandos/shared";
-import { ContentActionBar } from "../digital-life/personal-os/ContentActionBar";
+import { ContentActionBar, prefetchPublicationSocial } from "../digital-life/personal-os/ContentActionBar";
+import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { useExperienceMode } from "../digital-life/experience/ExperienceModeContext";
-import { PostInteractionDock } from "./PostInteractionDock";
+import { usePostNavigation } from "../digital-life/navigation/PostNavigationContext";
+import { InteractionOverlay } from "./InteractionOverlay";
 import { isInteractionOpen, togglePostInteraction, type PostInteraction } from "./postInteraction";
+import { isAlignedToSlide, isPostNavigating, reduceSwipePhase, type SwipeEvent, type SwipePhase } from "./postSwipe";
 import { FeedVisibilityContext } from "./FeedVisibilityContext";
 import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
@@ -192,8 +196,11 @@ function PostSlide({
   adjacent,
   topOpen,
   interaction,
+  commentsHost,
   onToggleTop,
   onInteraction,
+  onCommentCount,
+  onKeyboardOpenChange,
   onVideoEnded,
 }: {
   asset: PublicAssetCard;
@@ -204,8 +211,12 @@ function PostSlide({
   adjacent: boolean;
   topOpen: boolean;
   interaction: PostInteraction;
+  /** APP: the interaction overlay's comments panel; the active slide portals its comments here. */
+  commentsHost?: HTMLElement | null;
   onToggleTop: () => void;
   onInteraction: (requested: PostInteraction) => void;
+  onCommentCount?: (assetId: string, count: number) => void;
+  onKeyboardOpenChange?: (open: boolean) => void;
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
@@ -241,9 +252,17 @@ function PostSlide({
   const [inputMode, setInputMode] = useState<CommentComposerInputMode>("internal");
   const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
 
+  const assetId = asset.id;
+  const reportCommentCount = useCallback(
+    (count: number) => {
+      setCommentCount(count);
+      onCommentCount?.(assetId, count);
+    },
+    [assetId, onCommentCount],
+  );
   const social = usePublicationComments(experience.slug, asset.id, {
     enabled: active || (appPost && adjacent),
-    onCountChange: setCommentCount,
+    onCountChange: reportCommentCount,
   });
 
   const layout = useMemo(
@@ -385,8 +404,12 @@ function PostSlide({
   const presentation = videoPresentation(asset);
   const humanTitle = humanPublicationTitle(asset.title, asset.id);
   const keyboardOpen = isCommentKeyboardOpen(keyboard) && inputMode === "internal";
-  const avatarUrl = experience.identity.hasAvatar ? `${mediaBase}/media/avatar` : null;
+  const overlayKeyboardOpen = keyboardOpen || (commentMode && inputMode === "system" && vvBottom > 0);
   const kindLabel = ASSET_TYPE_LABELS[asset.assetType] || asset.assetType;
+
+  useEffect(() => {
+    if (appPost && active) onKeyboardOpenChange?.(overlayKeyboardOpen);
+  }, [appPost, active, overlayKeyboardOpen, onKeyboardOpenChange]);
 
   const commentsLayer = commentMode ? (
     <div
@@ -631,7 +654,7 @@ function PostSlide({
           />
         ) : null}
 
-        {appPost ? null : commentsLayer}
+        {appPost ? (commentsLayer && commentsHost ? createPortal(commentsLayer, commentsHost) : null) : commentsLayer}
 
         {appPost ? null : commentMode ? (
         <div
@@ -650,23 +673,15 @@ function PostSlide({
       </div>
 
       {appPost ? (
-        <PostInteractionDock
-          asset={asset}
-          slug={experience.slug}
-          mediaBase={mediaBase}
-          author={author}
-          avatarUrl={avatarUrl}
-          title={humanTitle}
-          body={writing ? "" : body}
-          publishedAt={asset.publishedAt}
-          kind={kindLabel}
-          interaction={interaction}
-          onInteraction={onInteraction}
-          commentCount={commentCount}
-          comments={commentsLayer}
-          keyboardOpen={keyboardOpen || (commentMode && inputMode === "system" && vvBottom > 0)}
-          onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
-        />
+        <header className="post-slide__details" data-post-details={asset.id}>
+          <PostDetails
+            title={humanTitle}
+            body={writing ? "" : body}
+            publishedAt={asset.publishedAt}
+            kind={kindLabel}
+            lines={2}
+          />
+        </header>
       ) : null}
     </li>
   );
@@ -734,6 +749,18 @@ export function ImmersivePostFeed({
   const holdTimerRef = useRef(0);
   const [documentHidden, setDocumentHidden] = useState(false);
   const [interactionNonce, setInteractionNonce] = useState(0);
+  const appPost = useExperienceMode() === "APP";
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [swipePhase, setSwipePhase] = useState<SwipePhase>("RESTING");
+  const swipePhaseRef = useRef<SwipePhase>("RESTING");
+  const [settledIndex, setSettledIndex] = useState(initialIndex);
+  const [commentsHost, setCommentsHost] = useState<HTMLElement | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [overlayKeyboardOpen, setOverlayKeyboardOpen] = useState(false);
+  const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
+  const itemsLengthRef = useRef(items.length);
+  itemsLengthRef.current = items.length;
+  const { setPostNavigating } = usePostNavigation();
 
   const activeAssetId = items[activeIndex]?.id ?? null;
   const setHomeAsset = home.setAsset;
@@ -985,13 +1012,111 @@ export function ImmersivePostFeed({
     };
   }, [items.length]);
 
+  // SETTLING → RESTING: resolve the post the scroller actually came to rest on and bind to it.
+  const settleOnRestingSlide = useCallback(() => {
+    const root = listRef.current;
+    if (!root) return;
+    const index = activeIndexFromScroll(
+      root.scrollTop,
+      root.clientHeight || 1,
+      itemsLengthRef.current,
+      activeIndexRef.current,
+    );
+    if (index !== activeIndexRef.current) {
+      advanceGenRef.current += 1;
+      pendingEndedRef.current = false;
+      activeIndexRef.current = index;
+      setActiveIndex(index);
+      setInteraction("NONE");
+      setTopOpen(false);
+    }
+    setSettledIndex(index);
+  }, []);
+
+  const dispatchSwipe = useCallback(
+    (event: SwipeEvent) => {
+      const next = reduceSwipePhase(swipePhaseRef.current, event);
+      if (next === swipePhaseRef.current) return;
+      swipePhaseRef.current = next;
+      setSwipePhase(next);
+      if (next === "RESTING") settleOnRestingSlide();
+    },
+    [settleOnRestingSlide],
+  );
+
+  useEffect(() => {
+    const root = listRef.current;
+    if (!root) return;
+    const aligned = () => isAlignedToSlide(root.scrollTop, root.clientHeight);
+    const onTouchStart = () => dispatchSwipe({ type: "POINTER_DOWN" });
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) dispatchSwipe({ type: "POINTER_UP", aligned: aligned() });
+    };
+    // Touch input is tracked with touch events: pointer events are cancelled once native scrolling starts.
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") dispatchSwipe({ type: "POINTER_DOWN" });
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") dispatchSwipe({ type: "POINTER_UP", aligned: aligned() });
+    };
+    const onScroll = () => dispatchSwipe({ type: "SCROLL", aligned: aligned() });
+    const onScrollEnd = () => dispatchSwipe({ type: "SCROLL_END" });
+    root.addEventListener("touchstart", onTouchStart, { passive: true });
+    root.addEventListener("touchend", onTouchEnd, { passive: true });
+    root.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    root.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    root.addEventListener("scroll", onScroll, { passive: true });
+    root.addEventListener("scrollend", onScrollEnd);
+    return () => {
+      root.removeEventListener("touchstart", onTouchStart);
+      root.removeEventListener("touchend", onTouchEnd);
+      root.removeEventListener("touchcancel", onTouchEnd);
+      root.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      root.removeEventListener("scroll", onScroll);
+      root.removeEventListener("scrollend", onScrollEnd);
+    };
+  }, [dispatchSwipe, items.length]);
+
+  // Instant (reduced-motion) jumps never leave RESTING: bind once the scroller sits on the active slide.
+  useEffect(() => {
+    if (swipePhase !== "RESTING") return;
+    const root = listRef.current;
+    if (!root) {
+      setSettledIndex(activeIndex);
+      return;
+    }
+    const index = activeIndexFromScroll(root.scrollTop, root.clientHeight || 1, items.length, activeIndex);
+    if (index === activeIndex) setSettledIndex(activeIndex);
+  }, [swipePhase, activeIndex, items.length]);
+
+  useEffect(() => {
+    setPostNavigating(appPost && isPostNavigating(swipePhase));
+  }, [appPost, swipePhase, setPostNavigating]);
+  useEffect(() => () => setPostNavigating(false), [setPostNavigating]);
+
+  useEffect(() => {
+    if (!appPost) return;
+    for (const index of [activeIndex - 1, activeIndex, activeIndex + 1]) {
+      const asset = items[index];
+      if (asset) prefetchPublicationSocial(experience.slug, asset);
+    }
+  }, [appPost, activeIndex, items, experience.slug]);
+
+  const onCommentCount = useCallback((assetId: string, count: number) => {
+    setCommentCounts((prev) => (prev[assetId] === count ? prev : { ...prev, [assetId]: count }));
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isEditableKeyboardTarget(e.target)) return;
       const root = listRef.current;
       if (!root) return;
       const focusOk =
-        root.contains(document.activeElement) ||
+        (viewportRef.current ?? root).contains(document.activeElement) ||
         document.activeElement === document.body ||
         root.matches(":focus-within");
       if (!focusOk) return;
@@ -1033,7 +1158,7 @@ export function ImmersivePostFeed({
     );
   }
 
-  return (
+  const feed = (
     <ul
       ref={listRef}
       className={`immersive-feed immersive-feed--${category ?? "post"}${commentMode ? " is-comment-mode" : ""}`}
@@ -1042,6 +1167,8 @@ export function ImmersivePostFeed({
       data-active-asset-id={activeAssetId ?? undefined}
       data-active-index={String(activeIndex)}
       data-view-state={galleryViewState(topOpen, commentMode)}
+      data-swipe-phase={swipePhase}
+      data-scroll-chrome={appPost ? "ignore" : undefined}
       data-auto-advance-owner="gallery"
       onPointerDown={() => {
         draggingRef.current = true;
@@ -1081,14 +1208,59 @@ export function ImmersivePostFeed({
             adjacent={Math.abs(index - activeIndex) === 1}
             topOpen={topOpen && active}
             interaction={active ? interaction : "NONE"}
+            commentsHost={active ? commentsHost : null}
             onToggleTop={toggleTop}
             onInteraction={requestInteraction}
+            onCommentCount={onCommentCount}
+            onKeyboardOpenChange={setOverlayKeyboardOpen}
             onPublicationHandoff={handoffPublication}
             onVideoEnded={onVideoEnded}
           />
         );
       })}
     </ul>
+  );
+
+  if (!appPost) return feed;
+
+  const settledAsset = items[settledIndex] ?? items[activeIndex];
+  const author = experience.identity.displayName || experience.slug;
+  const settledBody =
+    (typeof settledAsset.presentation?.body === "string" && settledAsset.presentation.body) ||
+    settledAsset.description ||
+    "";
+
+  return (
+    <div
+      ref={viewportRef}
+      className="post-viewport"
+      data-post-viewport="true"
+      data-swipe-phase={swipePhase}
+      data-settled-asset-id={settledAsset.id}
+    >
+      {feed}
+      <MediaOutcomeLayer
+        particles={outcomes}
+        onExpire={(id) => setOutcomes((prev) => prev.filter((item) => item.id !== id))}
+      />
+      <InteractionOverlay
+        key={settledAsset.id}
+        asset={settledAsset}
+        slug={experience.slug}
+        mediaBase={mediaBase}
+        author={author}
+        title={humanPublicationTitle(settledAsset.title, settledAsset.id)}
+        body={isWritingSlide(settledAsset) ? "" : settledBody}
+        publishedAt={settledAsset.publishedAt}
+        kind={ASSET_TYPE_LABELS[settledAsset.assetType] || settledAsset.assetType}
+        interaction={interaction}
+        onInteraction={requestInteraction}
+        commentCount={commentCounts[settledAsset.id]}
+        onCommentsHost={setCommentsHost}
+        keyboardOpen={overlayKeyboardOpen}
+        onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
+      />
+    </div>
   );
 }
 

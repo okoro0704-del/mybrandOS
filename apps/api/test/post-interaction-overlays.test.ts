@@ -20,7 +20,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 const feed = read("apps/web/src/experience/ImmersivePostFeed.tsx");
-const dock = read("apps/web/src/experience/PostInteractionDock.tsx");
+const dock = read("apps/web/src/experience/InteractionOverlay.tsx");
 const actions = read("apps/web/src/digital-life/personal-os/ContentActionBar.tsx");
 const styles = read("apps/web/src/styles.css");
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
@@ -94,8 +94,8 @@ test("swipe-down dismiss threshold", () => {
 
 test("APP posts render no interaction content in document flow", () => {
   assert.doesNotMatch(feed, /app-post__panel|APP_POST_COMMENT_PREVIEW|app-post__comments/);
-  assert.match(feed, /\{appPost \? null : commentsLayer\}/);
-  assert.match(feed, /<PostInteractionDock[\s\S]*interaction=\{interaction\}[\s\S]*onInteraction=\{onInteraction\}/);
+  assert.match(feed, /\{appPost \? \(commentsLayer && commentsHost \? createPortal\(commentsLayer, commentsHost\) : null\) : commentsLayer\}/);
+  assert.match(feed, /<InteractionOverlay[\s\S]*interaction=\{interaction\}[\s\S]*onInteraction=\{requestInteraction\}/);
   assert.match(dock, /\{panelTitle \? \(\s*<section[\s\S]*className="post-overlay"/);
   assert.doesNotMatch(appBlock, /\.app-post__panel/);
 });
@@ -104,8 +104,9 @@ test("the media subtree never depends on the active interaction (no remount, no 
   const media = feed.slice(feed.indexOf('className="living-gallery__media immersive-feed__media"'), feed.indexOf("<MediaOutcomeLayer"));
   assert.doesNotMatch(media, /interaction|commentMode|keyboard/);
   assert.match(feed, /<PersistentGalleryVideo/);
-  const slide = rule('.personal-os[data-experience-mode="APP"] .immersive-feed__slide.living-gallery');
+  const slide = rule('.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__slide.living-gallery');
   assert.doesNotMatch(slide, /transition/);
+  assert.match(slide, /padding: 0;/);
   assert.doesNotMatch(appBlock, /\[data-app-nav="hidden"\][^{]*\.immersive-feed__slide[^{]*\{[^}]*padding/);
   assert.match(feed, /Pin the slide at its current pixel height while a layer is open/);
 });
@@ -121,9 +122,14 @@ test("overlay geometry: anchored above the dock, capped, scrolls internally, tra
   assert.match(overlay, /transform: translateY\(calc\(-1 \* var\(--post-panel-lift, 0px\)\)\);/);
   assert.match(rule(".post-overlay__body"), /overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
   assert.match(rule(".post-overlay .living-comments-layer .living-gallery__conversation"), /overflow-y: auto;/);
-  assert.match(rule(".post-dock__bar"), /height: 6\.1rem;/);
-  assert.match(rule(".post-dock"), /flex: 0 0 auto;/);
-  assert.match(appBlock, /@media \(prefers-reduced-motion: reduce\) \{\s*\.post-overlay \{\s*animation: none;/);
+  const bar = rule(".post-dock__bar");
+  assert.match(bar, /background: transparent;/);
+  assert.doesNotMatch(bar, /border:|box-shadow|backdrop-filter/);
+  const overlayDock = rule(".post-viewport .post-dock");
+  assert.match(overlayDock, /position: absolute;/);
+  assert.match(overlayDock, /bottom: var\(--post-dock-rest\);/);
+  assert.match(overlayDock, /pointer-events: none;/);
+  assert.match(appBlock, /@media \(prefers-reduced-motion: reduce\) \{\s*\.post-overlay,\s*\.post-viewport \.post-dock \{\s*animation: none;/);
 });
 
 test("panel follows the visual viewport (keyboard) — the media is never measured or moved", () => {
@@ -162,6 +168,7 @@ test("Share and Remix reuse the existing publication actions", () => {
 
 test("overlay interactions do not drive the feed or the scroll-aware nav", () => {
   assert.match(dock, /data-scroll-chrome="ignore"/);
-  assert.match(dock, /onPointerDown=\{\(e\) => e\.stopPropagation\(\)\}/);
+  // The overlay is rendered outside the post list, so its gestures can never scroll the feed.
+  assert.ok(feed.indexOf("<InteractionOverlay") > feed.lastIndexOf("</ul>"));
   assert.match(feed, /className="post-overlay-scrim"[\s\S]*?data-scroll-chrome="ignore"/);
 });

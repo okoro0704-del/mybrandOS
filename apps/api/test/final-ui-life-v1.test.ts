@@ -116,31 +116,30 @@ test("12-15. TV, Radio, Digipedia and DigiNews stay APP experiences", () => {
   assert.match(shell, /selectDestination: \(\) => \{[\s\S]*space\.setSurface\("APP"\)/);
 });
 
-test("16. post details are one tap away in a Details overlay", () => {
-  const dock = read("apps/web/src/experience/PostInteractionDock.tsx");
-  assert.match(feed, /<PostInteractionDock[\s\S]*title=\{humanTitle\}/);
-  assert.match(dock, /interaction === "DETAILS"[\s\S]*<PostDetails title=\{title\}/);
-  assert.match(dock, /app-post__identity post-dock__identity/);
+test("16. post details sit on the post itself, with more in a Details overlay", () => {
+  const overlay = read("apps/web/src/experience/InteractionOverlay.tsx");
+  assert.match(feed, /className="post-slide__details"[\s\S]*<PostDetails[\s\S]*title=\{humanTitle\}/);
+  assert.match(feed, /<InteractionOverlay[\s\S]*title=\{humanPublicationTitle\(settledAsset\.title, settledAsset\.id\)\}/);
+  assert.match(overlay, /interaction === "DETAILS"[\s\S]*<PostDetails title=\{title\}/);
+  assert.doesNotMatch(overlay, /app-post__identity|app-post__avatar|avatarUrl/);
 });
 
 test("17. comments and interaction are available in APP as summoned overlays", () => {
-  const dock = read("apps/web/src/experience/PostInteractionDock.tsx");
-  assert.match(feed, /comments=\{commentsLayer\}/);
-  assert.match(dock, /if \(interaction === "COMMENTS"\) content = comments;/);
+  const overlay = read("apps/web/src/experience/InteractionOverlay.tsx");
+  assert.match(feed, /createPortal\(commentsLayer, commentsHost\)/);
+  assert.match(overlay, /data-comments-host="true" ref=\{onCommentsHost\}/);
   assert.match(feed, /enabled: active \|\| \(appPost && adjacent\)/);
   assert.match(shell, /spaceMode && space\.ui === "INTERACTION"/);
 });
 
-test("18-20. bottom bar reserves space below media and the fixed control dock", () => {
+test("18-20. media fills the canvas; controls and nav float over it", () => {
   assert.match(appBlock, /--app-nav-reserve:/);
-  assert.match(appBlock, /\.immersive-feed__slide\.living-gallery \{[^}]*flex-direction: column;[^}]*padding-bottom: var\(--app-nav-reserve\)/);
-  assert.match(appBlock, /\.living-gallery__media\.immersive-feed__media \{[^}]*position: relative;[^}]*flex: 1 1 0;/);
-  assert.match(appBlock, /\.post-dock__bar \{[^}]*height: 6\.1rem;/);
+  assert.match(appBlock, /\.post-viewport \.immersive-feed__slide\.living-gallery \{[^}]*display: block;[^}]*padding: 0;/);
+  assert.match(appBlock, /\.post-viewport \.living-gallery \.living-gallery__media\.immersive-feed__media \{[^}]*position: absolute;[^}]*inset: 0;/);
+  assert.match(appBlock, /\.post-viewport \.post-dock \{[^}]*position: absolute;[^}]*bottom: var\(--post-dock-rest\);/);
   assert.match(appBlock, /\.post-overlay \{[^}]*position: absolute;[^}]*bottom: calc\(100% \+ 0\.4rem\);/);
   assert.match(appBlock, /\.app-page \{[^}]*overflow-y: auto;[^}]*calc\(var\(--app-nav-reserve, 1rem\) \+ 1rem\)/);
-  const dockIndex = feed.indexOf("<PostInteractionDock");
-  const mediaIndex = feed.indexOf('className="living-gallery__media immersive-feed__media"');
-  assert.ok(mediaIndex > 0 && dockIndex > mediaIndex);
+  assert.ok(feed.indexOf("<InteractionOverlay") > feed.lastIndexOf("</ul>"));
 });
 
 test("21. meaningful downward scroll hides navigation", () => {

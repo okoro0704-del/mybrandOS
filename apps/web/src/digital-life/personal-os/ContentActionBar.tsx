@@ -24,6 +24,51 @@ type SocialState = {
   comments: PublicComment[];
 };
 
+const socialCache = new Map<string, SocialState>();
+const socialInFlight = new Map<string, Promise<SocialState>>();
+
+function socialKey(slug: string, assetId: string): string {
+  return `${slug}:${assetId}`;
+}
+
+function cardSocial(asset: PublicAssetCard): SocialState {
+  return {
+    loves: asset.engagement?.loves ?? 0,
+    lovedByMe: Boolean(asset.engagement?.lovedByMe),
+    downloadAllowed: Boolean(asset.downloadAllowed),
+    allowSharing: asset.allowSharing !== false,
+    allowReuse: Boolean(asset.allowReuse),
+    comments: [],
+  };
+}
+
+function fetchSocial(slug: string, asset: PublicAssetCard): Promise<SocialState> {
+  const key = socialKey(slug, asset.id);
+  const pending = socialInFlight.get(key);
+  if (pending) return pending;
+  const request = api<SocialState>(`/public/${slug}/assets/${asset.id}/social`)
+    .then((data) => {
+      const next = {
+        ...(socialCache.get(key) ?? cardSocial(asset)),
+        ...data,
+        comments: Array.isArray(data.comments) ? data.comments : [],
+      };
+      socialCache.set(key, next);
+      return next;
+    })
+    .finally(() => socialInFlight.delete(key));
+  socialInFlight.set(key, request);
+  return request;
+}
+
+/** Warm the social state of a neighbouring publication so binding to it never shows stale counts. */
+export function prefetchPublicationSocial(slug: string, asset: PublicAssetCard): void {
+  if (socialCache.has(socialKey(slug, asset.id))) return;
+  void fetchSocial(slug, asset).catch(() => {
+    /* public card defaults remain */
+  });
+}
+
 /** Love / save / download / share / reuse for one publication — shared by every action surface. */
 export function usePublicationActions({
   asset,
@@ -38,14 +83,9 @@ export function usePublicationActions({
   creatorLabel?: string;
   onOutcome?: (outcome: MediaOutcome) => void;
 }) {
-  const [social, setSocial] = useState<SocialState>({
-    loves: asset.engagement?.loves ?? 0,
-    lovedByMe: Boolean(asset.engagement?.lovedByMe),
-    downloadAllowed: Boolean(asset.downloadAllowed),
-    allowSharing: asset.allowSharing !== false,
-    allowReuse: Boolean(asset.allowReuse),
-    comments: [],
-  });
+  const [social, setSocial] = useState<SocialState>(
+    () => socialCache.get(socialKey(slug, asset.id)) ?? cardSocial(asset),
+  );
   const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState("");
   const [busyLove, setBusyLove] = useState(false);
@@ -57,17 +97,19 @@ export function usePublicationActions({
   }, [asset.id]);
 
   useEffect(() => {
-    void api<SocialState>(`/public/${slug}/assets/${asset.id}/social`)
-      .then((data) =>
-        setSocial((prev) => ({
-          ...prev,
-          ...data,
-          comments: Array.isArray(data.comments) ? data.comments : [],
-        })),
-      )
+    let current = true;
+    setSocial(socialCache.get(socialKey(slug, asset.id)) ?? cardSocial(asset));
+    void fetchSocial(slug, asset)
+      .then((data) => {
+        if (current) setSocial(data);
+      })
       .catch(() => {
         /* public card defaults remain */
       });
+    return () => {
+      current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, asset.id]);
 
   useEffect(() => {
@@ -90,7 +132,11 @@ export function usePublicationActions({
         `/public/${slug}/assets/${asset.id}/love`,
         { method: "POST", body: JSON.stringify({}) },
       );
-      setSocial((s) => ({ ...s, loves: next.loves, lovedByMe: next.lovedByMe }));
+      setSocial((s) => {
+        const updated = { ...s, loves: next.loves, lovedByMe: next.lovedByMe };
+        socialCache.set(socialKey(slug, asset.id), updated);
+        return updated;
+      });
       if (next.lovedByMe) flash("Loved", { hearts: true });
       else flash("Love removed");
     } catch (err) {

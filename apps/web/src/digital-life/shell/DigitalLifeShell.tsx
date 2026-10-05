@@ -26,6 +26,7 @@ import { listRouterSpaces } from "../space/spaceRecents";
 import { SPACE_ENTRY_PARAM, isSpaceExperience, nextExperienceMode, type ExperienceMode } from "../experience/experienceMode";
 import { ExperienceModeContext } from "../experience/ExperienceModeContext";
 import { useScrollAwareNav } from "../navigation/useScrollAwareNav";
+import { PostNavigationContext, type PostNavigationApi } from "../navigation/PostNavigationContext";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -128,7 +129,10 @@ function DigitalLifeShellFrame({
   }
 
   const location = useLocation();
-  const appNavVisible = useScrollAwareNav(!spaceMode, `${location.pathname}|${space.surface}`);
+  const scrollNavVisible = useScrollAwareNav(!spaceMode, `${location.pathname}|${space.surface}`);
+  const [postNavigating, setPostNavigating] = useState(false);
+  const postNavigationApi = useMemo<PostNavigationApi>(() => ({ setPostNavigating }), []);
+  const appNavVisible = scrollNavVisible && !postNavigating;
 
   // APP keeps destination chrome persistently visible; only SPACE uses the clean, gesture-revealed canvas.
   const revealApi = useMemo<RevealChromeApi>(
@@ -187,6 +191,7 @@ function DigitalLifeShellFrame({
     <ExperienceModeContext.Provider value={experienceMode}>
     <HomeChromeContext.Provider value={null}>
     <RevealChromeContext.Provider value={revealEnabled ? revealApi : null}>
+    <PostNavigationContext.Provider value={postNavigationApi}>
     <div
       className={`brand-exp digital-life-app digital-life-surface personal-os surface-${websiteMode ? "website" : "app"}`}
       data-bg={theme.background}
@@ -314,6 +319,7 @@ function DigitalLifeShellFrame({
       {spaceMode ? <style>{`[data-space-mode="SPACE"] .station-chrome:not([data-station-chrome="info"]) { display: none; }
         [data-space-mode="SPACE"] .station-chrome__reveal { display: none; }`}</style> : null}
     </div>
+    </PostNavigationContext.Provider>
     </RevealChromeContext.Provider>
     </HomeChromeContext.Provider>
     </ExperienceModeContext.Provider>

@@ -23,15 +23,15 @@ const PANEL_TITLES: Record<Exclude<PostInteraction, "NONE">, string> = {
 };
 
 /**
- * Fixed-height control region under the media. Interaction panels are absolutely positioned
- * above it (bottom: 100%), so they overlay the media instead of joining the post's flow.
+ * Transparent interaction controls floating over the media canvas, bound to the settled post.
+ * Lives outside the post slides, so it never takes space from the media. Summoned panels are
+ * anchored above the bar (bottom: 100%) and overlay the media.
  */
-export function PostInteractionDock({
+export function InteractionOverlay({
   asset,
   slug,
   mediaBase,
   author,
-  avatarUrl,
   title,
   body,
   publishedAt,
@@ -39,7 +39,7 @@ export function PostInteractionDock({
   interaction,
   onInteraction,
   commentCount,
-  comments,
+  onCommentsHost,
   keyboardOpen,
   onOutcome,
 }: {
@@ -47,7 +47,6 @@ export function PostInteractionDock({
   slug: string;
   mediaBase: string;
   author: string;
-  avatarUrl: string | null;
   title: string | null;
   body: string;
   publishedAt?: string | null;
@@ -55,7 +54,8 @@ export function PostInteractionDock({
   interaction: PostInteraction;
   onInteraction: (next: PostInteraction) => void;
   commentCount?: number;
-  comments: ReactNode;
+  /** The active slide portals its comments layer into this host. */
+  onCommentsHost: (host: HTMLElement | null) => void;
   keyboardOpen: boolean;
   onOutcome?: (outcome: MediaOutcome) => void;
 }) {
@@ -79,12 +79,14 @@ export function PostInteractionDock({
       const dock = dockRef.current;
       if (!dock) return;
       const vv = window.visualViewport;
+      const visibleTop = vv ? vv.offsetTop : 0;
+      const headerBottom = document.querySelector(".os-identity-hud .os-topbar")?.getBoundingClientRect().bottom ?? 0;
       setGeometry(
         interactionPanelGeometry({
           anchorTop: dock.getBoundingClientRect().top,
-          visibleTop: vv ? vv.offsetTop : 0,
+          visibleTop,
           visibleHeight: vv ? vv.height : window.innerHeight,
-          topReserve: TOP_RESERVE_PX,
+          topReserve: Math.max(TOP_RESERVE_PX, headerBottom + 6 - visibleTop),
           keyboardOpen,
         }),
       );
@@ -118,8 +120,9 @@ export function PostInteractionDock({
   } as CSSProperties;
 
   let content: ReactNode = null;
-  if (interaction === "COMMENTS") content = comments;
-  else if (interaction === "REACTIONS") {
+  if (interaction === "COMMENTS") {
+    content = <div className="post-overlay__comments-host" data-comments-host="true" ref={onCommentsHost} />;
+  } else if (interaction === "REACTIONS") {
     content = (
       <div className="post-overlay__sheet" data-sheet="reactions">
         <p className="post-overlay__stat">
@@ -135,12 +138,6 @@ export function PostInteractionDock({
   } else if (interaction === "DETAILS") {
     content = (
       <div className="post-overlay__sheet" data-sheet="details">
-        <header className="post-overlay__identity">
-          {avatarUrl ? <img className="app-post__avatar" src={avatarUrl} alt="" /> : (
-            <span className="app-post__avatar app-post__avatar--mark" aria-hidden>{author.slice(0, 1)}</span>
-          )}
-          <strong>{author}</strong>
-        </header>
         <PostDetails title={title} body={body} publishedAt={publishedAt} kind={kind} lines={6} />
       </div>
     );
@@ -190,12 +187,10 @@ export function PostInteractionDock({
     <div
       ref={dockRef}
       className="post-dock"
-      data-post-dock="true"
+      data-interaction-overlay="true"
+      data-bound-asset-id={asset.id}
       data-interaction={interaction}
       data-scroll-chrome="ignore"
-      onPointerDown={(e) => e.stopPropagation()}
-      onPointerUp={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
     >
       {panelTitle ? (
         <section
@@ -245,74 +240,64 @@ export function PostInteractionDock({
         </section>
       ) : null}
 
-      <div className="post-dock__bar">
-        <header className="app-post__identity post-dock__identity">
-          {avatarUrl ? <img className="app-post__avatar" src={avatarUrl} alt="" /> : (
-            <span className="app-post__avatar app-post__avatar--mark" aria-hidden>{author.slice(0, 1)}</span>
-          )}
-          <strong className="app-post__brand">{author}</strong>
-        </header>
-        <div className="content-actions content-actions--hood content-actions--gallery content-actions--compact post-dock__actions">
-          <div className="content-actions__row content-actions__row--gallery" role="toolbar" aria-label="Publication actions">
-            <ActionBtn
-              label="Love"
-              active={social.lovedByMe}
-              count={social.loves}
-              numeric
-              iconOnly
-              title="Tap to love. Hold to see loves."
-              onPointerDown={() => {
-                longPressFired.current = false;
-                clearLongPress();
-                longPressTimer.current = window.setTimeout(() => {
-                  longPressFired.current = true;
-                  toggle("REACTIONS");
-                }, LONG_PRESS_MS);
-              }}
-              onPointerUp={clearLongPress}
-              onPointerLeave={clearLongPress}
-              onContextMenu={(e) => e.preventDefault()}
-              onClick={() => {
-                if (longPressFired.current) {
-                  longPressFired.current = false;
-                  return;
-                }
-                void actions.toggleLove();
-              }}
-              icon={<Icons.love size={22} filled={social.lovedByMe} />}
-            />
-            <ActionBtn
-              label="Comment"
-              count={commentCount ?? social.comments.length}
-              numeric
-              iconOnly
-              active={interaction === "COMMENTS"}
-              onClick={() => toggle("COMMENTS")}
-              icon={<Icons.messages size={22} />}
-            />
-            <ActionBtn
-              label="Details"
-              iconOnly
-              active={interaction === "DETAILS"}
-              onClick={() => toggle("DETAILS")}
-              icon={<Icons.details size={22} />}
-            />
-            <ActionBtn
-              label="Remix"
-              iconOnly
-              active={interaction === "REPOST"}
-              onClick={() => toggle("REPOST")}
-              icon={<Icons.reuse size={22} />}
-            />
-            <ActionBtn
-              label="Share"
-              iconOnly
-              active={interaction === "SHARE"}
-              onClick={() => toggle("SHARE")}
-              icon={<Icons.share size={22} />}
-            />
-          </div>
-        </div>
+      <div className="post-dock__bar" role="toolbar" aria-label="Publication actions">
+        <ActionBtn
+          label="Love"
+          active={social.lovedByMe}
+          count={social.loves}
+          numeric
+          iconOnly
+          title="Tap to love. Hold to see loves."
+          onPointerDown={() => {
+            longPressFired.current = false;
+            clearLongPress();
+            longPressTimer.current = window.setTimeout(() => {
+              longPressFired.current = true;
+              toggle("REACTIONS");
+            }, LONG_PRESS_MS);
+          }}
+          onPointerUp={clearLongPress}
+          onPointerLeave={clearLongPress}
+          onContextMenu={(e) => e.preventDefault()}
+          onClick={() => {
+            if (longPressFired.current) {
+              longPressFired.current = false;
+              return;
+            }
+            void actions.toggleLove();
+          }}
+          icon={<Icons.love size={24} filled={social.lovedByMe} />}
+        />
+        <ActionBtn
+          label="Comment"
+          count={commentCount ?? social.comments.length}
+          numeric
+          iconOnly
+          active={interaction === "COMMENTS"}
+          onClick={() => toggle("COMMENTS")}
+          icon={<Icons.messages size={24} />}
+        />
+        <ActionBtn
+          label="Details"
+          iconOnly
+          active={interaction === "DETAILS"}
+          onClick={() => toggle("DETAILS")}
+          icon={<Icons.details size={24} />}
+        />
+        <ActionBtn
+          label="Remix"
+          iconOnly
+          active={interaction === "REPOST"}
+          onClick={() => toggle("REPOST")}
+          icon={<Icons.reuse size={24} />}
+        />
+        <ActionBtn
+          label="Share"
+          iconOnly
+          active={interaction === "SHARE"}
+          onClick={() => toggle("SHARE")}
+          icon={<Icons.share size={24} />}
+        />
       </div>
     </div>
   );
