@@ -26,12 +26,16 @@ Everything revolves around **Assets**. Imported assets are first-class. Origin i
 
 ## Run locally
 
-Requires Node 20+.
+Requires Node 20+ (Node 22 to run the test suite) and Docker for the local PostgreSQL.
 
 ```bash
-npm run setup
+docker compose -f docker-compose.dev.yml up -d   # PostgreSQL on 127.0.0.1:5433
+cp .env.example apps/api/.env                    # DATABASE_URL points at it
+npm run setup                                    # install, build, migrate, seed
 npm run dev
 ```
+
+Schema changes ship as versioned Prisma migrations; see [docs/postgres-migration.md](docs/postgres-migration.md).
 
 - Web: http://localhost:5176
 - API: http://localhost:8793/health

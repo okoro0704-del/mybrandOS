@@ -430,6 +430,16 @@ function PostSlide({
       ) : null}
       {social.comments.length > 0 || social.loading || social.error ? (
         <div className="living-gallery__conversation">
+          {social.hasEarlier ? (
+            <button
+              type="button"
+              className="living-comment__reply living-gallery__earlier"
+              onClick={() => void social.loadEarlier()}
+              disabled={social.loadingEarlier}
+            >
+              {social.loadingEarlier ? "Loading earlier comments…" : "Show earlier comments"}
+            </button>
+          ) : null}
           {social.loading ? <p className="living-gallery__status">Loading comments…</p> : null}
           {social.error ? (
             <p className="living-gallery__status living-gallery__status--error" role="alert">

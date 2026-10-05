@@ -13,12 +13,13 @@
     "dev:web": "npm run dev -w @mybrandos/web",
     "build": "npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run db:generate && npm run build -w @mybrandos/api && npm run build -w @mybrandos/web",
     "build:api": "npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run db:generate && npm run build -w @mybrandos/api",
-    "start": "mkdir -p apps/api/data && npm run db:push && npm run start -w @mybrandos/api",
+    "start": "npm run start -w @mybrandos/api",
     "db:generate": "npm run db:generate -w @mybrandos/api",
-    "db:push": "npm run db:push -w @mybrandos/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @mybrandos/api",
+    "db:migrate:check": "npm run db:migrate:check -w @mybrandos/api",
     "db:seed": "npm run db:seed -w @mybrandos/api",
-    "setup": "npm install && npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run db:generate && npm run db:push && npm run db:seed",
-    "typecheck": "npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run typecheck -w @mybrandos/api",
+    "setup": "npm install && npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run db:generate && npm run db:migrate:deploy && npm run db:seed",
+    "typecheck": "npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run db:generate && npm run typecheck -w @mybrandos/api && npm run typecheck -w @mybrandos/web",
     "test": "npm run test -w @mybrandos/api"
   },
   "dependencies": {

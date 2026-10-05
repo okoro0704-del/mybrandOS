@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -87,23 +88,9 @@ export function registerBrandRoutes(app: FastifyInstance, primitives: PrimitiveB
   app.post("/brand/media", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    let slot: BrandMediaSlot = "logo";
-    let file: { filename: string; mimeType: string; bytes: Buffer } | null = null;
-    for await (const part of parts) {
-      if (part.type === "field" && part.fieldname === "slot") {
-        slot = String(part.value) as BrandMediaSlot;
-      }
-      if (part.type === "file") {
-        file = {
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        };
-      }
-    }
-    if (!file) return reply.code(400).send({ error: "no_files", message: "Choose an image to store." });
-    return storeBrandMedia(session.identity, slot, file, primitives);
+    return withUploads(req, UPLOAD_POLICIES.image, (received) =>
+      storeBrandMedia(session.identity, (received.fields.slot || "logo") as BrandMediaSlot, singleUpload(received), primitives),
+    );
   });
 
   app.get("/brand/media/:slot", async (req, reply) => {

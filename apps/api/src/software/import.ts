@@ -1,3 +1,4 @@
+import { storeUpload, uploadSize, type UploadInput } from "../lib/uploads.js";
 import type { SoftwareImportReport } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { PrimitiveError } from "@mybrandos/integrations";
@@ -17,10 +18,10 @@ function titleFromFilename(filename: string): string {
 
 export async function importSoftware(
   ownerId: string,
-  files: Array<{ filename: string; mimeType: string; bytes: Buffer }>,
+  files: Array<UploadInput>,
   primitives: PrimitiveBindings,
 ) {
-  const totalBytes = files.reduce((sum, file) => sum + file.bytes.byteLength, 0);
+  const totalBytes = files.reduce((sum, file) => sum + uploadSize(file), 0);
   if (totalBytes >= config.largeImportBytes || files.length >= 12) {
     const queued = await importFiles(ownerId, files, primitives);
     return {
@@ -39,11 +40,7 @@ export async function importSoftware(
   for (const file of files) {
     let stored;
     try {
-      stored = await primitives.dataZone.storeBytes({
-        filename: file.filename,
-        mimeType: file.mimeType,
-        bytes: file.bytes,
-      });
+      stored = await storeUpload(primitives.dataZone, file);
     } catch (err) {
       if (err instanceof PrimitiveError) throw unavailable(err.code, err.message);
       throw unavailable("DATAZONE_UNAVAILABLE", "File was not saved. DataZone did not persist the bytes.");

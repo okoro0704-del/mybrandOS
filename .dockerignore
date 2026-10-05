@@ -1,0 +1,15 @@
+# Never bake secrets, local databases or host-built artifacts into the image.
+**/node_modules
+**/.env
+**/.env.*
+!.env.example
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/dist
+apps/api/data
+apps/api/prisma/data
+apps/api/prisma/legacy-sqlite/client
+.cache
+.git
+coverage

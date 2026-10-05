@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -224,23 +225,11 @@ export function registerSoftwareRoutes(app: FastifyInstance, primitives: Primiti
       const file = await createSoftwareFile(session.ownerId, id, body, primitives);
       return reply.code(201).send({ file });
     }
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const file = await createSoftwareFile(
-          session.ownerId,
-          id,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return reply.code(201).send({ file });
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    const file = await withUploads(req, UPLOAD_POLICIES.projectFile, (received) => {
+      const upload = singleUpload(received);
+      return createSoftwareFile(session.ownerId, id, { filename: upload.filename, upload }, primitives);
+    });
+    return reply.code(201).send({ file });
   });
 
   app.put("/software/:id/files/:fileId", async (req, reply) => {
@@ -342,19 +331,9 @@ export function registerSoftwareRoutes(app: FastifyInstance, primitives: Primiti
   app.post("/software/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    const files: Array<{ filename: string; mimeType: string; bytes: Buffer }> = [];
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
-    if (!files.length) return reply.code(400).send({ error: "no_files" });
-    const result = await importSoftware(session.ownerId, files, primitives);
+    const result = await withUploads(req, UPLOAD_POLICIES.fileBatch, (received) =>
+      importSoftware(session.ownerId, received.files, primitives),
+    );
     return reply.code(201).send(result);
   });
 }

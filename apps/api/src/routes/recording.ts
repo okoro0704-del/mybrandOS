@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -137,28 +138,16 @@ export function registerRecordingRoutes(app: FastifyInstance, primitives: Primit
   app.post("/recording/sessions/:id/tracks/:trackId/takes", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const file = await req.file();
-    if (!file) {
-      return reply.code(400).send({ error: "invalid_request", message: "Take file is required." });
-    }
-    const chunks: Buffer[] = [];
-    for await (const chunk of file.file) chunks.push(Buffer.from(chunk));
-    const bytes = Buffer.concat(chunks);
-    const durationRaw = typeof file.fields?.durationMs === "object" && file.fields.durationMs && "value" in file.fields.durationMs
-      ? String((file.fields.durationMs as { value: string }).value)
-      : undefined;
-    const take = await uploadTake(
-      session.ownerId,
-      (req.params as { id: string }).id,
-      (req.params as { trackId: string }).trackId,
-      primitives,
-      {
-        bytes,
-        mimeType: file.mimetype || "application/octet-stream",
-        filename: file.filename,
-        durationMs: durationRaw ? Number(durationRaw) : undefined,
-      },
-    );
+    const take = await withUploads(req, UPLOAD_POLICIES.media, (received) => {
+      const durationRaw = received.fields.durationMs;
+      return uploadTake(
+        session.ownerId,
+        (req.params as { id: string }).id,
+        (req.params as { trackId: string }).trackId,
+        primitives,
+        { ...singleUpload(received), durationMs: durationRaw ? Number(durationRaw) : undefined },
+      );
+    });
     return { take };
   });
 
@@ -173,17 +162,9 @@ export function registerRecordingRoutes(app: FastifyInstance, primitives: Primit
   app.post("/recording/sessions/:id/program-media", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const file = await req.file();
-    if (!file) {
-      return reply.code(400).send({ error: "invalid_request", message: "Program media file is required." });
-    }
-    const chunks: Buffer[] = [];
-    for await (const chunk of file.file) chunks.push(Buffer.from(chunk));
-    const published = await publishProgramMedia(session.ownerId, (req.params as { id: string }).id, primitives, {
-      bytes: Buffer.concat(chunks),
-      mimeType: file.mimetype || "application/octet-stream",
-    });
-    return published;
+    return withUploads(req, UPLOAD_POLICIES.media, (received) =>
+      publishProgramMedia(session.ownerId, (req.params as { id: string }).id, primitives, singleUpload(received)),
+    );
   });
 
   app.post("/recording/sessions/:id/preview", async (req, reply) => {

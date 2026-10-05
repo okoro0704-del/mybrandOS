@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -215,18 +216,9 @@ export function registerCourseRoutes(app: FastifyInstance, primitives: Primitive
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
     const { id } = req.params as { id: string };
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        return setCourseThumbnail(
-          session.ownerId,
-          id,
-          { filename: part.filename, mimeType: part.mimetype || "image/png", bytes: await part.toBuffer() },
-          primitives,
-        );
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    return withUploads(req, UPLOAD_POLICIES.image, (received) =>
+      setCourseThumbnail(session.ownerId, id, singleUpload(received), primitives),
+    );
   });
 
   app.post("/courses/:id/thumbnail/select", async (req, reply) => {
@@ -336,19 +328,9 @@ export function registerCourseRoutes(app: FastifyInstance, primitives: Primitive
   app.post("/courses/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const files: Array<{ filename: string; mimeType: string; bytes: Buffer }> = [];
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
-    if (!files.length) return reply.code(400).send({ error: "no_files" });
-    const result = await importCourseMaterials(session.ownerId, files, primitives);
+    const result = await withUploads(req, UPLOAD_POLICIES.fileBatch, (received) =>
+      importCourseMaterials(session.ownerId, received.files, primitives),
+    );
     return reply.code(201).send(result);
   });
 }

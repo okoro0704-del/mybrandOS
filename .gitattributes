@@ -1,0 +1,5 @@
+# Prisma checksums applied migrations byte-for-byte. Keep migration SQL identical on every
+# platform (core.autocrlf would otherwise check it out as CRLF on Windows and break the
+# startup migration guard's checksum comparison).
+apps/api/prisma/migrations/**/*.sql text eol=lf
+apps/api/prisma/migrations/migration_lock.toml text eol=lf

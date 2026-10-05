@@ -12,7 +12,15 @@ import {
   getPublicBrandMedia,
   getPublicLive,
 } from "../services/brand-service.js";
-import { getPublicAssetSocial, togglePublicAssetLove, addPublicAssetComment } from "../services/public-social.js";
+import {
+  addPublicAssetComment,
+  deletePublicAssetComment,
+  getPublicAssetSocial,
+  listPublicAssetComments,
+  setPublicAssetLove,
+  togglePublicAssetLove,
+} from "../services/public-social.js";
+import { z } from "zod";
 import { getPublicStation } from "../services/station-service.js";
 import { peekInteractionKey, resolveInteractionIdentity } from "../lib/interaction-identity.js";
 import { resolveRequestIdentity } from "../lib/auth.js";
@@ -223,15 +231,34 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.post("/public/:slug/assets/:id/love", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
+    const { loved } = z.object({ loved: z.boolean().optional() }).parse(req.body ?? {});
     const identity = await resolveInteractionIdentity(req, reply, primitives);
     if (!identity.key) throw unauthorized("A session is required to Love this publication.");
-    return togglePublicAssetLove(slug, id, identity.key);
+    // Explicit state is idempotent; the bare toggle remains for older clients.
+    return loved === undefined ? togglePublicAssetLove(slug, id, identity.key) : setPublicAssetLove(slug, id, identity.key, loved);
+  });
+
+  app.get("/public/:slug/assets/:id/comments", async (req) => {
+    const { slug, id } = req.params as { slug: string; id: string };
+    const query = z
+      .object({ before: z.string().max(512).optional(), limit: z.coerce.number().int().positive().optional() })
+      .parse(req.query ?? {});
+    const viewerKey = await peekInteractionKey(req, primitives);
+    return listPublicAssetComments(slug, id, viewerKey, query);
   });
 
   app.post("/public/:slug/assets/:id/comments", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const body = (req.body as { body?: string } | undefined)?.body ?? "";
+    const input = z
+      .object({ body: z.string().max(10_000).optional(), parentCommentId: z.string().max(64).nullable().optional() })
+      .parse(req.body ?? {});
     const identity = await resolveInteractionIdentity(req, reply, primitives);
-    return addPublicAssetComment(slug, id, identity, body);
+    return addPublicAssetComment(slug, id, identity, input.body ?? "", { parentCommentId: input.parentCommentId ?? null });
+  });
+
+  app.delete("/public/:slug/assets/:id/comments/:commentId", async (req, reply) => {
+    const { slug, id, commentId } = req.params as { slug: string; id: string; commentId: string };
+    const identity = await resolveInteractionIdentity(req, reply, primitives);
+    return deletePublicAssetComment(slug, id, commentId, identity.key);
   });
 }

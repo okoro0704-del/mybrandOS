@@ -343,8 +343,9 @@ test("concurrent same-key submissions create exactly one draft", async () => {
     app.inject({ method: "POST", url: "/internal/drafts", headers: auth(), payload }),
   ]);
   const statuses = [a.statusCode, b.statusCode].sort();
-  assert.ok(statuses.includes(201));
-  assert.ok(statuses[0] === 200 || statuses[1] === 201);
+  const detail = JSON.stringify({ a: [a.statusCode, a.body], b: [b.statusCode, b.body] });
+  assert.ok(statuses.includes(201), detail);
+  assert.ok(statuses[0] === 200 || statuses[1] === 201, detail);
   assert.equal(a.json().draftId, b.json().draftId);
   assert.equal(await prisma.asset.count({ where: { ownerId: OWNER, title } }), 1);
 });

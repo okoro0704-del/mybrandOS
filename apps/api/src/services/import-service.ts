@@ -1,3 +1,4 @@
+import { storeUpload, uploadSize, type UploadInput } from "../lib/uploads.js";
 import {
   inferAssetTypeFromMime,
   ensureMasterRendition,
@@ -18,11 +19,8 @@ import { projectTypeFromAsset } from "@mybrandos/shared";
 import { config } from "../config.js";
 import { HttpError, forbidden, notFound, unavailable } from "../lib/errors.js";
 
-export type ImportedFile = {
-  filename: string;
-  mimeType: string;
-  bytes: Buffer;
-};
+/** Buffer (in-process) or a spooled HTTP upload streamed from disk. */
+export type ImportedFile = UploadInput;
 
 function titleFromFilename(filename: string): string {
   return filename.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || filename;
@@ -97,7 +95,7 @@ export async function importFiles(
   files: ImportedFile[],
   primitives: PrimitiveBindings,
 ): Promise<{ assets: Asset[]; jobId: string; status: string; platformJobId?: string }> {
-  const totalBytes = files.reduce((n, file) => n + file.bytes.byteLength, 0);
+  const totalBytes = files.reduce((n, file) => n + uploadSize(file), 0);
   const large = totalBytes >= config.largeImportBytes || files.length >= 12;
   if (large) {
     return queueLargeImport(ownerId, files, primitives);
@@ -105,11 +103,7 @@ export async function importFiles(
 
   const assets: Asset[] = [];
   for (const file of files) {
-    const stored = await primitives.dataZone.storeBytes({
-      filename: file.filename,
-      mimeType: file.mimeType,
-      bytes: file.bytes,
-    });
+    const stored = await storeUpload(primitives.dataZone, file);
     const assetType = inferAssetTypeFromMime(file.mimeType, file.filename);
     const baseMeta: Record<string, unknown> = {
       filename: file.filename,
@@ -176,11 +170,7 @@ async function queueLargeImport(
   const stored = [];
   for (const file of files) {
     stored.push(
-      await primitives.dataZone.storeBytes({
-        filename: file.filename,
-        mimeType: file.mimeType,
-        bytes: file.bytes,
-      }),
+      await storeUpload(primitives.dataZone, file),
     );
   }
 

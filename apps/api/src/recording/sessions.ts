@@ -1,3 +1,4 @@
+import { named, storeUpload, uploadSize, type UnnamedUploadInput } from "../lib/uploads.js";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import {
   RECORDING_MODES,
@@ -340,12 +341,7 @@ export async function uploadTake(
   sessionId: string,
   trackId: string,
   primitives: PrimitiveBindings,
-  input: {
-    bytes: Buffer;
-    mimeType: string;
-    durationMs?: number;
-    filename?: string;
-  },
+  input: UnnamedUploadInput & { durationMs?: number },
 ) {
   const session = await owned(ownerId, sessionId);
   const track = await prisma.recordingTrack.findFirst({ where: { id: trackId, sessionId } });
@@ -356,11 +352,7 @@ export async function uploadTake(
 
   let stored;
   try {
-    stored = await primitives.dataZone.storeBytes({
-      bytes: input.bytes,
-      mimeType: input.mimeType,
-      filename: input.filename ?? `take-${trackId}-${Date.now()}`,
-    });
+    stored = await storeUpload(primitives.dataZone, named(input, `take-${trackId}-${Date.now()}`));
   } catch (err) {
     throw unavailable(
       "storage_unavailable",
@@ -380,7 +372,7 @@ export async function uploadTake(
       durationMs: input.durationMs ?? null,
       dataZoneId: stored.dataZoneId,
       mimeType: input.mimeType,
-      byteSize: input.bytes.length,
+      byteSize: uploadSize(input),
       createdBy: ownerId,
       detail: "Take stored in Sovereign Drive.",
     },
@@ -417,16 +409,12 @@ export async function publishProgramMedia(
   ownerId: string,
   sessionId: string,
   primitives: PrimitiveBindings,
-  input: { bytes: Buffer; mimeType: string },
+  input: UnnamedUploadInput,
 ) {
   await owned(ownerId, sessionId);
   let stored;
   try {
-    stored = await primitives.dataZone.storeBytes({
-      bytes: input.bytes,
-      mimeType: input.mimeType,
-      filename: `program-${sessionId}-${Date.now()}`,
-    });
+    stored = await storeUpload(primitives.dataZone, named({ ...input, filename: undefined }, `program-${sessionId}-${Date.now()}`));
   } catch (err) {
     throw unavailable(
       "preview_unavailable",

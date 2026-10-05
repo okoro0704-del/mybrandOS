@@ -2,6 +2,7 @@ import type { TwinOwnerContext } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson } from "../lib/json.js";
 import { HttpError } from "../lib/errors.js";
+import { engagementFor } from "../services/engagement.js";
 
 export function rejectClientTwinAssertions(body: unknown, authorizedSlug: string) {
   if (!body || typeof body !== "object") return;
@@ -33,7 +34,7 @@ export async function buildOwnerTwinContext(ownerId: string, displayName?: strin
       where: { ownerId, status: "PUBLISHED" },
       orderBy: { updatedAt: "desc" },
       take: 8,
-      select: { id: true, title: true, assetType: true, updatedAt: true, analytics: true },
+      select: { id: true, title: true, assetType: true, updatedAt: true },
     }),
     prisma.asset.count({ where: { ownerId, status: "DRAFT" } }),
     prisma.asset.findMany({
@@ -74,20 +75,21 @@ export async function buildOwnerTwinContext(ownerId: string, displayName?: strin
     ];
   }).slice(0, 6);
 
+  const engagement = await engagementFor(published.map((row) => row.id));
   return {
     entitySlug: space.slug,
     displayName: space.displayName || displayName,
     publications: published.map((row) => {
-      const analytics = readJson<{ views?: number; plays?: number; loves?: number }>(row.analytics, {});
+      const totals = engagement.get(row.id);
       return {
         id: row.id,
         title: row.title,
         assetType: row.assetType,
         publishedAt: row.updatedAt.toISOString(),
         href: `/assets/${row.id}`,
-        views: typeof analytics.views === "number" ? analytics.views : undefined,
-        plays: typeof analytics.plays === "number" ? analytics.plays : undefined,
-        loves: typeof analytics.loves === "number" ? analytics.loves : undefined,
+        views: totals?.views,
+        plays: totals?.plays,
+        loves: totals?.loves,
       };
     }),
     draftsCount,

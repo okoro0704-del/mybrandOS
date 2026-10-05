@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -133,27 +134,9 @@ export function registerVideoRoutes(app: FastifyInstance, primitives: PrimitiveB
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
     const { id } = req.params as { id: string };
-    const parts = req.parts();
-    let slot: "source" | "thumbnail" | "audio" | "caption" = "source";
-    for await (const part of parts) {
-      if (part.type === "field" && part.fieldname === "slot") {
-        slot = mediaSlot.parse(String(part.value));
-      }
-      if (part.type === "file") {
-        return attachVideoMedia(
-          session.ownerId,
-          id,
-          slot,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    return withUploads(req, UPLOAD_POLICIES.projectFile, (received) =>
+      attachVideoMedia(session.ownerId, id, mediaSlot.parse(received.fields.slot || "source"), singleUpload(received), primitives),
+    );
   });
 
   app.post("/videos/:id/media/select", async (req, reply) => {
@@ -220,21 +203,9 @@ export function registerVideoRoutes(app: FastifyInstance, primitives: PrimitiveB
   app.post("/videos/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const result = await importVideo(
-          session.ownerId,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return reply.code(201).send(result);
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    const result = await withUploads(req, UPLOAD_POLICIES.media, (received) =>
+      importVideo(session.ownerId, singleUpload(received), primitives),
+    );
+    return reply.code(201).send(result);
   });
 }

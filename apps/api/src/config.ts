@@ -2,6 +2,35 @@ function env(name: string, fallback = ""): string {
   return process.env[name] ?? fallback;
 }
 
+/** Development-only. Production must never sign sessions with a built-in secret. */
+export const DEV_COOKIE_SECRET = "mybrandos-dev-cookie-secret";
+export const MIN_PRODUCTION_COOKIE_SECRET_LENGTH = 32;
+
+/**
+ * Production fails closed: a deployment with a missing/development cookie secret or an
+ * auth bypass must not boot and report healthy. Never echoes secret values.
+ */
+export function assertProductionSecurityConfig(source: Record<string, string | undefined>): void {
+  if ((source.NODE_ENV ?? "development") !== "production") return;
+  const problems: string[] = [];
+  const secret = source.COOKIE_SECRET ?? "";
+  if (!secret.trim()) {
+    problems.push("COOKIE_SECRET is required.");
+  } else if (secret.startsWith(DEV_COOKIE_SECRET)) {
+    problems.push("COOKIE_SECRET must not be the development secret.");
+  } else if (secret.length < MIN_PRODUCTION_COOKIE_SECRET_LENGTH) {
+    problems.push(`COOKIE_SECRET must be at least ${MIN_PRODUCTION_COOKIE_SECRET_LENGTH} characters.`);
+  }
+  for (const name of ["AUTH_BYPASS", "BYPASS_TRUST_ID"]) {
+    if ((source[name] ?? "").toLowerCase() === "true") problems.push(`${name}=true is not permitted.`);
+  }
+  if (problems.length > 0) {
+    throw new Error(`mybrandos: refusing to start with insecure production configuration:\n- ${problems.join("\n- ")}`);
+  }
+}
+
+assertProductionSecurityConfig(process.env);
+
 const cookieSameSiteEnv = env("COOKIE_SAMESITE").toLowerCase();
 const cookieSameSite: "lax" | "none" | "strict" =
   cookieSameSiteEnv === "none" || cookieSameSiteEnv === "lax" || cookieSameSiteEnv === "strict"
@@ -15,7 +44,7 @@ export const config = {
   host: env("HOST", "0.0.0.0"),
   nodeEnv: env("NODE_ENV", "development"),
   isDev: env("NODE_ENV", "development") !== "production",
-  cookieSecret: env("COOKIE_SECRET", "mybrandos-dev-cookie-secret"),
+  cookieSecret: env("COOKIE_SECRET", DEV_COOKIE_SECRET),
   sessionTtlHours: Number(env("SESSION_TTL_HOURS", "168")),
   sessionCookieName: "mybrandos_session",
   sessionHeaderName: "x-mybrandos-session",
@@ -62,7 +91,7 @@ export const config = {
   largeImportBytes: Number(env("LARGE_IMPORT_BYTES", String(8 * 1024 * 1024))),
   /** Public browser origin for cookies, Trust ID redirect, and os-shell manifest. */
   publicOrigin: env("PUBLIC_ORIGIN", env("RAILWAY_PUBLIC_DOMAIN") ? `https://${env("RAILWAY_PUBLIC_DOMAIN")}` : ""),
-  /** When true, local/dev-session enter works even in production (testing / Portal white-label). */
+  /** When true, local/dev-session enter works outside production. Production refuses to start with it. */
   authBypass:
     env("AUTH_BYPASS").toLowerCase() === "true" ||
     env("BYPASS_TRUST_ID").toLowerCase() === "true",

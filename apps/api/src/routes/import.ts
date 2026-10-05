@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ASSET_TYPES } from "@mybrandos/shared";
@@ -9,42 +10,18 @@ export function registerImportRoutes(app: FastifyInstance, primitives: Primitive
   app.post("/import/file", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const files: { filename: string; mimeType: string; bytes: Buffer }[] = [];
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
-    if (!files.length) {
-      return reply.code(400).send({ error: "no_files" });
-    }
-    const result = await importFiles(session.ownerId, files, primitives);
+    const result = await withUploads(req, UPLOAD_POLICIES.fileBatch, (received) =>
+      importFiles(session.ownerId, received.files, primitives),
+    );
     return reply.code(201).send(result);
   });
 
   app.post("/import/folder", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const files: { filename: string; mimeType: string; bytes: Buffer }[] = [];
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
-    if (!files.length) {
-      return reply.code(400).send({ error: "no_files" });
-    }
-    const result = await importFiles(session.ownerId, files, primitives);
+    const result = await withUploads(req, UPLOAD_POLICIES.fileBatch, (received) =>
+      importFiles(session.ownerId, received.files, primitives),
+    );
     return reply.code(201).send(result);
   });
 

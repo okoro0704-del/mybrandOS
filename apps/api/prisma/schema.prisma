@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -68,6 +68,63 @@ enum BroadcastScheduleStatus {
   PUBLISHED
 }
 
+enum PostCommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+enum PostReactionType {
+  LOVE
+}
+
+/// A public comment on a published Asset (post). One row per comment, so concurrent
+/// commenters can never overwrite each other. Legacy JSON comments keep their `c_<hex>` id.
+model PostComment {
+  id              String            @id @default(cuid())
+  assetId         String
+  asset           Asset             @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  /// Trust ID or guest interaction key (`resolveInteractionIdentity`).
+  authorId        String
+  displayName     String
+  parentCommentId String?
+  parent          PostComment?      @relation("PostCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         PostComment[]     @relation("PostCommentReplies")
+  body            String
+  status          PostCommentStatus @default(VISIBLE)
+  createdAt       DateTime          @default(now())
+  editedAt        DateTime?
+
+  @@index([assetId, createdAt])
+  @@index([authorId, createdAt])
+  @@index([parentCommentId])
+}
+
+/// One reaction per (post, actor, type). The unique key makes Love idempotent and race-safe;
+/// counts are always derived from rows, never stored as an authority.
+model PostReaction {
+  id           String           @id @default(cuid())
+  assetId      String
+  asset        Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  actorId      String
+  reactionType PostReactionType @default(LOVE)
+  createdAt    DateTime         @default(now())
+
+  @@unique([assetId, actorId, reactionType])
+  @@index([assetId, reactionType])
+  @@index([actorId])
+}
+
+/// Public view/play/completion counters, incremented atomically in SQL (no JSON read-modify-write).
+model AssetEngagement {
+  assetId     String   @id
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  views       Int      @default(0)
+  plays       Int      @default(0)
+  completions Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
 model Session {
   id        String   @id @default(cuid())
   tokenHash String   @unique
@@ -106,6 +163,9 @@ model Asset {
   outboundRelations  AssetRelationship[] @relation("SourceAsset")
   inboundRelations   AssetRelationship[] @relation("TargetAsset")
   productionItems    ProductionLibraryItem[]
+  comments           PostComment[]
+  reactions          PostReaction[]
+  engagement         AssetEngagement?
 
   @@index([ownerId])
   @@index([ownerId, assetType])

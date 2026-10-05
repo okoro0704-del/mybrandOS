@@ -1,0 +1,23 @@
+# Local development / test database. Not used in production.
+#   docker compose -f docker-compose.dev.yml up -d
+#   DATABASE_URL=postgresql://mybrandos:mybrandos@127.0.0.1:5433/mybrandos?schema=public
+#   SHADOW_DATABASE_URL=postgresql://mybrandos:mybrandos@127.0.0.1:5433/mybrandos_shadow
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mybrandos
+      POSTGRES_PASSWORD: mybrandos
+      POSTGRES_DB: mybrandos
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - mybrandos-pg:/var/lib/postgresql/data
+      - ./apps/api/prisma/dev-init.sql:/docker-entrypoint-initdb.d/dev-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mybrandos"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  mybrandos-pg:

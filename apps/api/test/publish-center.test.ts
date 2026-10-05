@@ -66,10 +66,10 @@ async function cleanup() {
 before(cleanup);
 after(cleanup);
 
-test("dock navigation is Home / Create / Publish / Assets / More", () => {
+test("dock navigation is Home / Studio / Camera / Publish", () => {
   assert.deepEqual(
     DOCK_NAV.map((item) => item.id),
-    ["home", "create", "camera", "publish"],
+    ["home", "studio", "camera", "publish"],
   );
   assert.equal(DOCK_NAV.find((item) => item.id === "publish")?.path, "/publish");
   assert.equal(MYBRANDOS_VERSION, "0.27.0");

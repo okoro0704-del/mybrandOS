@@ -1,3 +1,4 @@
+import type { UploadInput } from "../lib/uploads.js";
 import type { ContentBlock, VideoImportReport, VideoStudioPayload } from "@mybrandos/shared";
 import { parseVideoRender } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -104,7 +105,7 @@ export async function attachVideoMedia(
   userId: string,
   projectId: string,
   slot: MediaSlot,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
 ) {
   await requireAction(userId, projectId, "file");

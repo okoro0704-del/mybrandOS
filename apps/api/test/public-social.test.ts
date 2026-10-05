@@ -44,7 +44,7 @@ async function cleanup() {
 before(cleanup);
 after(cleanup);
 
-test("Love toggles persist on Asset.analytics and reject duplicates per Trust ID", async () => {
+test("Love toggles persist as relational reactions and reject duplicates per Trust ID", async () => {
   await prisma.personalSpace.create({
     data: {
       ownerId: OWNER,

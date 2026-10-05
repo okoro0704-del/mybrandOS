@@ -1,3 +1,5 @@
+import { openAsBlob } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { PrimitiveError } from "./errors.js";
 import { httpHealth, httpJson } from "./http.js";
 
@@ -40,8 +42,26 @@ export interface IDataZoneProvider {
     bytes: Buffer;
     tidPasskey?: string;
   }): Promise<DataZoneStoredObject>;
+  /**
+   * Stream a file already spooled to disk. The bytes are never held in memory as a whole.
+   * Optional so lightweight test fakes keep working; callers fall back to `storeBytes`.
+   */
+  storeFile?(input: DataZoneFileInput): Promise<DataZoneStoredObject>;
   getAsset(dataZoneId: string): Promise<DataZoneStoredObject | null>;
   getBytes(dataZoneId: string): Promise<DataZoneBytes | null>;
+}
+
+export type DataZoneFileInput = {
+  filename: string;
+  mimeType: string;
+  path: string;
+  sizeBytes: number;
+  tidPasskey?: string;
+};
+
+/** 30 s plus 1 s per MiB, capped at 15 min: large masters are not cut off by a fixed timeout. */
+export function dataZoneUploadTimeoutMs(sizeBytes: number) {
+  return Math.min(30_000 + Math.ceil(Math.max(sizeBytes, 0) / 1_048_576) * 1_000, 900_000);
 }
 
 function datazoneUnavailable(message: string): never {
@@ -102,13 +122,29 @@ export class RemoteDataZoneAdapter implements IDataZoneProvider {
     bytes: Buffer;
     tidPasskey?: string;
   }): Promise<DataZoneStoredObject> {
-    const intent = await this.createUploadIntent(input);
+    const intent = await this.createUploadIntent({ ...input, maxSizeBytes: Math.max(input.bytes.byteLength, 1) });
     const form = new FormData();
-    const body = new Uint8Array(input.bytes);
-    form.append("file", new Blob([body], { type: input.mimeType }), input.filename);
+    form.append("file", new Blob([new Uint8Array(input.bytes)], { type: input.mimeType }), input.filename);
+    return this.postUpload(intent, form, input, input.bytes.byteLength);
+  }
+
+  async storeFile(input: DataZoneFileInput): Promise<DataZoneStoredObject> {
+    const intent = await this.createUploadIntent({ ...input, maxSizeBytes: Math.max(input.sizeBytes, 1) });
+    const form = new FormData();
+    // File-backed Blob: fetch streams it from disk instead of loading it into memory.
+    form.append("file", await openAsBlob(input.path, { type: input.mimeType }), input.filename);
+    return this.postUpload(intent, form, input, input.sizeBytes);
+  }
+
+  private async postUpload(
+    intent: DataZoneUploadIntent,
+    form: FormData,
+    input: { filename: string; mimeType: string },
+    sizeBytes: number,
+  ): Promise<DataZoneStoredObject> {
     let res: Response;
     try {
-      res = await fetch(intent.uploadUrl, { method: "POST", body: form, signal: AbortSignal.timeout(30000) });
+      res = await fetch(intent.uploadUrl, { method: "POST", body: form, signal: AbortSignal.timeout(dataZoneUploadTimeoutMs(sizeBytes)) });
     } catch {
       datazoneUnavailable("DataZone did not persist the file.");
     }
@@ -119,7 +155,7 @@ export class RemoteDataZoneAdapter implements IDataZoneProvider {
     return {
       dataZoneId,
       originHash: raw.originHash,
-      sizeBytes: raw.sizeBytes ?? input.bytes.byteLength,
+      sizeBytes: raw.sizeBytes ?? sizeBytes,
       filename: input.filename,
       mimeType: input.mimeType,
     };
@@ -213,6 +249,11 @@ export class LocalDataZoneAdapter implements IDataZoneProvider {
     this.objects.set(dataZoneId, stored);
     this.blobs.set(dataZoneId, input.bytes);
     return stored;
+  }
+
+  /** Development-only in-memory store: reading the spooled file is the store itself. */
+  async storeFile(input: DataZoneFileInput): Promise<DataZoneStoredObject> {
+    return this.storeBytes({ filename: input.filename, mimeType: input.mimeType, bytes: await readFile(input.path) });
   }
 
   async getAsset(dataZoneId: string) {

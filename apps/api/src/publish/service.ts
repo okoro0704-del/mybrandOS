@@ -1,4 +1,4 @@
-import type { PrimitiveBindings } from "@mybrandos/integrations";
+import { PrimitiveError, type PrimitiveBindings } from "@mybrandos/integrations";
 import {
   DEFAULT_PUBLISH_RIGHTS,
   DEFAULT_PROFILE_FOR_TYPE,
@@ -40,7 +40,8 @@ import {
   PUBLISH_SOURCE_DETAILS,
   PUBLISH_SOURCE_LABELS,
 } from "@mybrandos/shared";
-import { prisma } from "../lib/prisma.js";
+import { prisma, resetConnectionPool } from "../lib/prisma.js";
+import { classifyDatabaseError, isConnectionLoss } from "../lib/db-errors.js";
 import { readJson, writeJson } from "../lib/json.js";
 import { badRequest, forbidden, notFound, HttpError } from "../lib/errors.js";
 import { getAsset, updateAsset, createAsset, recordActivity } from "../services/asset-service.js";
@@ -717,127 +718,301 @@ export async function executePublish(
 }
 
 /**
+ * Scheduled publishing.
+ *
+ * Retry & idempotency contract:
+ * - A due schedule is CLAIMED with a compare-and-swap on the asset's exact metadata string, so
+ *   exactly one runner (scanner tick, job callback, other process) executes a given attempt.
+ *   A claim older than SCHEDULE_CLAIM_TTL_MS (crashed runner) may be reclaimed.
+ * - Only DRAFT assets with publishPending are eligible, so a published asset is never
+ *   published again: retries cannot create a duplicate publication.
+ * - A failed attempt is retried with backoff (SCHEDULE_RETRY_BACKOFF_MS) up to
+ *   SCHEDULE_MAX_ATTEMPTS. While retries remain the distribution intent stays SCHEDULED;
+ *   once exhausted it is marked FAILED and the schedule stops firing.
+ * - Every failure emits one structured diagnostic (asset id, stage, timestamp, category,
+ *   code, attempt) without titles, bodies, tokens or other content.
+ */
+export const SCHEDULE_RETRY_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000] as const;
+export const SCHEDULE_MAX_ATTEMPTS = SCHEDULE_RETRY_BACKOFF_MS.length + 1;
+export const SCHEDULE_CLAIM_TTL_MS = 10 * 60_000;
+
+export type ScheduleLogger = {
+  info: (obj: object, msg: string) => void;
+  error: (obj: object, msg: string) => void;
+};
+
+const jsonLogger: ScheduleLogger = {
+  info: (obj, msg) => console.log(JSON.stringify({ level: "info", msg, ...obj })),
+  error: (obj, msg) => console.error(JSON.stringify({ level: "error", msg, ...obj })),
+};
+
+export type ScheduledPublishStage = "scan" | "claim" | "execute_publish" | "record_failure";
+export type ScheduledPublishErrorCategory = "validation" | "dependency_unavailable" | "database" | "conflict" | "unexpected";
+
+export type ScheduledPublishDiagnostic = {
+  event: "scheduled_publish_failed" | "scheduled_publish_scan_failed";
+  assetId: string | null;
+  stage: ScheduledPublishStage;
+  at: string;
+  errorCategory: ScheduledPublishErrorCategory;
+  errorCode: string;
+  attempt: number | null;
+  willRetry: boolean;
+  nextAttemptAt: string | null;
+};
+
+export function categorizeScheduleError(err: unknown): { errorCategory: ScheduledPublishErrorCategory; errorCode: string } {
+  if (err instanceof HttpError) {
+    if (err.statusCode === 409) return { errorCategory: "conflict", errorCode: err.code };
+    if (err.statusCode >= 500) return { errorCategory: "dependency_unavailable", errorCode: err.code };
+    return { errorCategory: "validation", errorCode: err.code };
+  }
+  if (err instanceof PrimitiveError) return { errorCategory: "dependency_unavailable", errorCode: err.code };
+  const db = classifyDatabaseError(err);
+  if (db) return { errorCategory: db.category === "conflict" ? "conflict" : "database", errorCode: db.code };
+  return { errorCategory: "unexpected", errorCode: "unexpected_error" };
+}
+
+type ScheduleRunOptions = { logger?: ScheduleLogger; now?: () => number };
+
+/** Whether `meta` describes a schedule that may be attempted at `now` (pure; no I/O). */
+export function scheduleAttemptable(meta: Record<string, unknown>, now: number) {
+  if (!meta.publishPending || meta.scheduleMode !== "schedule") return false;
+  if (meta.publishScheduleExhausted === true) return false;
+  const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
+  const when = whenRaw ? new Date(whenRaw).getTime() : NaN;
+  if (Number.isNaN(when) || when > now + 2000) return false;
+  const next = typeof meta.publishScheduleNextAttemptAt === "string" ? new Date(meta.publishScheduleNextAttemptAt).getTime() : NaN;
+  if (!Number.isNaN(next) && next > now) return false;
+  const claimed = typeof meta.publishScheduleClaimedAt === "string" ? new Date(meta.publishScheduleClaimedAt).getTime() : NaN;
+  if (!Number.isNaN(claimed) && now - claimed < SCHEDULE_CLAIM_TTL_MS) return false;
+  return true;
+}
+
+/**
  * Fire one due scheduled publish. Re-enters executePublish with scheduleMode "now"
  * using persisted intent (visibility, presentations, audience).
+ * Returns null when the schedule is not attemptable or another runner claimed it.
  */
 export async function fireScheduledPublish(
   ownerId: string,
   assetId: string,
   primitives: PrimitiveBindings,
+  opts: ScheduleRunOptions = {},
 ): Promise<PublishExecuteResult | null> {
-  const asset = await getAsset(ownerId, assetId);
-  if (!asset) return null;
-  const meta = { ...(asset.metadata ?? {}) };
-  if (!meta.publishPending || meta.scheduleMode !== "schedule") return null;
-  const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
-  if (!whenRaw) return null;
-  const when = new Date(whenRaw);
-  if (Number.isNaN(when.getTime()) || when.getTime() > Date.now() + 2000) return null;
-
-  const visibility = (
-    meta.intendedVisibility === "public" ||
-    meta.intendedVisibility === "unlisted" ||
-    meta.intendedVisibility === "private"
-      ? meta.intendedVisibility
-      : "public"
-  ) as PublishVisibility;
-  const audience = (
-    meta.audience === "PREMIUM" || meta.audience === "VIP" || meta.audience === "FREE"
-      ? meta.audience
-      : "FREE"
-  ) as PublishAudience;
-  const presentationTypes = parsePresentationTypes(meta.presentationTypes);
-  const rights = (meta.publishingRights as PublishRights | undefined) ?? DEFAULT_PUBLISH_RIGHTS;
-  const category = (PUBLISH_CATEGORY_IDS.includes(meta.publishCategory as never)
-    ? meta.publishCategory
-    : "content") as PublishCategoryId;
-  const contentFormat = (meta.contentFormat as PublishContentFormat | null) ?? null;
-
+  const logger = opts.logger ?? jsonLogger;
+  const now = (opts.now ?? Date.now)();
+  let stage: ScheduledPublishStage = "claim";
+  let attempt: number | null = null;
   try {
-    return await executePublish(
-      ownerId,
-      {
-        assetId,
-        title: typeof meta.publishWriteup === "string" ? asset.title : asset.title,
-        writeup: typeof meta.publishWriteup === "string" ? meta.publishWriteup : asset.description,
-        tags: Array.isArray(meta.publishTags) ? (meta.publishTags as string[]) : [],
-        visibility,
-        rights,
-        scheduleMode: "now",
-        scheduledAt: null,
-        contentFormat,
-        category,
-        presentationTypes,
-        presentationType: presentationTypes[0] ?? null,
-        audience,
+    const row = await prisma.asset.findFirst({ where: { id: assetId, ownerId }, select: { metadata: true, status: true } });
+    if (!row || row.status !== "DRAFT") return null;
+    const meta = readJson<Record<string, unknown>>(row.metadata, {});
+    if (!scheduleAttemptable(meta, now)) return null;
+    attempt = (Number(meta.publishScheduleAttempts) || 0) + 1;
+
+    // Claim: compare-and-swap on the exact metadata string read above.
+    const claimed = await prisma.asset.updateMany({
+      where: { id: assetId, ownerId, status: "DRAFT", metadata: row.metadata },
+      data: {
+        metadata: writeJson({ ...meta, publishScheduleClaimedAt: new Date(now).toISOString(), publishScheduleAttempts: attempt }),
       },
-      primitives,
-    );
+    });
+    if (claimed.count !== 1) return null;
+
+    stage = "execute_publish";
+    const result = await executePublish(ownerId, scheduledPublishInput(assetId, meta, await getAsset(ownerId, assetId)), primitives);
+    await clearScheduleRetryState(ownerId, assetId);
+    return result;
   } catch (err) {
-    const message = err instanceof HttpError ? err.message : err instanceof Error ? err.message : "Scheduled publish failed.";
-    await updateAsset(ownerId, assetId, {
-      metadata: {
-        ...meta,
-        publishScheduleFailed: true,
-        publishScheduleError: message,
-        publishPending: true,
-      },
-    });
-    await prisma.distributionIntent.updateMany({
-      where: { ownerId, assetId, mode: "schedule", status: "SCHEDULED" },
-      data: { status: "FAILED", payload: writeJson({ error: message, scheduledAt: whenRaw }) },
-    });
-    await recordActivity({
-      ownerId,
-      kind: "publish_failed",
-      title: `Scheduled publish failed`,
-      detail: message,
-      assetId,
-    });
+    if (stage === "execute_publish" && attempt !== null) {
+      await recordScheduleFailure(ownerId, assetId, err, attempt, now, logger);
+    } else {
+      logger.error(diagnostic(assetId, stage, err, now, attempt, false, null), "scheduled publish failed");
+    }
     throw err;
   }
 }
 
-/** Scan all due scheduled publishes and fire them. Safe to call repeatedly. */
-export async function fireDueScheduledPublishes(primitives: PrimitiveBindings): Promise<{ fired: number; failed: number }> {
-  const rows = await prisma.asset.findMany({
-    where: { status: "DRAFT" },
-    select: { id: true, ownerId: true, metadata: true },
-    take: 200,
+function scheduledPublishInput(assetId: string, meta: Record<string, unknown>, asset: Awaited<ReturnType<typeof getAsset>>) {
+  const visibility = (
+    meta.intendedVisibility === "public" || meta.intendedVisibility === "unlisted" || meta.intendedVisibility === "private"
+      ? meta.intendedVisibility
+      : "public"
+  ) as PublishVisibility;
+  const audience = (
+    meta.audience === "PREMIUM" || meta.audience === "VIP" || meta.audience === "FREE" ? meta.audience : "FREE"
+  ) as PublishAudience;
+  const presentationTypes = parsePresentationTypes(meta.presentationTypes);
+  const rights = (meta.publishingRights as PublishRights | undefined) ?? DEFAULT_PUBLISH_RIGHTS;
+  const category = (PUBLISH_CATEGORY_IDS.includes(meta.publishCategory as never) ? meta.publishCategory : "content") as PublishCategoryId;
+  const contentFormat = (meta.contentFormat as PublishContentFormat | null) ?? null;
+  const title = asset?.title ?? "";
+  return {
+    assetId,
+    title,
+    writeup: typeof meta.publishWriteup === "string" ? meta.publishWriteup : asset?.description ?? "",
+    tags: Array.isArray(meta.publishTags) ? (meta.publishTags as string[]) : [],
+    visibility,
+    rights,
+    scheduleMode: "now" as const,
+    scheduledAt: null,
+    contentFormat,
+    category,
+    presentationTypes,
+    presentationType: presentationTypes[0] ?? null,
+    audience,
+  };
+}
+
+function diagnostic(
+  assetId: string | null,
+  stage: ScheduledPublishStage,
+  err: unknown,
+  now: number,
+  attempt: number | null,
+  willRetry: boolean,
+  nextAttemptAt: string | null,
+): ScheduledPublishDiagnostic {
+  return {
+    event: stage === "scan" ? "scheduled_publish_scan_failed" : "scheduled_publish_failed",
+    assetId,
+    stage,
+    at: new Date(now).toISOString(),
+    ...categorizeScheduleError(err),
+    attempt,
+    willRetry,
+    nextAttemptAt,
+  };
+}
+
+async function recordScheduleFailure(ownerId: string, assetId: string, err: unknown, attempt: number, now: number, logger: ScheduleLogger) {
+  const willRetry = attempt < SCHEDULE_MAX_ATTEMPTS;
+  const nextAttemptAt = willRetry ? new Date(now + SCHEDULE_RETRY_BACKOFF_MS[attempt - 1]).toISOString() : null;
+  const diag = diagnostic(assetId, "execute_publish", err, now, attempt, willRetry, nextAttemptAt);
+  logger.error(diag, "scheduled publish failed");
+  const message = err instanceof HttpError ? err.message : "Scheduled publish failed.";
+  try {
+    const current = await getAsset(ownerId, assetId);
+    await updateAsset(ownerId, assetId, {
+      metadata: {
+        ...(current?.metadata ?? {}),
+        publishPending: true,
+        publishScheduleFailed: true,
+        publishScheduleError: message,
+        publishScheduleErrorCode: diag.errorCode,
+        publishScheduleAttempts: attempt,
+        publishScheduleNextAttemptAt: nextAttemptAt,
+        publishScheduleExhausted: !willRetry,
+        publishScheduleClaimedAt: null,
+      },
+    });
+    if (!willRetry) {
+      await prisma.distributionIntent.updateMany({
+        where: { ownerId, assetId, mode: "schedule", status: "SCHEDULED" },
+        data: { status: "FAILED", payload: writeJson({ error: message, errorCode: diag.errorCode, attempts: attempt }) },
+      });
+    }
+    await recordActivity({
+      ownerId,
+      kind: "publish_failed",
+      title: willRetry ? "Scheduled publish failed — will retry" : "Scheduled publish failed",
+      detail: message,
+      assetId,
+    });
+  } catch (persistErr) {
+    logger.error(diagnostic(assetId, "record_failure", persistErr, now, attempt, willRetry, nextAttemptAt), "scheduled publish failure could not be recorded");
+  }
+}
+
+async function clearScheduleRetryState(ownerId: string, assetId: string) {
+  const current = await getAsset(ownerId, assetId);
+  if (!current?.metadata?.publishScheduleAttempts) return;
+  await updateAsset(ownerId, assetId, {
+    metadata: {
+      ...current.metadata,
+      publishScheduleFailed: false,
+      publishScheduleError: null,
+      publishScheduleErrorCode: null,
+      publishScheduleNextAttemptAt: null,
+      publishScheduleExhausted: false,
+      publishScheduleClaimedAt: null,
+    },
   });
+}
+
+/**
+ * Scan ALL due schedules (keyset-paged, not a fixed 200-row sample) and fire each one.
+ * One failure never stops unrelated schedules; each failure is logged where it happens.
+ */
+export async function fireDueScheduledPublishes(
+  primitives: PrimitiveBindings,
+  opts: ScheduleRunOptions & { pageSize?: number; ownerId?: string } = {},
+): Promise<{ fired: number; failed: number; skipped: number }> {
+  const now = (opts.now ?? Date.now)();
+  const pageSize = opts.pageSize ?? 200;
   let fired = 0;
   let failed = 0;
-  const now = Date.now();
-  for (const row of rows) {
-    const meta = readJson<Record<string, unknown>>(row.metadata, {});
-    if (!meta.publishPending || meta.scheduleMode !== "schedule") continue;
-    const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
-    if (!whenRaw) continue;
-    const when = new Date(whenRaw);
-    if (Number.isNaN(when.getTime()) || when.getTime() > now) continue;
-    try {
-      const result = await fireScheduledPublish(row.ownerId, row.id, primitives);
-      if (result?.status === "PUBLISHED") fired += 1;
-    } catch {
-      failed += 1;
+  let skipped = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const rows = await prisma.asset.findMany({
+      where: { status: "DRAFT", metadata: { contains: '"scheduleMode":"schedule"' }, ...(opts.ownerId ? { ownerId: opts.ownerId } : {}) },
+      select: { id: true, ownerId: true, metadata: true },
+      orderBy: { id: "asc" },
+      take: pageSize,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+    if (rows.length === 0) break;
+    cursor = rows[rows.length - 1].id;
+    for (const row of rows) {
+      if (!scheduleAttemptable(readJson<Record<string, unknown>>(row.metadata, {}), now)) continue;
+      try {
+        const result = await fireScheduledPublish(row.ownerId, row.id, primitives, { ...opts, now: () => now });
+        if (result?.status === "PUBLISHED") fired += 1;
+        else skipped += 1;
+      } catch {
+        failed += 1; // already logged with stage/category by fireScheduledPublish
+      }
     }
+    if (rows.length < pageSize) break;
   }
-  return { fired, failed };
+  return { fired, failed, skipped };
 }
 
 let scheduleScanner: ReturnType<typeof setInterval> | null = null;
 
 /** Durable due-scanner — not a local job queue; reads persisted scheduledPublishAt. */
-export function startScheduledPublishScanner(primitives: PrimitiveBindings, intervalMs = 20_000) {
+export function startScheduledPublishScanner(
+  primitives: PrimitiveBindings,
+  opts: { intervalMs?: number; logger?: ScheduleLogger } = {},
+) {
   if (scheduleScanner) return;
-  const tick = () => {
-    void fireDueScheduledPublishes(primitives).catch(() => {
-      /* scanner must not crash the process */
-    });
+  const logger = opts.logger ?? jsonLogger;
+  let running = false;
+  const tick = async () => {
+    // Never overlap scans: a slow publish must not be picked up again by the next tick.
+    if (running) return;
+    running = true;
+    try {
+      const result = await fireDueScheduledPublishes(primitives, { logger });
+      if (result.fired || result.failed) logger.info(result, "scheduled publish scan");
+    } catch (err) {
+      // The scanner must not crash the process, but a failed scan is never silent.
+      logger.error(diagnostic(null, "scan", err, Date.now(), null, true, null), "scheduled publish scan failed");
+      if (isConnectionLoss(err)) await resetConnectionPool();
+    } finally {
+      running = false;
+    }
   };
-  tick();
-  scheduleScanner = setInterval(tick, intervalMs);
+  void tick();
+  scheduleScanner = setInterval(() => void tick(), opts.intervalMs ?? 20_000);
   if (typeof scheduleScanner.unref === "function") scheduleScanner.unref();
+}
+
+export function stopScheduledPublishScanner() {
+  if (scheduleScanner) clearInterval(scheduleScanner);
+  scheduleScanner = null;
 }
 
 export async function recoverAssetToDraft(ownerId: string, assetId: string) {

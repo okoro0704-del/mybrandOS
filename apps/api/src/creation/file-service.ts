@@ -1,3 +1,4 @@
+import { storeUpload, uploadSize, type UploadInput } from "../lib/uploads.js";
 import { isSensitiveSoftwareFilename } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { PrimitiveError } from "@mybrandos/integrations";
@@ -43,7 +44,7 @@ export async function attachStoredFile(
 export async function uploadAndAttach(
   userId: string,
   projectId: string,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
   options?: { skipActionCheck?: boolean },
 ) {
@@ -52,11 +53,7 @@ export async function uploadAndAttach(
   }
   let stored;
   try {
-    stored = await primitives.dataZone.storeBytes({
-      filename: file.filename,
-      mimeType: file.mimeType,
-      bytes: file.bytes,
-    });
+    stored = await storeUpload(primitives.dataZone, file);
   } catch (err) {
     if (err instanceof PrimitiveError) throw unavailable(err.code, err.message);
     throw unavailable("DATAZONE_UNAVAILABLE", "File was not saved. DataZone did not persist the bytes.");
@@ -96,7 +93,7 @@ export async function replaceFile(
   userId: string,
   projectId: string,
   fileId: string,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
   options?: { skipOwnerCheck?: boolean; skipActionCheck?: boolean },
 ) {
@@ -110,11 +107,7 @@ export async function replaceFile(
   }
   let stored;
   try {
-    stored = await primitives.dataZone.storeBytes({
-      filename: file.filename,
-      mimeType: file.mimeType,
-      bytes: file.bytes,
-    });
+    stored = await storeUpload(primitives.dataZone, file);
   } catch (err) {
     if (err instanceof PrimitiveError) throw unavailable(err.code, err.message);
     throw unavailable("DATAZONE_UNAVAILABLE", "File was not replaced. DataZone did not persist the bytes.");
@@ -125,7 +118,7 @@ export async function replaceFile(
       dataZoneId: stored.dataZoneId,
       filename: file.filename,
       mimeType: file.mimeType,
-      sizeBytes: stored.sizeBytes ?? file.bytes.byteLength,
+      sizeBytes: stored.sizeBytes ?? uploadSize(file),
       metadata: writeJson({ replaced: true, originHash: stored.originHash }),
     },
   });

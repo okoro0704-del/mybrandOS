@@ -1,3 +1,4 @@
+import type { UploadInput } from "../lib/uploads.js";
 import type { ContentBlock, CourseImportReport, CourseStructureProposal, CourseStudioPayload } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { prisma } from "../lib/prisma.js";
@@ -99,7 +100,7 @@ export async function updateCourseMetadata(
 export async function setCourseThumbnail(
   userId: string,
   projectId: string,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
 ) {
   await requireAction(userId, projectId, "file");

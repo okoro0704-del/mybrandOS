@@ -1,3 +1,4 @@
+import type { UploadInput } from "../lib/uploads.js";
 import type { BookImportReport, BookStudioPayload, ContentBlock } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { prisma } from "../lib/prisma.js";
@@ -94,7 +95,7 @@ export async function updateBookMetadata(
 export async function setBookCover(
   userId: string,
   projectId: string,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
 ) {
   await requireAction(userId, projectId, "file");

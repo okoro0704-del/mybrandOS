@@ -130,7 +130,8 @@ export function usePublicationActions({
     try {
       const next = await api<{ loves: number; lovedByMe: boolean }>(
         `/public/${slug}/assets/${asset.id}/love`,
-        { method: "POST", body: JSON.stringify({}) },
+        // Explicit target state is idempotent, so a retried or double-fired tap cannot flip it back.
+        { method: "POST", body: JSON.stringify({ loved: !social.lovedByMe }) },
       );
       setSocial((s) => {
         const updated = { ...s, loves: next.loves, lovedByMe: next.lovedByMe };

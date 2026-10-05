@@ -129,7 +129,8 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
     const { fireDueScheduledPublishes } = await import("../publish/service.js");
-    return fireDueScheduledPublishes(primitives);
+    // Owner-scoped: a creator can only trigger their own due schedules.
+    return fireDueScheduledPublishes(primitives, { ownerId: session.ownerId });
   });
 
   app.get("/publish/:assetId/distribution", async (req, reply) => {

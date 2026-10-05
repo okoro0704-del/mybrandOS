@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CREATE_MODES, PROJECT_STATUSES } from "@mybrandos/shared";
@@ -186,24 +187,9 @@ export function registerCreationRoutes(app: FastifyInstance, primitives: Primiti
     const session = await actor(req, reply, primitives);
     if (!session) return;
     const { id } = req.params as { id: string };
-    const parts = req.parts();
-    let uploaded = null;
-    for await (const part of parts) {
-      if (part.type === "file") {
-        uploaded = await uploadAndAttach(
-          session.ownerId,
-          id,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        break;
-      }
-    }
-    if (!uploaded) return reply.code(400).send({ error: "no_files" });
+    const uploaded = await withUploads(req, UPLOAD_POLICIES.projectFile, (received) =>
+      uploadAndAttach(session.ownerId, id, singleUpload(received), primitives),
+    );
     return reply.code(201).send({
       file: uploaded,
       dataZone: primitives.dataZone.bound ? "remote" : "development-local",
@@ -232,24 +218,10 @@ export function registerCreationRoutes(app: FastifyInstance, primitives: Primiti
     const session = await actor(req, reply, primitives);
     if (!session) return;
     const { id, fileId } = req.params as { id: string; fileId: string };
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const file = await replaceFile(
-          session.ownerId,
-          id,
-          fileId,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return { file };
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    const file = await withUploads(req, UPLOAD_POLICIES.projectFile, (received) =>
+      replaceFile(session.ownerId, id, fileId, singleUpload(received), primitives),
+    );
+    return { file };
   });
 
   app.post("/projects/:id/ai", async (req, reply) => {

@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -190,22 +191,9 @@ export function registerBookRoutes(app: FastifyInstance, primitives: PrimitiveBi
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
     const { id } = req.params as { id: string };
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        return setBookCover(
-          session.ownerId,
-          id,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "image/png",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    return withUploads(req, UPLOAD_POLICIES.image, (received) =>
+      setBookCover(session.ownerId, id, singleUpload(received), primitives),
+    );
   });
 
   app.post("/books/:id/cover/select", async (req, reply) => {
@@ -294,21 +282,10 @@ export function registerBookRoutes(app: FastifyInstance, primitives: PrimitiveBi
   app.post("/books/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const result = await importManuscript(
-          session.ownerId,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return reply.code(201).send(result);
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    // Manuscripts are parsed in memory: one bounded document at a time under the buffer permit.
+    const result = await withUploads(req, UPLOAD_POLICIES.document, (received) =>
+      withUploadBytes(singleUpload(received), (file) => importManuscript(session.ownerId, file, primitives)),
+    );
+    return reply.code(201).send(result);
   });
 }

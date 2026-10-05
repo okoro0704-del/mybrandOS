@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -105,21 +106,10 @@ export function registerWritingRoutes(app: FastifyInstance, primitives: Primitiv
   app.post("/writing/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const result = await importWriting(
-          session.ownerId,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "text/plain",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return reply.code(201).send(result);
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    // Writing is parsed in memory: one bounded document at a time under the buffer permit.
+    const result = await withUploads(req, UPLOAD_POLICIES.document, (received) =>
+      withUploadBytes(singleUpload(received), (file) => importWriting(session.ownerId, file, primitives)),
+    );
+    return reply.code(201).send(result);
   });
 }

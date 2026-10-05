@@ -1,3 +1,4 @@
+import { uploadSize, withUploadBytes, type UploadInput } from "../lib/uploads.js";
 import type { CourseImportReport } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { prisma } from "../lib/prisma.js";
@@ -74,10 +75,10 @@ function classifyFile(filename: string, mime: string): { kind: Extracted["kind"]
 
 export async function importCourseMaterials(
   ownerId: string,
-  files: Array<{ filename: string; mimeType: string; bytes: Buffer }>,
+  files: UploadInput[],
   primitives: PrimitiveBindings,
 ) {
-  const totalBytes = files.reduce((n, file) => n + file.bytes.byteLength, 0);
+  const totalBytes = files.reduce((n, file) => n + uploadSize(file), 0);
   if (totalBytes >= config.largeImportBytes || files.length >= 12) {
     const queued = await importFiles(ownerId, files, primitives);
     return {
@@ -133,7 +134,8 @@ export async function importCourseMaterials(
     if (classified.review) report.needsReview.push(classified.review);
 
     if (classified.kind === "TEXT" || ext === "txt" || ext === "md") {
-      const extracted = extractFromText(file.bytes.toString("utf8"));
+      // Only text is read into memory, one file at a time under the global buffer permit.
+      const extracted = await withUploadBytes(file, async (b) => extractFromText(b.bytes.toString("utf8")));
       report.needsReview.push(...extracted.needsReview);
       if (extracted.parts.length === 0) {
         const mid = await moduleId("Imported module");

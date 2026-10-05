@@ -25,7 +25,9 @@ test("photo and video posts share canonical comments bound to publication id", (
   const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
   assert.match(feed, /usePublicationComments/);
   assert.match(hook, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/comments/);
-  assert.match(comments, /\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\/comments/);
+  // PostComments binds to the same canonical endpoint through the shared hook (no second copy).
+  assert.match(comments, /usePublicationComments\(slug, publicationId/);
+  assert.equal(/\/public\/\$\{slug\}\/assets\/\$\{publicationId\}\//.test(comments), false);
   assert.match(actions, /from "\.\/PostComments"/);
   assert.equal(actions.includes("content-actions__comment-form"), false);
 });

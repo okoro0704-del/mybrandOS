@@ -2,12 +2,10 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
-import { ZodError } from "zod";
-import { createPrimitiveContainer, collectPrimitiveHealth, IntegrationError, PrimitiveError } from "@mybrandos/integrations";
+import { createPrimitiveContainer, collectPrimitiveHealth } from "@mybrandos/integrations";
 import { LIFEOS_PRIMITIVE_IDS, MYBRANDOS_NAME, MYBRANDOS_VERSION } from "@mybrandos/shared";
 import { config } from "./config.js";
 import { prisma } from "./lib/prisma.js";
-import { HttpError } from "./lib/errors.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerAssetRoutes } from "./routes/assets.js";
 import { registerImportRoutes } from "./routes/import.js";
@@ -46,6 +44,10 @@ import {
 import { registerStaticWeb } from "./static-web.js";
 import { isAllowedBrowserOrigin } from "./lib/cors-origins.js";
 import { purgeUnpermittedSessions } from "./lib/auth.js";
+import { UPLOAD_LIMITS, sweepStaleUploads } from "./lib/uploads.js";
+import { registerRateLimiting, resolveTrustProxy } from "./lib/rate-limit.js";
+import { createErrorHandler } from "./lib/error-handler.js";
+import { assertMigrationsApplied } from "./lib/migration-guard.js";
 
 console.log("mybrandos: boot", { node: process.version, cwd: process.cwd(), port: config.port });
 
@@ -73,7 +75,17 @@ const primitives = createPrimitiveContainer({
   liveBroadcastToken: config.liveBroadcastToken,
 });
 
-const app = Fastify({ logger: true });
+const trustProxy = resolveTrustProxy(process.env.TRUST_PROXY);
+const app = Fastify({
+  logger: true,
+  // X-Forwarded-For is honoured only when TRUST_PROXY names the proxy chain (see rate-limit.ts).
+  trustProxy,
+  // JSON/text bodies; uploads are multipart and bounded separately by UPLOAD_LIMITS.
+  bodyLimit: 1024 * 1024,
+  // Whole request (headers + body) must arrive within 15 min; idle sockets close after 2 min.
+  requestTimeout: 15 * 60 * 1000,
+  connectionTimeout: 2 * 60 * 1000,
+});
 
 const corsAllow = Array.from(
   new Set(
@@ -84,40 +96,32 @@ const corsAllow = Array.from(
   ),
 );
 await app.register(cors, {
+  // Credentialed: never fall back to allow-all, even when no origins are configured.
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (corsAllow.length === 0) return cb(null, true);
-    return cb(null, isAllowedBrowserOrigin(origin, corsAllow));
+    return cb(null, isAllowedBrowserOrigin(origin, corsAllow, { production: !config.isDev }));
   },
   credentials: true,
 });
 await app.register(cookie, { secret: config.cookieSecret });
-await app.register(multipart, { limits: { fileSize: 80 * 1024 * 1024, files: 40 } });
+// Hard ceilings; each endpoint's UploadPolicy is stricter (see lib/uploads.ts).
+await app.register(multipart, {
+  limits: { fileSize: UPLOAD_LIMITS.maxFileBytes, files: 40, fields: 40, fieldSize: 1024 * 1024, parts: 100, headerPairs: 200 },
+});
+registerRateLimiting(app, {
+  sessionCookieName: config.sessionCookieName,
+  sessionHeaderName: config.sessionHeaderName,
+  clientIpTrusted: trustProxy !== false,
+});
+if (trustProxy === false && !config.isDev) {
+  app.log.warn("TRUST_PROXY is not set: client IPs are not trusted, so IP-keyed rate limits are disabled (principal limits still apply).");
+}
 
 app.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string" }, (_req, _body, done) => {
   done(null, {});
 });
 
-app.setErrorHandler((err, _req, reply) => {
-  if (err instanceof ZodError) {
-    return reply.code(400).send({ error: "invalid_request", issues: err.issues });
-  }
-  if (err instanceof PrimitiveError) {
-    return reply.code(err.status).send({ error: err.code, primitive: err.primitive, message: err.message });
-  }
-  if (err instanceof IntegrationError) {
-    return reply.code(err.status).send({ error: err.service, message: err.message });
-  }
-  if (err instanceof HttpError) {
-    return reply.code(err.statusCode).send({ error: err.code, message: err.message });
-  }
-  const status =
-    typeof err === "object" && err && "statusCode" in err && typeof (err as { statusCode?: unknown }).statusCode === "number"
-      ? (err as { statusCode: number }).statusCode
-      : 500;
-  if (status >= 500) app.log.error(err);
-  return reply.code(status).send({ error: status === 415 ? "unsupported_media_type" : "internal_error" });
-});
+app.setErrorHandler(createErrorHandler(app.log));
 
 async function healthPayload() {
   const registry = await collectPrimitiveHealth(primitives);
@@ -217,6 +221,10 @@ const shutdown = async () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
+// Fail closed before serving: the schema must match the committed migrations exactly.
+app.log.info(await assertMigrationsApplied(prisma), "migrations verified");
+app.log.info({ removed: await sweepStaleUploads() }, "stale upload spool sweep");
+
 // Request-time validation is the enforcement point; this only removes rows it would reject.
 try {
   app.log.info(await purgeUnpermittedSessions(primitives), "session purge");
@@ -227,4 +235,4 @@ try {
 await app.listen({ port: config.port, host: config.host });
 
 const { startScheduledPublishScanner } = await import("./publish/service.js");
-startScheduledPublishScanner(primitives);
+startScheduledPublishScanner(primitives, { logger: app.log });

@@ -1,3 +1,4 @@
+import type { UploadInput } from "../lib/uploads.js";
 import type { ContentBlock, MusicImportReport, MusicPreviewState, MusicStudioPayload } from "@mybrandos/shared";
 import { parseMusicCollectionKind, parseMusicProcessing } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -125,7 +126,7 @@ export async function attachMusicMedia(
   userId: string,
   projectId: string,
   slot: MediaSlot,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
   trackId?: string,
 ) {

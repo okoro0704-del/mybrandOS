@@ -1,3 +1,4 @@
+import type { UploadInput } from "../lib/uploads.js";
 import { isSensitiveSoftwareFilename } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { prisma } from "../lib/prisma.js";
@@ -31,7 +32,7 @@ export async function assertFreshVersion(projectId: string, baseVersionNumber?: 
 export async function createSoftwareFile(
   userId: string,
   projectId: string,
-  input: { filename: string; mimeType?: string; text?: string; bytes?: Buffer },
+  input: { filename: string; mimeType?: string; text?: string; bytes?: Buffer; upload?: UploadInput },
   primitives: PrimitiveBindings,
 ) {
   await requireSoftwarePermission(userId, projectId, "CREATE");
@@ -40,11 +41,14 @@ export async function createSoftwareFile(
   if (isSensitiveSoftwareFilename(filename) && (await loadAccess(userId, projectId)).role !== "OWNER") {
     throw forbidden("Collaborators cannot create secret files.");
   }
-  const bytes = input.bytes ?? Buffer.from(input.text ?? "", "utf8");
+  // A spooled HTTP upload streams from disk; inline text/bytes stay in-process.
+  const source: UploadInput = input.upload
+    ? { ...input.upload, filename, mimeType: input.mimeType ?? input.upload.mimeType }
+    : { filename, mimeType: input.mimeType ?? "text/plain", bytes: input.bytes ?? Buffer.from(input.text ?? "", "utf8") };
   const file = await uploadAndAttach(
     userId,
     projectId,
-    { filename, mimeType: input.mimeType ?? "text/plain", bytes },
+    source,
     primitives,
     { skipActionCheck: true },
   );

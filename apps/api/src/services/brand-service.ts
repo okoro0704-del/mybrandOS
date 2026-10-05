@@ -1,3 +1,4 @@
+import { storeUpload, type UploadInput } from "../lib/uploads.js";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { PrimitiveError } from "@mybrandos/integrations";
 import type { TrustIdIdentity } from "@mybrandos/shared";
@@ -45,6 +46,7 @@ import { listPublicEligible, listPublished } from "./asset-service.js";
 import { isDistributedLiveToLifeOs } from "../live/distributions.js";
 import type { Asset } from "@mybrandos/shared";
 import { parseWebsitePages } from "./website-service.js";
+import { recordEngagement, withEngagement } from "./engagement.js";
 
 const MEDIA_SLOTS: BrandMediaSlot[] = ["logo", "avatar", "cover"];
 
@@ -321,7 +323,7 @@ export async function getBrandConfig(
     listPublicEligible(ownerId),
   ]);
   const featuredAssetIds = space ? readJson<string[]>(space.featuredAssetIds, []) : [];
-  const eligibleCards = eligible.map(toPublicAssetCard).filter(publicAppEligibleAsset);
+  const eligibleCards = (await withEngagement(eligible)).map(toPublicAssetCard).filter(publicAppEligibleAsset);
   const featuredAssets = orderByIds(eligibleCards, featuredAssetIds);
   const nav = parseNav(space?.publicNav);
   const media = parseMedia(space?.brandMedia);
@@ -467,7 +469,7 @@ export async function updateBrandConfig(
 export async function storeBrandMedia(
   identity: TrustIdIdentity,
   slot: BrandMediaSlot,
-  file: { filename: string; mimeType: string; bytes: Buffer },
+  file: UploadInput,
   primitives: PrimitiveBindings,
 ) {
   if (!MEDIA_SLOTS.includes(slot)) {
@@ -478,11 +480,7 @@ export async function storeBrandMedia(
   }
   let stored;
   try {
-    stored = await primitives.dataZone.storeBytes({
-      filename: file.filename,
-      mimeType: file.mimeType,
-      bytes: file.bytes,
-    });
+    stored = await storeUpload(primitives.dataZone, file);
   } catch (err) {
     if (err instanceof PrimitiveError) throw unavailable(err.code, err.message);
     throw unavailable("DATAZONE_UNAVAILABLE", "File storage is currently unavailable. The image was not saved.");
@@ -583,7 +581,7 @@ async function experienceFrom(
 ): Promise<PublicBrandExperience> {
   const slug = space.slug ?? "";
   const featuredIds = readJson<string[]>(space.featuredAssetIds, []);
-  const publishedAssets = eligible.map(toPublicAssetCard).filter(publicAppEligibleAsset);
+  const publishedAssets = (await withEngagement(eligible)).map(toPublicAssetCard).filter(publicAppEligibleAsset);
   const featuredAssets = orderByIds(publishedAssets, featuredIds);
   const nav = parseNav(space.publicNav);
   const media = parseMedia(space.brandMedia);
@@ -785,7 +783,7 @@ export async function getPublicAsset(slug: string, assetId: string): Promise<Pub
   const experience = await getPublicBrandExperience(slug);
   const card = experience.publishedAssets.find((asset) => asset.id === assetId);
   if (!card) throw notFound("This work is not available.");
-  await bumpPublicEngagement(assetId, "view");
+  await recordEngagement(assetId, "view");
   return {
     ...card,
     brandName: experience.identity.displayName,
@@ -839,7 +837,7 @@ export async function getPublicAssetMedia(
   viewerBuyerId?: string | null,
 ) {
   await getPublicAsset(slug, assetId);
-  await bumpPublicEngagement(assetId, "play");
+  await recordEngagement(assetId, "play");
   const space = await prisma.personalSpace.findUnique({ where: { slug: normalizeSlug(slug) } });
   if (!space || !space.publicEnabled) throw notFound("This work is not available.");
   const asset = await prisma.asset.findFirst({
@@ -889,28 +887,6 @@ export async function getPublicAssetMedia(
   }
 
   return readAssetCover(asset.dataZoneId, primitives);
-}
-
-/** Record public view/play on existing Asset.analytics — no separate engagement backend. */
-async function bumpPublicEngagement(assetId: string, kind: "view" | "play") {
-  const row = await prisma.asset.findUnique({ where: { id: assetId }, select: { analytics: true } });
-  if (!row) return;
-  const analytics = readJson<Record<string, number>>(row.analytics, {});
-  const views = Number(analytics.views ?? 0) + (kind === "view" ? 1 : 0);
-  const plays = Number(analytics.plays ?? 0) + (kind === "play" ? 1 : 0);
-  const completions = Number(analytics.completions ?? 0);
-  await prisma.asset.update({
-    where: { id: assetId },
-    data: {
-      analytics: writeJson({
-        ...analytics,
-        views,
-        plays,
-        completions,
-        engagementScore: views + plays * 3 + completions * 5,
-      }),
-    },
-  });
 }
 
 export function assertPublicProjection(experience: PublicBrandExperience) {

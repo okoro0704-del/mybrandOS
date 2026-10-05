@@ -58,7 +58,12 @@ test("all six creation types route through the Universal Creation Engine", async
   );
 
   const parallel = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name IN ('MusicCMS','WritingCMS','SoftwareCMS','MusicAsset','WritingAsset','SoftwareAsset')`,
+    `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name IN ('MusicCMS','WritingCMS','SoftwareCMS','MusicAsset','WritingAsset','SoftwareAsset')`,
   );
   assert.deepEqual(parallel, []);
+  // Positive control: the catalog query sees real tables, so the empty result above is meaningful.
+  const control = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'CreationProject'`,
+  );
+  assert.deepEqual(control, [{ name: "CreationProject" }]);
 });

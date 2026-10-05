@@ -1,3 +1,4 @@
+import { UPLOAD_POLICIES, singleUpload, withUploadBytes, withUploads } from "../lib/uploads.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
@@ -143,28 +144,16 @@ export function registerMusicRoutes(app: FastifyInstance, primitives: PrimitiveB
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
     const { id } = req.params as { id: string };
-    const parts = req.parts();
-    let slot: "audio" | "cover" | "lyrics" = "audio";
-    let trackId: string | undefined;
-    for await (const part of parts) {
-      if (part.type === "field" && part.fieldname === "slot") slot = mediaSlot.parse(String(part.value));
-      if (part.type === "field" && part.fieldname === "trackId") trackId = String(part.value);
-      if (part.type === "file") {
-        return attachMusicMedia(
-          session.ownerId,
-          id,
-          slot,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-          trackId,
-        );
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    return withUploads(req, UPLOAD_POLICIES.projectFile, (received) =>
+      attachMusicMedia(
+        session.ownerId,
+        id,
+        mediaSlot.parse(received.fields.slot || "audio"),
+        singleUpload(received),
+        primitives,
+        received.fields.trackId || undefined,
+      ),
+    );
   });
 
   app.post("/music/:id/media/select", async (req, reply) => {
@@ -221,21 +210,9 @@ export function registerMusicRoutes(app: FastifyInstance, primitives: PrimitiveB
   app.post("/music/import", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        const result = await importMusic(
-          session.ownerId,
-          {
-            filename: part.filename,
-            mimeType: part.mimetype || "application/octet-stream",
-            bytes: await part.toBuffer(),
-          },
-          primitives,
-        );
-        return reply.code(201).send(result);
-      }
-    }
-    return reply.code(400).send({ error: "no_files" });
+    const result = await withUploads(req, UPLOAD_POLICIES.media, (received) =>
+      importMusic(session.ownerId, singleUpload(received), primitives),
+    );
+    return reply.code(201).send(result);
   });
 }

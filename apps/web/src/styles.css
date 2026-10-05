@@ -2718,6 +2718,9 @@ button.linkish {
 .living-conversation-layer .living-comment__reply {
   color: #fff;
 }
+.living-gallery__earlier {
+  justify-self: center;
+}
 .living-comment__reply {
   border: 0;
   background: transparent;
@@ -4506,7 +4509,12 @@ button.linkish {
   padding: 0;
   display: grid;
   gap: 0.85rem;
+  /* Comments scroll in place; a long thread never grows the post document. */
+  max-height: min(50vh, 28rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.post-comments__earlier { justify-self: center; }
 .post-comments__item { display: grid; gap: 0.2rem; }
 .post-comments__author { font-size: 0.85rem; }
 .post-comments__body {

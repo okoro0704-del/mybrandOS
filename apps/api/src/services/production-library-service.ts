@@ -1,6 +1,7 @@
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { PrimitiveError } from "@mybrandos/integrations";
-import { createHash } from "node:crypto";
+import { storeUpload, uploadSha256, type UploadInput } from "../lib/uploads.js";
+import { ensureMasterRendition } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson } from "../lib/json.js";
 import { createAsset, getAsset } from "./asset-service.js";
@@ -22,12 +23,16 @@ export async function addCreatorAssetToProduction(ownerId: string, assetId: stri
   if (!await getAsset(ownerId, assetId)) throw new Error("asset_not_found"); const data = rightsData(rights);
   return prisma.productionLibraryItem.upsert({ where: { ownerId_assetId: { ownerId, assetId } }, create: { ownerId, assetId, ...data }, update: data });
 }
-export async function createProductionItemForUploadedAsset(ownerId: string, file: { filename: string; mimeType: string; bytes: Buffer }, rights: ProductionRights, primitives: PrimitiveBindings) {
-  let stored; try { stored = await primitives.dataZone.storeBytes(file); } catch (error) { if (error instanceof PrimitiveError) throw new Error(`datazone_${error.code}`); throw new Error("datazone_unavailable"); }
+export type UploadedVideoPresentation = { durationMs: number; width: number; height: number; rotation?: number | null };
+export async function createProductionItemForUploadedAsset(ownerId: string, file: UploadInput, rights: ProductionRights, primitives: PrimitiveBindings, presentation: UploadedVideoPresentation) {
+  if (!presentation) throw new Error("video_presentation_required");
+  let stored; try { stored = await storeUpload(primitives.dataZone, file); } catch (error) { if (error instanceof PrimitiveError) throw new Error(`datazone_${error.code}`); throw new Error("datazone_unavailable"); }
   if (!stored.dataZoneId) throw new Error("datazone_unavailable");
   const title = file.filename.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || file.filename;
-  const checksum = createHash("sha256").update(file.bytes).digest("hex");
-  const asset = await createAsset({ ownerId, title, description: `Production upload: ${file.filename}`, assetType: "VIDEO", origin: "IMPORTED_FILE", originSource: file.filename, originRef: stored.dataZoneId, dataZoneId: stored.dataZoneId, visibility: "private", metadata: { filename: file.filename, mimeType: file.mimeType, sizeBytes: stored.sizeBytes, checksum, checksumAlgorithm: "sha256", productionUpload: true } });
+  const checksum = uploadSha256(file);
+  const baseMetadata = { filename: file.filename, mimeType: file.mimeType, sizeBytes: stored.sizeBytes, checksum, checksumAlgorithm: "sha256", productionUpload: true, durationMs: presentation.durationMs, width: presentation.width, height: presentation.height, rotation: presentation.rotation ?? 0 };
+  const metadata = ensureMasterRendition(baseMetadata, stored.dataZoneId, { mimeType: file.mimeType, durationMs: presentation.durationMs, width: presentation.width, height: presentation.height, aspectRatio: `${presentation.width}:${presentation.height}` });
+  const asset = await createAsset({ ownerId, title, description: `Production upload: ${file.filename}`, assetType: "VIDEO", origin: "IMPORTED_FILE", originSource: file.filename, originRef: stored.dataZoneId, dataZoneId: stored.dataZoneId, visibility: "private", metadata });
   return { asset, item: await addCreatorAssetToProduction(ownerId, asset.id, { ...rights, sourceType: "DIRECT_UPLOAD" }) };
 }
 export async function updateProductionRights(ownerId: string, id: string, rights: ProductionRights) { if (!await getProductionItem(ownerId, id)) throw new Error("production_item_not_found"); return prisma.productionLibraryItem.update({ where: { id }, data: rightsData(rights) }); }

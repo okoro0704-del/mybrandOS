@@ -21,9 +21,9 @@ export async function searchDigitalLife(
       where: {
         ownerId,
         OR: [
-          { title: { contains: q } },
-          { description: { contains: q } },
-          { metadata: { contains: q } },
+          { title: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { metadata: { contains: q, mode: "insensitive" } },
         ],
       },
       orderBy: { updatedAt: "desc" },
@@ -33,38 +33,38 @@ export async function searchDigitalLife(
       where: {
         OR: [{ ownerId }, { members: { some: { userId: ownerId } } }],
         AND: {
-          OR: [{ title: { contains: q } }, { description: { contains: q } }, { projectType: { contains: q } }],
+          OR: [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }, { projectType: { contains: q, mode: "insensitive" } }],
         },
       },
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),
     prisma.commerceItem.findMany({
-      where: { ownerId, title: { contains: q } },
+      where: { ownerId, title: { contains: q, mode: "insensitive" } },
       take: 15,
     }),
     prisma.activity.findMany({
-      where: { ownerId, title: { contains: q } },
+      where: { ownerId, title: { contains: q, mode: "insensitive" } },
       orderBy: { createdAt: "desc" },
       take: 15,
     }),
     prisma.audienceSegment.findMany({
-      where: { ownerId, name: { contains: q } },
+      where: { ownerId, name: { contains: q, mode: "insensitive" } },
       take: 8,
     }),
     prisma.courseModule.findMany({
-      where: { project: { ownerId }, OR: [{ title: { contains: q } }, { description: { contains: q } }] },
+      where: { project: { ownerId }, OR: [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] },
       take: 15,
     }),
     prisma.courseLesson.findMany({
-      where: { module: { project: { ownerId } }, OR: [{ title: { contains: q } }, { description: { contains: q } }] },
+      where: { module: { project: { ownerId } }, OR: [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] },
       include: { module: true },
       take: 15,
     }),
     prisma.projectVersion.findMany({
       where: {
         project: { OR: [{ ownerId }, { members: { some: { userId: ownerId } } }] },
-        label: { contains: q },
+        label: { contains: q, mode: "insensitive" },
       },
       include: { project: { select: { id: true, title: true } } },
       take: 12,
@@ -72,7 +72,7 @@ export async function searchDigitalLife(
     prisma.softwareCollaborator.findMany({
       where: {
         project: { OR: [{ ownerId }, { members: { some: { userId: ownerId } } }] },
-        userId: { contains: q },
+        userId: { contains: q, mode: "insensitive" },
       },
       include: { project: { select: { id: true, title: true } } },
       take: 12,

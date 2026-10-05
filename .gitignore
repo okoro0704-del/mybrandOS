@@ -21,3 +21,6 @@ coverage
 Thumbs.db
 uploads
 *.tsbuildinfo
+
+# Generated read-only client for the frozen legacy SQLite schema (data migration only)
+apps/api/prisma/legacy-sqlite/client/

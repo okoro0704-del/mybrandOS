@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { ApiError, api } from "../../lib/api";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { initialsFrom } from "./osIdentity";
+import { usePublicationComments } from "./usePublicationComments";
 
 export type PublicComment = {
   id: string;
@@ -8,10 +8,7 @@ export type PublicComment = {
   displayName: string;
   createdAt: string;
   mine: boolean;
-};
-
-type SocialComments = {
-  comments: PublicComment[];
+  parentCommentId?: string | null;
 };
 
 export function formatCommentAge(iso: string): string {
@@ -49,35 +46,15 @@ export function PostComments({
 }) {
   const inputId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [comments, setComments] = useState<PublicComment[]>([]);
-  const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [replyHint, setReplyHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void api<SocialComments>(`/public/${slug}/assets/${publicationId}/social`)
-      .then((data) => {
-        if (cancelled) return;
-        const next = Array.isArray(data.comments) ? data.comments : [];
-        setComments(next);
-        onCountChange?.(next.length);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "Could not load comments.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, publicationId, onCountChange]);
+  const [count, setCount] = useState(0);
+  const onCountChangeRef = useRef(onCountChange);
+  onCountChangeRef.current = onCountChange;
+  const reportCount = useCallback((next: number) => {
+    setCount(next);
+    onCountChangeRef.current?.(next);
+  }, []);
+  const social = usePublicationComments(slug, publicationId, { onCountChange: reportCount });
+  const { comments, draft, setDraft, busy, loading, error, replyHint } = social;
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -86,46 +63,17 @@ export function PostComments({
   }, [autoFocus, publicationId]);
 
   async function submit() {
-    if (busy) return;
-    const body = draft.trim();
-    if (!body) {
-      setError("Write a comment before submitting.");
-      inputRef.current?.focus();
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const created = await api<PublicComment>(`/public/${slug}/assets/${publicationId}/comments`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
-      setComments((list) => {
-        const next = [...list, created];
-        onCountChange?.(next.length);
-        return next;
-      });
-      setDraft("");
-      setReplyHint(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not post comment.");
-    } finally {
-      setBusy(false);
-    }
+    const created = await social.submit();
+    if (!created) inputRef.current?.focus();
   }
 
   function startReply(name: string) {
-    const handle = name.replace(/^@/, "");
-    setReplyHint(handle);
-    setDraft((prev) => {
-      const mention = `@${handle} `;
-      return prev.startsWith(mention) ? prev : `${mention}${prev}`;
-    });
+    social.startReply(name);
     inputRef.current?.focus();
   }
 
   const actorLabel = actorName?.trim() || "You";
-  const countLabel = comments.length === 1 ? "1 Comment" : `${comments.length} Comments`;
+  const countLabel = count === 1 ? "1 Comment" : `${count} Comments`;
 
   return (
     <section
@@ -185,6 +133,18 @@ export function PostComments({
         <p className="post-comments__status muted">Loading comments…</p>
       ) : (
         <ul className="post-comments__list">
+          {social.hasEarlier ? (
+            <li className="post-comments__earlier">
+              <button
+                type="button"
+                className="post-comments__reply"
+                onClick={() => void social.loadEarlier()}
+                disabled={social.loadingEarlier}
+              >
+                {social.loadingEarlier ? "Loading earlier comments…" : "Show earlier comments"}
+              </button>
+            </li>
+          ) : null}
           {comments.length ? (
             comments.map((c) => (
               <li key={c.id} className="post-comments__item">

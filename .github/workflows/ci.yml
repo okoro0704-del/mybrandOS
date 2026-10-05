@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "stabilization/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mybrandos
+          POSTGRES_PASSWORD: mybrandos
+          POSTGRES_DB: mybrandos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mybrandos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://mybrandos:mybrandos@localhost:5432/mybrandos?schema=public
+      SHADOW_DATABASE_URL: postgresql://mybrandos:mybrandos@localhost:5432/mybrandos_shadow
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22: `node --test test/**/*.test.ts` relies on the test runner's own glob support.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Create shadow database
+        run: psql "postgresql://mybrandos:mybrandos@localhost:5432/mybrandos" -c "CREATE DATABASE mybrandos_shadow"
+
+      # Same command developers run locally: builds shared + integrations, generates the
+      # Prisma client, typechecks the API and the web app.
+      - name: Typecheck (root)
+        run: npm run typecheck
+
+      - name: Migrations match schema.prisma (no drift)
+        run: npm run db:migrate:check
+
+      - name: Apply migrations
+        run: npm run db:migrate:deploy
+
+      - name: Generate legacy SQLite client (data-migration tests)
+        run: npm run db:generate:legacy -w @mybrandos/api
+
+      # The test script reads apps/api/.env; real env vars above take precedence over it.
+      - name: API tests
+        run: |
+          cp .env.example apps/api/.env
+          npm test
+
+      - name: API build
+        run: npm run build -w @mybrandos/api
+
+      - name: Web production build
+        run: npm run build -w @mybrandos/web
