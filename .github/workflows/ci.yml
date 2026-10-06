@@ -86,9 +86,10 @@ jobs:
             --test-reporter=tap --test-reporter-destination=api-tests.tap \
             "test/**/*.test.ts"
 
-      # Failing tests become check annotations, readable on the PR/commit without opening logs.
-      - name: Report failing tests
-        if: failure()
+      # Failing tests (and the pass/fail summary) become check annotations, readable on the
+      # PR/commit without opening logs.
+      - name: Report test results
+        if: always()
         working-directory: apps/api
         run: node ../../scripts/ci-annotate-tap.mjs api-tests.tap
 
