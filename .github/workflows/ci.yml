@@ -59,6 +59,15 @@ jobs:
       - name: Generate legacy SQLite client (data-migration tests)
         run: npm run db:generate:legacy -w @mybrandos/api
 
+      # Surface-routing tests serve the built SPA (apps/web/dist), so build it before testing.
+      - name: Web production build
+        run: npm run build -w @mybrandos/web
+
+      # space-contract-v1 verifies mybrandOS and the LifeOS shell share one Space behavior;
+      # it imports ../LifeOS relative to this checkout.
+      - name: Check out LifeOS shell (cross-repo Space contract)
+        run: git clone --depth 1 https://github.com/okoro0704-del/LifeOS-Shell-.git "$GITHUB_WORKSPACE/../LifeOS"
+
       # The test script reads apps/api/.env; real env vars above take precedence over it.
       # Same invocation as `npm test`, plus a TAP copy so failures can be surfaced below.
       - name: API tests
@@ -78,6 +87,3 @@ jobs:
 
       - name: API build
         run: npm run build -w @mybrandos/api
-
-      - name: Web production build
-        run: npm run build -w @mybrandos/web
