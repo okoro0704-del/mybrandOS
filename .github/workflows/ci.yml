@@ -65,8 +65,15 @@ jobs:
 
       # space-contract-v1 verifies mybrandOS and the LifeOS shell share one Space behavior;
       # it imports ../LifeOS relative to this checkout.
+      # The LifeOS side must resolve its OWN vendored @digiconomy/space-runtime (a different
+      # build from ours), so install that tarball into the clone (it has no dependencies).
       - name: Check out LifeOS shell (cross-repo Space contract)
-        run: git clone --depth 1 https://github.com/okoro0704-del/LifeOS-Shell-.git "$GITHUB_WORKSPACE/../LifeOS"
+        run: |
+          LIFEOS="$GITHUB_WORKSPACE/../LifeOS"
+          git clone --depth 1 https://github.com/okoro0704-del/LifeOS-Shell-.git "$LIFEOS"
+          mkdir -p "$LIFEOS/node_modules/@digiconomy/space-runtime"
+          tar -xzf "$LIFEOS/vendor/digiconomy/digiconomy-space-runtime-1.0.0.tgz" --strip-components=1 \
+            -C "$LIFEOS/node_modules/@digiconomy/space-runtime"
 
       # The test script reads apps/api/.env; real env vars above take precedence over it.
       # Same invocation as `npm test`, plus a TAP copy so failures can be surfaced below.
