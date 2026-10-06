@@ -60,10 +60,21 @@ jobs:
         run: npm run db:generate:legacy -w @mybrandos/api
 
       # The test script reads apps/api/.env; real env vars above take precedence over it.
+      # Same invocation as `npm test`, plus a TAP copy so failures can be surfaced below.
       - name: API tests
+        working-directory: apps/api
         run: |
-          cp .env.example apps/api/.env
-          npm test
+          cp ../../.env.example .env
+          npx tsx --env-file=.env --test \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=tap --test-reporter-destination=api-tests.tap \
+            "test/**/*.test.ts"
+
+      # Failing tests become check annotations, readable on the PR/commit without opening logs.
+      - name: Report failing tests
+        if: failure()
+        working-directory: apps/api
+        run: node ../../scripts/ci-annotate-tap.mjs api-tests.tap
 
       - name: API build
         run: npm run build -w @mybrandos/api
