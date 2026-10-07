@@ -165,7 +165,8 @@ await check("scheduled publishing: fires exactly once and media is served byte-e
   // that same execution; that is existing double-logging, not a second publish.)
   assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'published' AND detail LIKE 'Visibility %'`), "1", `activities: ${activities}`);
   assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'status'`), "1", `activities: ${activities}`);
-  const media = await fetch(`${BASE}/api/public/${SLUG}/assets/${imageAssetId}/media`);
+  // Images are served from /cover (/media serves VIDEO, MUSIC and SOFTWARE only).
+  const media = await fetch(`${BASE}/api/public/${SLUG}/assets/${imageAssetId}/cover`);
   const served = Buffer.from(await media.arrayBuffer());
   assert.equal(media.status, 200, `media status ${media.status}: ${served.toString().slice(0, 200)}`);
   assert.equal(sha(served), sha(png), `media bytes differ: served ${served.length} bytes, type ${media.headers.get("content-type")}`);
