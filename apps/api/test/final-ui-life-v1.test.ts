@@ -136,8 +136,8 @@ test("18-20. media fills the canvas; controls and nav float over it", () => {
   assert.match(appBlock, /--app-nav-reserve:/);
   assert.match(appBlock, /\.post-viewport \.immersive-feed__slide\.living-gallery \{[^}]*display: block;[^}]*padding: 0;/);
   assert.match(appBlock, /\.post-viewport \.living-gallery \.living-gallery__media\.immersive-feed__media \{[^}]*position: absolute;[^}]*inset: 0;/);
-  assert.match(appBlock, /\.post-viewport \.post-dock \{[^}]*position: absolute;[^}]*bottom: var\(--post-dock-rest\);/);
-  assert.match(appBlock, /\.post-overlay \{[^}]*position: absolute;[^}]*bottom: calc\(100% \+ 0\.4rem\);/);
+  assert.match(appBlock, /\.post-viewport \.post-dock \{[^}]*position: absolute;[^}]*inset: 0;[^}]*pointer-events: none;/);
+  assert.match(appBlock, /\.post-overlay \{[^}]*position: absolute;[^}]*bottom: var\(--post-above-composer\);/);
   assert.match(appBlock, /\.app-page \{[^}]*overflow-y: auto;[^}]*calc\(var\(--app-nav-reserve, 1rem\) \+ 1rem\)/);
   assert.ok(feed.indexOf("<InteractionOverlay") > feed.lastIndexOf("</ul>"));
 });

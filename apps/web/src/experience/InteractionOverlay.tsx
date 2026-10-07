@@ -1,18 +1,14 @@
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { PublicAssetCard } from "@mybrandos/shared";
 import { ActionBtn, usePublicationActions } from "../digital-life/personal-os/ContentActionBar";
+import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
+import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
 import type { MediaOutcome } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { Icons } from "../nav/icons";
-import {
-  interactionPanelGeometry,
-  isInteractionOpen,
-  shouldDismissOnSwipe,
-  type PostInteraction,
-} from "./postInteraction";
+import { shouldDismissOnSwipe, type PostInteraction } from "./postInteraction";
 
 const LONG_PRESS_MS = 520;
-const TOP_RESERVE_PX = 56;
 
 const PANEL_TITLES: Record<Exclude<PostInteraction, "NONE">, string> = {
   COMMENTS: "Comments",
@@ -23,9 +19,10 @@ const PANEL_TITLES: Record<Exclude<PostInteraction, "NONE">, string> = {
 };
 
 /**
- * Transparent interaction controls floating over the media canvas, bound to the settled post.
- * Lives outside the post slides, so it never takes space from the media. Summoned panels are
- * anchored above the bar (bottom: 100%) and overlay the media.
+ * Interaction controls standing on the media canvas, bound to the settled post: a vertical rail
+ * on the right edge (counts under the icons) and, when summoned, one panel on the right side of
+ * the post between the identity header and the composer dock. Lives outside the post slides, so
+ * it never takes space from the media.
  */
 export function InteractionOverlay({
   asset,
@@ -61,47 +58,12 @@ export function InteractionOverlay({
 }) {
   const actions = usePublicationActions({ asset, slug, mediaBase, creatorLabel: author, onOutcome });
   const { social } = actions;
-  const open = isInteractionOpen(interaction);
   const panelTitle = interaction === "NONE" ? null : PANEL_TITLES[interaction];
-  const dockRef = useRef<HTMLDivElement>(null);
-  const [geometry, setGeometry] = useState<{ lift: number; maxHeight: number } | null>(null);
+  const collaborator = publicationCollaboratorMarks({ slug, displayName: author }, asset.presentation?.collaborators)[0];
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
   const swipeStart = useRef<number | null>(null);
-  const [swipeDy, setSwipeDy] = useState(0);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setGeometry(null);
-      return;
-    }
-    const measure = () => {
-      const dock = dockRef.current;
-      if (!dock) return;
-      const vv = window.visualViewport;
-      const visibleTop = vv ? vv.offsetTop : 0;
-      const headerBottom = document.querySelector(".os-identity-hud .os-topbar")?.getBoundingClientRect().bottom ?? 0;
-      setGeometry(
-        interactionPanelGeometry({
-          anchorTop: dock.getBoundingClientRect().top,
-          visibleTop,
-          visibleHeight: vv ? vv.height : window.innerHeight,
-          topReserve: Math.max(TOP_RESERVE_PX, headerBottom + 6 - visibleTop),
-          keyboardOpen,
-        }),
-      );
-    };
-    measure();
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", measure);
-    vv?.addEventListener("scroll", measure);
-    window.addEventListener("resize", measure);
-    return () => {
-      vv?.removeEventListener("resize", measure);
-      vv?.removeEventListener("scroll", measure);
-      window.removeEventListener("resize", measure);
-    };
-  }, [open, keyboardOpen]);
+  const [swipeDx, setSwipeDx] = useState(0);
 
   const toggle = useCallback((next: PostInteraction) => onInteraction(next), [onInteraction]);
   const close = useCallback(() => onInteraction("NONE"), [onInteraction]);
@@ -113,11 +75,10 @@ export function InteractionOverlay({
     }
   }
 
-  const panelStyle = {
-    "--post-panel-lift": `${geometry?.lift ?? 0}px`,
-    ...(geometry ? { "--post-panel-max": `${geometry.maxHeight}px` } : {}),
-    ...(swipeDy > 0 ? { transform: `translateY(calc(${swipeDy}px - var(--post-panel-lift)))`, transition: "none" } : {}),
-  } as CSSProperties;
+  // Dragging the panel head towards the right edge follows the finger and dismisses past the threshold.
+  const panelStyle = (swipeDx > 0 ? { transform: `translateX(${swipeDx}px)`, transition: "none" } : undefined) as
+    | CSSProperties
+    | undefined;
 
   let content: ReactNode = null;
   if (interaction === "COMMENTS") {
@@ -185,13 +146,23 @@ export function InteractionOverlay({
 
   return (
     <div
-      ref={dockRef}
       className="post-dock"
       data-interaction-overlay="true"
       data-bound-asset-id={asset.id}
       data-interaction={interaction}
       data-scroll-chrome="ignore"
     >
+      {collaborator ? (
+        <div className="post-collab" data-post-collab={collaborator.slug} aria-label={`In collaboration with ${collaborator.displayName || collaborator.slug}`}>
+          <OsWordmark
+            slug={collaborator.slug}
+            displayName={collaborator.displayName}
+            to={`/u/${collaborator.slug}`}
+            identity
+            className="os-wordmark--collab"
+          />
+        </div>
+      ) : null}
       {panelTitle ? (
         <section
           key={interaction}
@@ -209,22 +180,22 @@ export function InteractionOverlay({
             className="post-overlay__head"
             onPointerDown={(e) => {
               if (e.target instanceof Element && e.target.closest("button")) return;
-              swipeStart.current = e.clientY;
+              swipeStart.current = e.clientX;
               e.currentTarget.setPointerCapture?.(e.pointerId);
             }}
             onPointerMove={(e) => {
               if (swipeStart.current === null) return;
-              setSwipeDy(Math.max(0, e.clientY - swipeStart.current));
+              setSwipeDx(Math.max(0, e.clientX - swipeStart.current));
             }}
             onPointerUp={(e) => {
-              const dy = swipeStart.current === null ? 0 : e.clientY - swipeStart.current;
+              const dx = swipeStart.current === null ? 0 : e.clientX - swipeStart.current;
               swipeStart.current = null;
-              setSwipeDy(0);
-              if (shouldDismissOnSwipe(dy)) close();
+              setSwipeDx(0);
+              if (shouldDismissOnSwipe(dx)) close();
             }}
             onPointerCancel={() => {
               swipeStart.current = null;
-              setSwipeDy(0);
+              setSwipeDx(0);
             }}
           >
             <span className="post-overlay__grip" aria-hidden />
@@ -240,7 +211,7 @@ export function InteractionOverlay({
         </section>
       ) : null}
 
-      <div className="post-dock__bar" role="toolbar" aria-label="Publication actions">
+      <div className="post-dock__bar" role="toolbar" aria-orientation="vertical" aria-label="Publication actions">
         <ActionBtn
           label="Love"
           active={social.lovedByMe}

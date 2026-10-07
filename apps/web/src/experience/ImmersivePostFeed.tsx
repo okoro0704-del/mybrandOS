@@ -14,10 +14,9 @@ import { ASSET_TYPE_LABELS, type PublicAssetCard, type PublicBrandExperience } f
 import { ContentActionBar, prefetchPublicationSocial } from "../digital-life/personal-os/ContentActionBar";
 import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { useExperienceMode } from "../digital-life/experience/ExperienceModeContext";
-import { usePostNavigation } from "../digital-life/navigation/PostNavigationContext";
 import { InteractionOverlay } from "./InteractionOverlay";
 import { isInteractionOpen, togglePostInteraction, type PostInteraction } from "./postInteraction";
-import { isAlignedToSlide, isPostNavigating, reduceSwipePhase, type SwipeEvent, type SwipePhase } from "./postSwipe";
+import { isAlignedToSlide, reduceSwipePhase, type SwipeEvent, type SwipePhase } from "./postSwipe";
 import { FeedVisibilityContext } from "./FeedVisibilityContext";
 import { MediaOutcomeLayer, spawnMediaOutcome, type MediaParticle } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { CommentKeyboard, type CommentComposerInputMode } from "../digital-life/personal-os/CommentKeyboard";
@@ -197,10 +196,12 @@ function PostSlide({
   topOpen,
   interaction,
   commentsHost,
+  composerHost,
   onToggleTop,
   onInteraction,
   onCommentCount,
   onKeyboardOpenChange,
+  onKeyboardInset,
   onVideoEnded,
 }: {
   asset: PublicAssetCard;
@@ -213,10 +214,13 @@ function PostSlide({
   interaction: PostInteraction;
   /** APP: the interaction overlay's comments panel; the active slide portals its comments here. */
   commentsHost?: HTMLElement | null;
+  /** APP: the detached composer dock under the post; the active slide portals its composer here. */
+  composerHost?: HTMLElement | null;
   onToggleTop: () => void;
   onInteraction: (requested: PostInteraction) => void;
   onCommentCount?: (assetId: string, count: number) => void;
   onKeyboardOpenChange?: (open: boolean) => void;
+  onKeyboardInset?: (px: number) => void;
   onPublicationHandoff?: (dir: "previous" | "next") => void;
   onVideoEnded: () => void;
 }) {
@@ -224,6 +228,8 @@ function PostSlide({
   void onToggleTop;
   const appPost = useExperienceMode() === "APP";
   const commentMode = interaction === "COMMENTS";
+  // APP: the composer is always there for the active post; elsewhere it lives inside the comments layer.
+  const composerLive = appPost ? active : commentMode;
   const interactionOpen = isInteractionOpen(interaction);
   const onToggleComments = useCallback(() => onInteraction("COMMENTS"), [onInteraction]);
   const [frozenHeight, setFrozenHeight] = useState<number | null>(null);
@@ -311,20 +317,20 @@ function PostSlide({
   }, [appPost, interactionOpen]);
 
   useEffect(() => {
-    if (!commentMode) {
+    if (!composerLive) {
       setKeyboard("CLOSED");
       setInputMode("internal");
       setVvBottom(0);
     }
-  }, [commentMode]);
+  }, [composerLive]);
 
   useEffect(() => {
-    if (!commentMode || inputMode !== "system") return;
+    if (!composerLive || inputMode !== "system") return;
     composerRef.current?.focus();
-  }, [commentMode, inputMode]);
+  }, [composerLive, inputMode]);
 
   useEffect(() => {
-    if (!commentMode || !active || inputMode !== "system") {
+    if (!composerLive || !active || inputMode !== "system") {
       setVvBottom(0);
       return;
     }
@@ -341,7 +347,7 @@ function PostSlide({
       vv.removeEventListener("resize", apply);
       vv.removeEventListener("scroll", apply);
     };
-  }, [commentMode, active, inputMode]);
+  }, [composerLive, active, inputMode]);
 
   const onIntrinsic = useCallback((width: number, height: number) => {
     setSrcW(width);
@@ -371,7 +377,7 @@ function PostSlide({
   }, [social]);
 
   useEffect(() => {
-    if (!active || !commentMode || inputMode !== "internal" || !isCommentKeyboardOpen(keyboard)) return;
+    if (!active || !composerLive || inputMode !== "internal" || !isCommentKeyboardOpen(keyboard)) return;
     const onKey = (e: KeyboardEvent) => {
       if (isEditableKeyboardTarget(e.target)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -399,32 +405,25 @@ function PostSlide({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, commentMode, inputMode, keyboard, sendComment, social]);
+  }, [active, composerLive, inputMode, keyboard, sendComment, social]);
 
   const presentation = videoPresentation(asset);
   const humanTitle = humanPublicationTitle(asset.title, asset.id);
   const keyboardOpen = isCommentKeyboardOpen(keyboard) && inputMode === "internal";
-  const overlayKeyboardOpen = keyboardOpen || (commentMode && inputMode === "system" && vvBottom > 0);
+  const overlayKeyboardOpen = keyboardOpen || (composerLive && inputMode === "system" && vvBottom > 0);
   const kindLabel = ASSET_TYPE_LABELS[asset.assetType] || asset.assetType;
 
   useEffect(() => {
     if (appPost && active) onKeyboardOpenChange?.(overlayKeyboardOpen);
   }, [appPost, active, overlayKeyboardOpen, onKeyboardOpenChange]);
 
-  const commentsLayer = commentMode ? (
-    <div
-      className="living-comments-layer"
-      id={commentsId}
-      data-comments-open="true"
-      data-keyboard={keyboardOpen ? "open" : "closed"}
-      data-input-mode={inputMode}
-      data-scroll-chrome="ignore"
-      style={{ "--vv-bottom": `${Math.round(inputMode === "system" ? vvBottom : 0)}px` } as CSSProperties}
-      onPointerDown={(e) => e.stopPropagation()}
-      onPointerUp={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onTouchMove={(e) => e.stopPropagation()}
-    >
+  const keyboardInset = Math.round(inputMode === "system" ? vvBottom : 0);
+  useEffect(() => {
+    if (appPost && active) onKeyboardInset?.(keyboardInset);
+  }, [appPost, active, keyboardInset, onKeyboardInset]);
+
+  const conversation = (
+    <>
       {appPost && social.comments.length === 0 && !social.loading && !social.error ? (
         <p className="living-gallery__status living-gallery__empty">No comments yet. Be the first.</p>
       ) : null}
@@ -448,6 +447,11 @@ function PostSlide({
           ))}
         </div>
       ) : null}
+    </>
+  );
+
+  const composerBlock = (
+    <>
       <div className="living-gallery__composer living-gallery__composer--float post-comments__composer">
         <div className="comment-composer__type-in">
           {inputMode === "system" ? (
@@ -567,6 +571,43 @@ function PostSlide({
           }
         }}
       />
+    </>
+  );
+
+  const stopToPost = {
+    onPointerDown: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    onPointerUp: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    onTouchMove: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+  };
+
+  const commentsLayer = commentMode ? (
+    <div
+      className="living-comments-layer"
+      id={commentsId}
+      data-comments-open="true"
+      data-keyboard={keyboardOpen ? "open" : "closed"}
+      data-input-mode={inputMode}
+      data-scroll-chrome="ignore"
+      style={{ "--vv-bottom": `${keyboardInset}px` } as CSSProperties}
+      {...stopToPost}
+    >
+      {conversation}
+      {appPost ? null : composerBlock}
+    </div>
+  ) : null;
+
+  // APP: the composer is detached from the comments panel and pinned under the post.
+  const composerDock = appPost && composerLive ? (
+    <div
+      className="post-composer"
+      data-post-composer-bound={asset.id}
+      data-keyboard={overlayKeyboardOpen ? "open" : "closed"}
+      data-input-mode={inputMode}
+      data-scroll-chrome="ignore"
+      {...stopToPost}
+    >
+      {composerBlock}
     </div>
   ) : null;
 
@@ -655,6 +696,7 @@ function PostSlide({
         ) : null}
 
         {appPost ? (commentsLayer && commentsHost ? createPortal(commentsLayer, commentsHost) : null) : commentsLayer}
+        {composerDock && composerHost ? createPortal(composerDock, composerHost) : null}
 
         {appPost ? null : commentMode ? (
         <div
@@ -736,7 +778,6 @@ export function ImmersivePostFeed({
   const commentMode = interaction === "COMMENTS";
   const interactionOpen = isInteractionOpen(interaction);
   const interactionOpenRef = useRef(false);
-  interactionOpenRef.current = interactionOpen;
   const [topOpen, setTopOpen] = useState(false);
   const topOpenRef = useRef(false);
   topOpenRef.current = topOpen;
@@ -757,10 +798,15 @@ export function ImmersivePostFeed({
   const [commentsHost, setCommentsHost] = useState<HTMLElement | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [overlayKeyboardOpen, setOverlayKeyboardOpen] = useState(false);
+  const [composerHost, setComposerHost] = useState<HTMLElement | null>(null);
+  const [composerH, setComposerH] = useState(0);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  // Writing a comment holds the post exactly like an open panel: no auto-advance, no swipe away.
+  const postHeld = interactionOpen || overlayKeyboardOpen;
+  interactionOpenRef.current = postHeld;
   const [outcomes, setOutcomes] = useState<MediaParticle[]>([]);
   const itemsLengthRef = useRef(items.length);
   itemsLengthRef.current = items.length;
-  const { setPostNavigating } = usePostNavigation();
 
   const activeAssetId = items[activeIndex]?.id ?? null;
   const setHomeAsset = home.setAsset;
@@ -775,6 +821,7 @@ export function ImmersivePostFeed({
     const slides = root.querySelectorAll<HTMLElement>(".immersive-feed__slide");
     const target = slides[index];
     if (!target) return;
+    markProgrammaticScroll(root);
     root.scrollTo({ top: target.offsetTop, behavior: immersiveScrollBehavior() });
   }, []);
 
@@ -906,6 +953,7 @@ export function ImmersivePostFeed({
     const slides = root.querySelectorAll<HTMLElement>(".immersive-feed__slide");
     const target = slides[initialIndex];
     if (target) {
+      markProgrammaticScroll(root);
       root.scrollTop = target.offsetTop;
       setActiveIndex(initialIndex);
       didInitScroll.current = true;
@@ -921,14 +969,14 @@ export function ImmersivePostFeed({
 
   useEffect(() => {
     const root = listRef.current;
-    if (!root || !shouldLockFeedSwipe(interactionOpen ? "comments" : "feed")) return;
+    if (!root || !shouldLockFeedSwipe(postHeld ? "comments" : "feed")) return;
     const locked = root.scrollTop;
     const keep = () => {
       if (root.scrollTop !== locked) root.scrollTop = locked;
     };
     root.addEventListener("scroll", keep);
     return () => root.removeEventListener("scroll", keep);
-  }, [interactionOpen]);
+  }, [postHeld]);
 
   useEffect(() => {
     photoRemainingRef.current = GALLERY_PHOTO_DWELL_MS;
@@ -941,7 +989,7 @@ export function ImmersivePostFeed({
     if (!pendingEndedRef.current) return;
     if (
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: interactionOpen,
+        commentsOpen: postHeld,
         topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
         documentHidden: documentHidden || space.ui === "INTERACTION",
@@ -954,7 +1002,7 @@ export function ImmersivePostFeed({
       return;
     }
     scheduleEndHold();
-  }, [interactionOpen, topOpen, documentHidden, interactionNonce, space.ui, scheduleEndHold, clearHoldTimer]);
+  }, [postHeld, topOpen, documentHidden, interactionNonce, space.ui, scheduleEndHold, clearHoldTimer]);
 
   useEffect(() => {
     const asset = items[activeIndex];
@@ -963,7 +1011,7 @@ export function ImmersivePostFeed({
     if (!galleryUsesPhotoDwell(state)) return;
     if (
       shouldSuspendGalleryAutoAdvance({
-        commentsOpen: interactionOpen,
+        commentsOpen: postHeld,
         topOpen: topOpen || space.ui === "INTERACTION",
         dragging: draggingRef.current,
         documentHidden: documentHidden || space.ui === "INTERACTION",
@@ -979,7 +1027,7 @@ export function ImmersivePostFeed({
       window.clearTimeout(t);
       photoRemainingRef.current = Math.max(0, photoRemainingRef.current - (Date.now() - started));
     };
-  }, [activeIndex, interactionOpen, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.ui, advanceToNextPublication]);
+  }, [activeIndex, postHeld, topOpen, documentHidden, interactionNonce, items, experience.liveNow, space.ui, advanceToNextPublication]);
 
   useEffect(() => {
     const root = listRef.current;
@@ -1094,17 +1142,22 @@ export function ImmersivePostFeed({
   }, [swipePhase, activeIndex, items.length]);
 
   useEffect(() => {
-    setPostNavigating(appPost && isPostNavigating(swipePhase));
-  }, [appPost, swipePhase, setPostNavigating]);
-  useEffect(() => () => setPostNavigating(false), [setPostNavigating]);
-
-  useEffect(() => {
     if (!appPost) return;
     for (const index of [activeIndex - 1, activeIndex, activeIndex + 1]) {
       const asset = items[index];
       if (asset) prefetchPublicationSocial(experience.slug, asset);
     }
   }, [appPost, activeIndex, items, experience.slug]);
+
+  // The rail and the panels stand above the composer dock, whatever height it currently has.
+  useEffect(() => {
+    if (!composerHost || typeof ResizeObserver === "undefined") return;
+    const measure = () => setComposerH(Math.round(composerHost.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(composerHost);
+    return () => observer.disconnect();
+  }, [composerHost]);
 
   const onCommentCount = useCallback((assetId: string, count: number) => {
     setCommentCounts((prev) => (prev[assetId] === count ? prev : { ...prev, [assetId]: count }));
@@ -1168,7 +1221,6 @@ export function ImmersivePostFeed({
       data-active-index={String(activeIndex)}
       data-view-state={galleryViewState(topOpen, commentMode)}
       data-swipe-phase={swipePhase}
-      data-scroll-chrome={appPost ? "ignore" : undefined}
       data-auto-advance-owner="gallery"
       onPointerDown={() => {
         draggingRef.current = true;
@@ -1209,10 +1261,12 @@ export function ImmersivePostFeed({
             topOpen={topOpen && active}
             interaction={active ? interaction : "NONE"}
             commentsHost={active ? commentsHost : null}
+            composerHost={active ? composerHost : null}
             onToggleTop={toggleTop}
             onInteraction={requestInteraction}
             onCommentCount={onCommentCount}
             onKeyboardOpenChange={setOverlayKeyboardOpen}
+            onKeyboardInset={setKeyboardInset}
             onPublicationHandoff={handoffPublication}
             onVideoEnded={onVideoEnded}
           />
@@ -1237,6 +1291,8 @@ export function ImmersivePostFeed({
       data-post-viewport="true"
       data-swipe-phase={swipePhase}
       data-settled-asset-id={settledAsset.id}
+      data-composing={overlayKeyboardOpen ? "true" : undefined}
+      style={{ "--post-composer-h": `${composerH}px`, "--vv-bottom": `${keyboardInset}px` } as CSSProperties}
     >
       {feed}
       <MediaOutcomeLayer
@@ -1260,8 +1316,24 @@ export function ImmersivePostFeed({
         keyboardOpen={overlayKeyboardOpen}
         onOutcome={(outcome) => setOutcomes((prev) => [...prev, ...spawnMediaOutcome(outcome)])}
       />
+      <div ref={setComposerHost} className="post-composer-host" data-post-composer="true" />
     </div>
   );
+}
+
+/**
+ * The feed moving itself (restoring a post, auto-advance, arrow keys) is not the user scrolling,
+ * so the scroll-aware nav ignores it until the movement ends.
+ */
+function markProgrammaticScroll(root: HTMLElement) {
+  root.dataset.scrollProgrammatic = "true";
+  const clear = () => {
+    window.clearTimeout(timer);
+    root.removeEventListener("scrollend", clear);
+    delete root.dataset.scrollProgrammatic;
+  };
+  const timer = window.setTimeout(clear, 1000);
+  root.addEventListener("scrollend", clear);
 }
 
 export function isPostPresentation(asset: PublicAssetCard): boolean {

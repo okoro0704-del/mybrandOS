@@ -6705,6 +6705,23 @@ button.linkish {
   filter: none;
 }
 
+/* Post feed: the identity sits directly on the media at the left end — no glass pill. */
+.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud .os-topbar {
+  left: 0;
+  right: 0;
+  padding: 0.28rem 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
+  color: #fff;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+
 /* Post viewport layers:
    1. media canvas — fills the whole frame, behind everything;
    2. post details — per slide, under the brand header, moving with their media;
@@ -6715,7 +6732,12 @@ button.linkish {
   --post-canvas: #050608;
   --post-details-top: calc(env(safe-area-inset-top, 0px) + 3.6rem);
   --post-dock-rest: calc(var(--app-nav-h, 3.7rem) + var(--app-nav-gap, 0.55rem) + 0.35rem + env(safe-area-inset-bottom, 0px));
-  --post-dock-bar: calc(0.2rem + env(safe-area-inset-bottom, 0px));
+  --post-dock-bar: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  /* The composer dock sits above the nav while it is shown, on the safe area while it is not;
+     the rail and the panels always stand above the composer. */
+  --post-composer-bottom: calc(var(--post-dock-rest) + var(--vv-bottom, 0px));
+  --post-above-composer: calc(var(--post-composer-bottom) + var(--post-composer-h, 3.4rem) + 0.6rem);
+  --post-panel-top: calc(env(safe-area-inset-top, 0px) + 3.3rem);
   position: absolute;
   inset: 0;
   z-index: 6;
@@ -6824,55 +6846,111 @@ button.linkish {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
-/* Layer 3: transparent controls over the media. At rest they sit above the nav; while a post is
-   moving the nav steps aside and the controls become the bottom bar on the safe area. */
+/* Layer 3: controls standing on the media. A vertical rail on the right edge (counts under the
+   icons), the collaborator's mark at the top right, and one summoned panel on the right side. */
 .post-viewport .post-dock {
   position: absolute;
-  left: max(0.6rem, env(safe-area-inset-left, 0px));
-  right: max(0.6rem, env(safe-area-inset-right, 0px));
-  bottom: var(--post-dock-rest);
+  inset: 0;
   z-index: 8;
   pointer-events: none;
-  transform: translateY(0);
-  transition: transform 200ms var(--os-ease);
 }
-.personal-os[data-experience-mode="APP"][data-app-nav="hidden"] .post-viewport .post-dock {
-  transform: translateY(calc(var(--post-dock-rest) - var(--post-dock-bar)));
+.post-collab {
+  position: absolute;
+  /* Same line as the owner's wordmark: HUD offset + header padding + signature offset. */
+  top: calc(env(safe-area-inset-top, 0px) + 0.4rem + 0.28rem + 0.4rem);
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  max-width: 48%;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.post-collab .os-wordmark--collab {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-size: 0.94rem;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
 .post-dock__bar {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  position: absolute;
+  right: max(0.3rem, env(safe-area-inset-right, 0px));
+  bottom: var(--post-above-composer);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  height: 3.4rem;
+  gap: 0.2rem;
+  width: 3.5rem;
   background: transparent;
   color: #fff;
   pointer-events: none;
+  transition: bottom 200ms var(--os-ease), opacity 160ms var(--os-ease);
+}
+.post-dock:not([data-interaction="NONE"]) .post-dock__bar {
+  opacity: 0;
+  visibility: hidden;
 }
 .post-dock__bar .content-actions__btn {
-  justify-self: center;
-  flex-direction: row;
-  gap: 0.3rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.12rem;
   min-width: 48px;
-  min-height: 48px;
-  padding: 0 0.45rem;
-  border-radius: 999px;
+  min-height: 52px;
+  padding: 0.15rem 0;
+  border-radius: 14px;
   background: transparent;
   color: #fff;
-  font-size: 0.8rem;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
-.post-dock__bar .content-actions__btn.is-active {
-  background: rgba(255, 255, 255, 0.16);
-}
 .post-dock__bar .content-actions__btn[aria-label^="Love"].is-active {
   color: #fb7185;
-  background: transparent;
 }
 .post-dock__bar .content-actions__btn:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
+}
+
+/* The composer dock: detached from the comments, always under the post, still while posts slide. */
+.personal-os[data-experience-mode="APP"][data-app-nav="hidden"] .post-viewport,
+.post-viewport[data-composing="true"] {
+  --post-composer-bottom: calc(var(--post-dock-bar) + var(--vv-bottom, 0px));
+}
+.personal-os[data-experience-mode="APP"]:has(.post-viewport[data-composing="true"]) .os-bottom-nav {
+  transform: translate(-50%, calc(100% + var(--app-nav-gap) + env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.post-composer-host {
+  position: absolute;
+  left: max(0.6rem, env(safe-area-inset-left, 0px));
+  right: max(0.6rem, env(safe-area-inset-right, 0px));
+  bottom: var(--post-composer-bottom);
+  z-index: 9;
+  pointer-events: none;
+  transition: bottom 200ms var(--os-ease);
+}
+.post-composer {
+  pointer-events: auto;
+}
+.post-composer .living-gallery__composer--float {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 0;
+}
+.post-composer .post-comments__input {
+  resize: none;
+  background: rgba(8, 10, 16, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.post-composer .comment-keyboard {
+  margin-top: 0.35rem;
 }
 .post-viewport > .media-outcome {
   z-index: 7;
@@ -6890,32 +6968,31 @@ button.linkish {
   min-height: 0;
 }
 
-/* Summoned interaction layer: anchored to the top of the dock, overlays the media, scrolls inside. */
+/* Summoned interaction layer: the right side of the post, between the identity header and the
+   composer dock. Overlays the media and scrolls inside, so the media never moves. */
 .post-overlay {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 0.4rem);
+  top: var(--post-panel-top);
+  right: max(0.5rem, env(safe-area-inset-right, 0px));
+  bottom: var(--post-above-composer);
+  width: min(78%, 24rem);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 40vh;
-  max-height: var(--post-panel-max, 40dvh);
   overflow: hidden;
-  border-radius: 20px 20px 14px 14px;
+  border-radius: 20px;
   background: rgba(14, 16, 22, 0.74);
   backdrop-filter: blur(18px) saturate(1.15);
   -webkit-backdrop-filter: blur(18px) saturate(1.15);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.28);
   color: #f8fafc;
-  transform: translateY(calc(-1 * var(--post-panel-lift, 0px)));
-  transition: transform 160ms var(--os-ease);
+  transition: transform 160ms var(--os-ease), bottom 200ms var(--os-ease);
   animation: post-overlay-reveal 200ms var(--os-ease) both;
   pointer-events: auto;
 }
 @keyframes post-overlay-reveal {
-  from { opacity: 0; translate: 0 14px; }
+  from { opacity: 0; translate: 24px 0; }
   to { opacity: 1; translate: 0 0; }
 }
 .post-overlay__head {
@@ -6930,13 +7007,13 @@ button.linkish {
 }
 .post-overlay__grip {
   position: absolute;
-  top: 0.32rem;
-  left: 50%;
-  width: 2.2rem;
-  height: 4px;
+  top: 50%;
+  left: 0.3rem;
+  width: 4px;
+  height: 1.6rem;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.35);
-  transform: translateX(-50%);
+  transform: translateY(-50%);
 }
 .post-overlay__title {
   font-size: 0.86rem;
@@ -7070,7 +7147,8 @@ button.linkish {
 }
 @media (prefers-reduced-motion: reduce) {
   .post-overlay,
-  .post-viewport .post-dock {
+  .post-dock__bar,
+  .post-composer-host {
     animation: none;
     transition: none;
   }

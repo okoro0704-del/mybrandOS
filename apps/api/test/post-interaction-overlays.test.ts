@@ -4,12 +4,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  INTERACTION_PANEL_KEYBOARD_FRACTION,
-  INTERACTION_PANEL_MAX_FRACTION,
-  INTERACTION_PANEL_MIN_PX,
   POST_INTERACTIONS,
   SWIPE_DISMISS_PX,
-  interactionPanelGeometry,
   isInteractionOpen,
   shouldDismissOnSwipe,
   togglePostInteraction,
@@ -48,45 +44,7 @@ test("tapping the active control closes it; another control replaces it (never s
   assert.equal(state, "NONE");
 });
 
-test("panel max height is a fixed share of the viewport, independent of comment count", () => {
-  const closedKeyboard = { anchorTop: 680, visibleTop: 0, visibleHeight: 844, topReserve: 56, keyboardOpen: false };
-  const g = interactionPanelGeometry(closedKeyboard);
-  assert.equal(g.lift, 0);
-  assert.equal(g.maxHeight, Math.round(844 * INTERACTION_PANEL_MAX_FRACTION));
-  // The geometry takes no content input at all: 2 and 2,000 comments get the same cap.
-  assert.equal(interactionPanelGeometry.length, 1);
-  assert.deepEqual(interactionPanelGeometry({ ...closedKeyboard }), g);
-});
-
-test("small Android viewport keeps the panel on screen and above the control bar", () => {
-  const g = interactionPanelGeometry({ anchorTop: 470, visibleTop: 0, visibleHeight: 640, topReserve: 56, keyboardOpen: false });
-  assert.equal(g.lift, 0);
-  assert.ok(g.maxHeight <= 470 - 56);
-  assert.equal(g.maxHeight, Math.round(640 * INTERACTION_PANEL_MAX_FRACTION));
-});
-
-test("keyboard lifts only the panel, by exactly what the keyboard covers", () => {
-  const g = interactionPanelGeometry({ anchorTop: 680, visibleTop: 0, visibleHeight: 480, topReserve: 56, keyboardOpen: true });
-  assert.equal(g.lift, 200);
-  assert.equal(g.maxHeight, Math.min(Math.round(480 * INTERACTION_PANEL_KEYBOARD_FRACTION), 480 - 56));
-  // A visual viewport that stops short of the bar is a keyboard even if the composer reports otherwise.
-  const inferred = interactionPanelGeometry({ anchorTop: 470, visibleTop: 0, visibleHeight: 371, topReserve: 56, keyboardOpen: false });
-  assert.equal(inferred.lift, 99);
-  assert.equal(inferred.maxHeight, Math.round(371 * INTERACTION_PANEL_KEYBOARD_FRACTION));
-});
-
-test("iOS visual viewport offset (scrolled for the keyboard) is respected", () => {
-  const g = interactionPanelGeometry({ anchorTop: 700, visibleTop: 120, visibleHeight: 420, topReserve: 56, keyboardOpen: true });
-  assert.equal(g.lift, 160);
-  assert.ok(700 - g.lift - g.maxHeight >= 120 + 56 - 1);
-});
-
-test("tiny viewports still give a usable minimum panel", () => {
-  const g = interactionPanelGeometry({ anchorTop: 300, visibleTop: 0, visibleHeight: 320, topReserve: 56, keyboardOpen: false });
-  assert.equal(g.maxHeight, INTERACTION_PANEL_MIN_PX);
-});
-
-test("swipe-down dismiss threshold", () => {
+test("swipe-to-edge dismiss threshold", () => {
   assert.equal(shouldDismissOnSwipe(SWIPE_DISMISS_PX - 1), false);
   assert.equal(shouldDismissOnSwipe(SWIPE_DISMISS_PX), true);
   assert.equal(shouldDismissOnSwipe(-200), false);
@@ -111,15 +69,16 @@ test("the media subtree never depends on the active interaction (no remount, no 
   assert.match(feed, /Pin the slide at its current pixel height while a layer is open/);
 });
 
-test("overlay geometry: anchored above the dock, capped, scrolls internally, translucent", () => {
+test("overlay geometry: right side of the post, between header and composer, scrolls internally", () => {
   const overlay = rule(".post-overlay");
   assert.match(overlay, /position: absolute;/);
-  assert.match(overlay, /bottom: calc\(100% \+ 0\.4rem\);/);
-  assert.match(overlay, /max-height: var\(--post-panel-max, 40dvh\);/);
+  assert.match(overlay, /top: var\(--post-panel-top\);/);
+  assert.match(overlay, /right: max\(0\.5rem, env\(safe-area-inset-right, 0px\)\);/);
+  assert.match(overlay, /bottom: var\(--post-above-composer\);/);
+  assert.match(overlay, /width: min\(78%, 24rem\);/);
   assert.match(overlay, /overflow: hidden;/);
   assert.match(overlay, /backdrop-filter: blur\(/);
-  assert.match(overlay, /border-radius: 20px 20px/);
-  assert.match(overlay, /transform: translateY\(calc\(-1 \* var\(--post-panel-lift, 0px\)\)\);/);
+  assert.doesNotMatch(overlay, /max-height|--post-panel-lift/);
   assert.match(rule(".post-overlay__body"), /overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
   assert.match(rule(".post-overlay .living-comments-layer .living-gallery__conversation"), /overflow-y: auto;/);
   const bar = rule(".post-dock__bar");
@@ -127,23 +86,35 @@ test("overlay geometry: anchored above the dock, capped, scrolls internally, tra
   assert.doesNotMatch(bar, /border:|box-shadow|backdrop-filter/);
   const overlayDock = rule(".post-viewport .post-dock");
   assert.match(overlayDock, /position: absolute;/);
-  assert.match(overlayDock, /bottom: var\(--post-dock-rest\);/);
+  assert.match(overlayDock, /inset: 0;/);
   assert.match(overlayDock, /pointer-events: none;/);
-  assert.match(appBlock, /@media \(prefers-reduced-motion: reduce\) \{\s*\.post-overlay,\s*\.post-viewport \.post-dock \{\s*animation: none;/);
+  assert.match(appBlock, /@media \(prefers-reduced-motion: reduce\) \{\s*\.post-overlay,\s*\.post-dock__bar,\s*\.post-composer-host \{\s*animation: none;/);
 });
 
-test("panel follows the visual viewport (keyboard) — the media is never measured or moved", () => {
-  assert.match(dock, /window\.visualViewport/);
-  assert.match(dock, /vv\?\.addEventListener\("resize", measure\)/);
-  assert.match(dock, /vv\?\.addEventListener\("scroll", measure\)/);
-  assert.match(dock, /"--post-panel-lift"/);
-  assert.match(dock, /"--post-panel-max"/);
-  assert.doesNotMatch(dock, /living-gallery__media|<video/);
+test("panels and rail follow the composer and keyboard through CSS; the media is never measured or moved", () => {
+  assert.match(feed, /new ResizeObserver\(measure\)/);
+  assert.match(feed, /"--post-composer-h": `\$\{composerH\}px`, "--vv-bottom": `\$\{keyboardInset\}px`/);
+  assert.match(appBlock, /--post-above-composer: calc\(var\(--post-composer-bottom\) \+ var\(--post-composer-h, 3\.4rem\) \+ 0\.6rem\);/);
+  assert.doesNotMatch(dock, /living-gallery__media|<video|getBoundingClientRect/);
+});
+
+test("the comments panel holds only the conversation; the composer is never inside it in APP", () => {
+  const layer = feed.slice(feed.indexOf("const commentsLayer = commentMode ? ("), feed.indexOf("const composerDock"));
+  assert.match(layer, /\{conversation\}\s*\{appPost \? null : composerBlock\}/);
+  const dockBlock = feed.slice(feed.indexOf("const composerDock"), feed.indexOf("const actionBar"));
+  assert.match(dockBlock, /className="post-composer"/);
+  assert.match(dockBlock, /\{composerBlock\}/);
+});
+
+test("writing a comment holds the post like an open panel (no auto-advance, no swipe away)", () => {
+  assert.match(feed, /const postHeld = interactionOpen \|\| overlayKeyboardOpen;/);
+  assert.match(feed, /interactionOpenRef\.current = postHeld;/);
+  assert.match(feed, /shouldLockFeedSwipe\(postHeld \? "comments" : "feed"\)/);
 });
 
 test("dismissal paths: same control, close button, swipe, tap outside, Escape, Back", () => {
   assert.match(dock, /aria-label=\{`Close \$\{panelTitle\}`\} onClick=\{close\}/);
-  assert.match(dock, /if \(shouldDismissOnSwipe\(dy\)\) close\(\);/);
+  assert.match(dock, /if \(shouldDismissOnSwipe\(dx\)\) close\(\);/);
   assert.match(feed, /className="post-overlay-scrim"[\s\S]*onInteraction\("NONE"\)/);
   assert.match(feed, /requestInteraction = useCallback\(\(requested: PostInteraction\) => \{\s*setInteraction\(\(current\) => togglePostInteraction\(current, requested\)\)/);
   assert.match(feed, /window\.history\.pushState\(\{ \.\.\.\(window\.history\.state \?\? \{\}\), postInteraction: true \}, ""\)/);
