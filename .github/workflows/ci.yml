@@ -102,8 +102,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
+      # Same major version as the production cutover target (Railway postgres-ssl:18).
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: mybrandos
           POSTGRES_PASSWORD: mybrandos
