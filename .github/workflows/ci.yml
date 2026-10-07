@@ -95,3 +95,102 @@ jobs:
 
       - name: API build
         run: npm run build -w @mybrandos/api
+
+  # Builds the real production image and runs it (NODE_ENV=production) against PostgreSQL.
+  # Remote primitives are replaced by scripts/ci/fake-primitives.mjs; nothing in the image changes.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mybrandos
+          POSTGRES_PASSWORD: mybrandos
+          POSTGRES_DB: mybrandos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mybrandos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://mybrandos:mybrandos@127.0.0.1:5432/mybrandos?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build production image
+        run: docker build -f apps/api/Dockerfile -t mybrandos-api:ci .
+
+      - name: Production environment for the container
+        run: |
+          {
+            echo "COOKIE_SECRET=$(openssl rand -hex 32)"
+            echo "PRIMITIVES_MODE=remote"
+            echo "TRUSTID_API=http://127.0.0.1:4900"
+            echo "DATAZONE_API_URL=http://127.0.0.1:4900"
+            echo "DATAZONE_API_KEY=ci-fake-key"
+            echo "DATAZONE_BOUND=true"
+            echo "PLATFORM_JOBS_URL=http://127.0.0.1:4900"
+            echo "PLATFORM_JOBS_TOKEN=ci-fake-token"
+            echo "CORS_ORIGINS=https://ci.invalid"
+            echo "PORT=8793"
+            echo "UPLOAD_MAX_FILE_BYTES=1048576"
+          } > /tmp/api.env
+
+      - name: Entrypoint refuses a non-PostgreSQL DATABASE_URL
+        run: |
+          set +e
+          out=$(docker run --rm --env-file /tmp/api.env -e DATABASE_URL=file:/app/apps/api/data/prod.db mybrandos-api:ci 2>&1)
+          code=$?
+          echo "$out"
+          test $code -ne 0 && echo "$out" | grep -q "must be a PostgreSQL URL"
+
+      - name: API refuses to start against an unmigrated database
+        run: |
+          set +e
+          out=$(docker run --rm --network host --env-file /tmp/api.env -e DATABASE_URL="$DATABASE_URL" mybrandos-api:ci 2>&1)
+          code=$?
+          echo "$out" | tail -5
+          test $code -ne 0 && echo "$out" | grep -q "no migration history"
+
+      # Mirrors the Railway pre-deploy command: migrations run explicitly, not at app start.
+      - name: Pre-deploy migrations (prisma migrate deploy, from the image)
+        run: docker run --rm --network host -e DATABASE_URL="$DATABASE_URL" mybrandos-api:ci npx prisma migrate deploy
+
+      - name: Start fake primitives and the production container
+        run: |
+          node scripts/ci/fake-primitives.mjs 4900 > /tmp/fake.log 2>&1 &
+          docker run -d --name api --network host --env-file /tmp/api.env -e DATABASE_URL="$DATABASE_URL" mybrandos-api:ci
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8793/health >/dev/null 2>&1 && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8793/health
+          docker logs api 2>&1 | grep -q '"msg":"migrations verified"'
+
+      - name: Runtime smoke (health, auth, reads, comments, loves, views, uploads, schedules, rate limits)
+        env:
+          BASE: http://127.0.0.1:8793
+          FAKE: http://127.0.0.1:4900
+        run: |
+          node scripts/ci/smoke-container.mjs > /tmp/smoke.txt 2>&1 || true
+          cat /tmp/smoke.txt
+          while read -r line; do
+            case "$line" in FAIL*) echo "::error title=Docker smoke::${line}";; PASS*) echo "::notice title=Docker smoke::${line}";; esac
+          done < /tmp/smoke.txt
+          test "$(grep -c '^PASS' /tmp/smoke.txt)" = "8" && test "$(grep -c '^FAIL' /tmp/smoke.txt)" = "0"
+
+      - name: Upload spool is empty after all uploads
+        run: test "$(docker exec api sh -c 'ls -A /tmp/mybrandos-uploads 2>/dev/null | wc -l')" = "0"
+
+      - name: No unexpected server errors
+        run: |
+          docker logs api > /tmp/api.log 2>&1
+          if grep -E '"level":50' /tmp/api.log | grep -vE 'scheduled publish failed' ; then echo "::error title=Docker smoke::server logged errors"; exit 1; fi
+
+      - name: Container logs
+        if: always()
+        run: docker logs api 2>&1 | tail -80 || true
