@@ -159,8 +159,12 @@ await check("scheduled publishing: fires exactly once and media is served byte-e
   });
   assert.equal(asset?.status, "PUBLISHED", `never published: ${context}`);
   await new Promise((r) => setTimeout(r, 21000)); // let at least one more scanner tick pass
-  const activities = sql(`SELECT string_agg(kind, ',') FROM "Activity" WHERE "assetId" = '${imageAssetId}'`);
-  assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'published'`), "1", `activities: ${activities}`);
+  const activities = sql(`SELECT string_agg(kind || ':' || left(detail, 24), ',' ORDER BY "createdAt") FROM "Activity" WHERE "assetId" = '${imageAssetId}'`);
+  // Exactly one execution: one executePublish record and one DRAFT→PUBLISHED transition.
+  // (Project-backed assets — imports — also get a "published" row from publishViaProject inside
+  // that same execution; that is existing double-logging, not a second publish.)
+  assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'published' AND detail LIKE 'Visibility %'`), "1", `activities: ${activities}`);
+  assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'status'`), "1", `activities: ${activities}`);
   const media = await fetch(`${BASE}/api/public/${SLUG}/assets/${imageAssetId}/media`);
   const served = Buffer.from(await media.arrayBuffer());
   assert.equal(media.status, 200, `media status ${media.status}: ${served.toString().slice(0, 200)}`);
