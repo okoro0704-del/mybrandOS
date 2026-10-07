@@ -5,11 +5,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isAlignedToSlide,
-  isPostNavigating,
   reduceSwipePhase,
   type SwipeEvent,
   type SwipePhase,
 } from "../../../apps/web/src/experience/postSwipe.ts";
+import { initialNavScroll, reduceNavScroll } from "../../../apps/web/src/digital-life/navigation/scrollAwareNav.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
@@ -18,6 +18,7 @@ const swipe = read("apps/web/src/experience/postSwipe.ts");
 const feed = read("apps/web/src/experience/ImmersivePostFeed.tsx");
 const overlay = read("apps/web/src/experience/InteractionOverlay.tsx");
 const shell = read("apps/web/src/digital-life/shell/DigitalLifeShell.tsx");
+const navHook = read("apps/web/src/digital-life/navigation/useScrollAwareNav.ts");
 const actions = read("apps/web/src/digital-life/personal-os/ContentActionBar.tsx");
 const styles = read("apps/web/src/styles.css");
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
@@ -59,7 +60,6 @@ test("native scrollend completes settling", () => {
 test("a tap without movement never leaves the resting UI", () => {
   const phases = run([{ type: "POINTER_DOWN" }, { type: "POINTER_UP", aligned: true }]);
   assert.deepEqual(phases, ["SWIPE_START", "RESTING"]);
-  assert.equal(phases.some(isPostNavigating), false);
 });
 
 test("aborted swipe snaps back through SETTLING to RESTING", () => {
@@ -90,13 +90,6 @@ test("programmatic or momentum movement settles without a finger", () => {
   );
   // An instant jump that lands aligned is already at rest.
   assert.deepEqual(run([{ type: "SCROLL", aligned: true }]), ["RESTING"]);
-});
-
-test("navigation steps aside only while the post is moving", () => {
-  assert.equal(isPostNavigating("RESTING"), false);
-  assert.equal(isPostNavigating("SWIPE_START"), false);
-  assert.equal(isPostNavigating("SWIPING"), true);
-  assert.equal(isPostNavigating("SETTLING"), true);
 });
 
 test("slide alignment tolerates fractional layout only", () => {
@@ -140,18 +133,39 @@ test("switching posts never shows the previous post's counts", () => {
   assert.match(feed, /prefetchPublicationSocial\(experience\.slug, asset\)/);
 });
 
-test("shell hides the bottom nav while a post moves; feed scrolling no longer drives it", () => {
-  assert.match(shell, /const appNavVisible = scrollNavVisible && !postNavigating;/);
-  assert.match(shell, /<PostNavigationContext\.Provider value=\{postNavigationApi\}>/);
-  assert.match(feed, /setPostNavigating\(appPost && isPostNavigating\(swipePhase\)\)/);
-  assert.match(feed, /data-scroll-chrome=\{appPost \? "ignore" : undefined\}/);
+test("feed scroll direction drives the bottom nav: hidden going forward, back only on reverse", () => {
+  const slide = 844;
+  // Swipe to the next post: hidden, and it stays hidden once the slide has settled.
+  let state = initialNavScroll();
+  for (const top of [120, 480, slide]) state = reduceNavScroll(state, top);
+  assert.equal(state.visible, false);
+  state = reduceNavScroll(state, slide);
+  assert.equal(state.visible, false);
+  // Further forward swipes keep it hidden.
+  for (const top of [slide + 300, slide * 2]) state = reduceNavScroll(state, top);
+  assert.equal(state.visible, false);
+  // Only a swipe in the opposite direction brings it back.
+  state = reduceNavScroll(state, slide * 2 - 200);
+  assert.equal(state.visible, true);
+
+  assert.match(shell, /const appNavVisible = scrollNavVisible;/);
+  assert.doesNotMatch(shell, /postNavigating|PostNavigationContext/);
+  assert.doesNotMatch(feed, /setPostNavigating|data-scroll-chrome=\{appPost/);
+});
+
+test("only the user's own scrolling moves the nav; the feed positioning itself does not", () => {
+  assert.match(navHook, /const USER_INPUT_EVENTS = \["touchstart", "touchmove", "wheel", "pointerdown", "keydown"\] as const;/);
+  assert.match(navHook, /el\.closest\("\[data-scroll-programmatic='true'\]"\) \|\| performance\.now\(\) - lastInputAt > USER_SCROLL_WINDOW_MS/);
+  const snap = feed.slice(feed.indexOf("const snapToIndex = useCallback"), feed.indexOf("const clearHoldTimer"));
+  assert.match(snap, /markProgrammaticScroll\(root\);\s*root\.scrollTo\(/);
+  assert.match(feed, /markProgrammaticScroll\(root\);\s*root\.scrollTop = target\.offsetTop;/);
 });
 
 test("layers: media canvas full-frame, details under the header, controls over media", () => {
   const viewport = rule(".post-viewport");
   assert.match(viewport, /position: absolute;\s*inset: 0;/);
   assert.match(viewport, /--post-details-top: calc\(env\(safe-area-inset-top, 0px\) \+ 3\.6rem\);/);
-  assert.match(viewport, /--post-dock-bar: calc\(0\.2rem \+ env\(safe-area-inset-bottom, 0px\)\);/);
+  assert.match(viewport, /--post-dock-bar: calc\(0\.5rem \+ env\(safe-area-inset-bottom, 0px\)\);/);
   const media = rule('.personal-os[data-experience-mode="APP"] .post-viewport .living-gallery .living-gallery__media.immersive-feed__media');
   assert.match(media, /position: absolute;\s*inset: 0;/);
   assert.match(media, /height: 100%;/);
@@ -161,15 +175,44 @@ test("layers: media canvas full-frame, details under the header, controls over m
   assert.doesNotMatch(details, /overscroll-behavior/);
 });
 
-test("while moving, the controls drop onto the bottom safe area in place of the nav", () => {
+test("the composer is detached under the post: above the nav when shown, on the safe area when not", () => {
+  assert.match(rule(".post-viewport"), /--post-composer-bottom: calc\(var\(--post-dock-rest\) \+ var\(--vv-bottom, 0px\)\);/);
   assert.match(
     appBlock,
-    /\.personal-os\[data-experience-mode="APP"\]\[data-app-nav="hidden"\] \.post-viewport \.post-dock \{\s*transform: translateY\(calc\(var\(--post-dock-rest\) - var\(--post-dock-bar\)\)\);/,
+    /\.personal-os\[data-experience-mode="APP"\]\[data-app-nav="hidden"\] \.post-viewport,\s*\.post-viewport\[data-composing="true"\] \{\s*--post-composer-bottom: calc\(var\(--post-dock-bar\) \+ var\(--vv-bottom, 0px\)\);/,
   );
+  const host = rule(".post-composer-host");
+  assert.match(host, /position: absolute;/);
+  assert.match(host, /bottom: var\(--post-composer-bottom\);/);
+  // The host belongs to the viewport, not to a slide or the overlay, so it stays put while posts slide.
+  assert.ok(feed.lastIndexOf('className="post-composer-host"') > feed.lastIndexOf("</ul>"));
+  assert.ok(feed.lastIndexOf('className="post-composer-host"') > feed.lastIndexOf("<InteractionOverlay"));
+  assert.match(feed, /\{composerDock && composerHost \? createPortal\(composerDock, composerHost\) : null\}/);
+  assert.match(feed, /const composerLive = appPost \? active : commentMode;/);
+});
+
+test("the five actions stand on the post as a vertical rail on the right, counts under the icons", () => {
+  const bar = rule(".post-dock__bar");
+  assert.match(bar, /position: absolute;/);
+  assert.match(bar, /right: max\(0\.3rem, env\(safe-area-inset-right, 0px\)\);/);
+  assert.match(bar, /bottom: var\(--post-above-composer\);/);
+  assert.match(bar, /flex-direction: column;/);
+  assert.match(rule(".post-dock__bar .content-actions__btn"), /flex-direction: column;/);
+  assert.match(overlay, /label="Love"[\s\S]*count=\{social\.loves\}\s*numeric/);
+  assert.match(overlay, /label="Comment"\s*count=\{commentCount \?\? social\.comments\.length\}\s*numeric/);
 });
 
 test("the header and its wordmark apply the top safe area exactly once", () => {
   assert.match(appBlock, /\.personal-os\[data-experience-mode="APP"\] \.os-identity-hud \.os-topbar \{\s*top: 0;/);
   assert.match(appBlock, /\.os-identity-hud \.os-topbar \.os-wordmark--signature \{\s*top: 0\.4rem;/);
-  assert.match(overlay, /topReserve: Math\.max\(TOP_RESERVE_PX, headerBottom \+ 6 - visibleTop\)/);
+});
+
+test("post feed identity: no glass pill; owner at the left end, collaborator at the right end", () => {
+  const pill = appBlock.slice(appBlock.indexOf("/* Post feed: the identity sits directly on the media"));
+  const header = pill.slice(0, pill.indexOf("}"));
+  assert.match(header, /\.app-home-keepalive\[data-keepalive="active"\] \.post-viewport\) \.os-identity-hud \.os-topbar \{/);
+  for (const decl of ["background: transparent;", "border: 0;", "box-shadow: none;", "backdrop-filter: none;"]) assert.ok(header.includes(decl), decl);
+  assert.match(overlay, /publicationCollaboratorMarks\(\{ slug, displayName: author \}, asset\.presentation\?\.collaborators\)\[0\]/);
+  assert.match(overlay, /<div className="post-collab" data-post-collab=\{collaborator\.slug\}/);
+  assert.match(rule(".post-collab"), /right: max\(0\.75rem, env\(safe-area-inset-right, 0px\)\);/);
 });

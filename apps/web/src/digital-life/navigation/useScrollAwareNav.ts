@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { initialNavScroll, reduceNavScroll } from "./scrollAwareNav";
 
 const NAV_SELECTOR = ".os-bottom-nav";
+/** Scrolls this long after the last user input (fling momentum, snap) still count as the user's. */
+const USER_SCROLL_WINDOW_MS = 1200;
+const USER_INPUT_EVENTS = ["touchstart", "touchmove", "wheel", "pointerdown", "keydown"] as const;
 
 function keyboardFocusInNav(): boolean {
   const active = document.activeElement;
@@ -32,11 +35,21 @@ export function useScrollAwareNav(enabled: boolean, resetKey: string): boolean {
       return;
     }
     const lastTop = new WeakMap<Element, number>();
+    let lastInputAt = -Infinity;
+    const onInput = () => {
+      lastInputAt = performance.now();
+    };
     const onScroll = (event: Event) => {
       const target = event.target;
       const el = target === document ? document.scrollingElement : target instanceof Element ? target : null;
       if (!el) return;
       if (el.closest("[data-scroll-chrome='ignore']") || el.closest(NAV_SELECTOR)) return;
+      // Programmatic positioning (restoring a post, auto-advance) is not the user changing direction.
+      if (el.closest("[data-scroll-programmatic='true']") || performance.now() - lastInputAt > USER_SCROLL_WINDOW_MS) {
+        lastTop.set(el, el.scrollTop);
+        if (targetRef.current === el) stateRef.current = { visible: stateRef.current.visible, anchor: el.scrollTop };
+        return;
+      }
       if (targetRef.current !== el) {
         targetRef.current = el;
         // A single event can carry a whole flick, so the anchor is where this scroller was before it, not after.
@@ -52,9 +65,11 @@ export function useScrollAwareNav(enabled: boolean, resetKey: string): boolean {
       stateRef.current = { visible: true, anchor: stateRef.current.anchor };
       setVisible(true);
     };
+    for (const type of USER_INPUT_EVENTS) document.addEventListener(type, onInput, { capture: true, passive: true });
     document.addEventListener("scroll", onScroll, { capture: true, passive: true });
     document.addEventListener("focusin", onFocusIn);
     return () => {
+      for (const type of USER_INPUT_EVENTS) document.removeEventListener(type, onInput, { capture: true });
       document.removeEventListener("scroll", onScroll, { capture: true });
       document.removeEventListener("focusin", onFocusIn);
     };

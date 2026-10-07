@@ -43,11 +43,6 @@ export function reduceSwipePhase(phase: SwipePhase, event: SwipeEvent): SwipePha
   }
 }
 
-/** True while post content is moving: the bottom nav steps aside and the controls take its place. */
-export function isPostNavigating(phase: SwipePhase): boolean {
-  return phase === "SWIPING" || phase === "SETTLING";
-}
-
 /** Snap alignment of a full-height slide scroller, with 1px tolerance for fractional layout. */
 export function isAlignedToSlide(scrollTop: number, slideHeight: number): boolean {
   if (slideHeight <= 0) return true;
