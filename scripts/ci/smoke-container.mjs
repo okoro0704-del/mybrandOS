@@ -21,7 +21,8 @@ async function check(name, fn) {
     await fn();
     results.push(`PASS ${name}`);
   } catch (err) {
-    results.push(`FAIL ${name}: ${err instanceof Error ? err.message : err}`);
+    // One line per result: CI turns each line into an annotation.
+    results.push(`FAIL ${name}: ${String(err instanceof Error ? err.message : err).replace(/\s*\n\s*/g, " | ")}`);
   }
 }
 async function http(method, path, { body, guest, session, form } = {}) {
@@ -141,17 +142,29 @@ await check("scheduled publishing: fires exactly once and media is served byte-e
     },
   });
   assert.ok([200, 201].includes(scheduled.status), `schedule: ${scheduled.status} ${JSON.stringify(scheduled.json)}`);
-  let status = "";
-  for (let i = 0; i < 45 && status !== "PUBLISHED"; i += 1) {
+  let asset = null;
+  for (let i = 0; i < 45 && asset?.status !== "PUBLISHED"; i += 1) {
     await new Promise((r) => setTimeout(r, 2000));
-    status = (await http("GET", `/api/assets/${imageAssetId}`, { session: TOKEN })).json?.asset?.status ?? "";
+    asset = (await http("GET", `/api/assets/${imageAssetId}`, { session: TOKEN })).json?.asset ?? null;
   }
-  assert.equal(status, "PUBLISHED");
+  const m = asset?.metadata ?? {};
+  const context = JSON.stringify({
+    scheduleStatus: scheduled.json?.status,
+    status: asset?.status,
+    attempts: m.publishScheduleAttempts,
+    errorCode: m.publishScheduleErrorCode,
+    error: m.publishScheduleError,
+    pending: m.publishPending,
+    scheduleMode: m.scheduleMode,
+  });
+  assert.equal(asset?.status, "PUBLISHED", `never published: ${context}`);
   await new Promise((r) => setTimeout(r, 21000)); // let at least one more scanner tick pass
-  assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'published'`), "1");
+  const activities = sql(`SELECT string_agg(kind, ',') FROM "Activity" WHERE "assetId" = '${imageAssetId}'`);
+  assert.equal(sql(`SELECT count(*) FROM "Activity" WHERE "assetId" = '${imageAssetId}' AND kind = 'published'`), "1", `activities: ${activities}`);
   const media = await fetch(`${BASE}/api/public/${SLUG}/assets/${imageAssetId}/media`);
-  assert.equal(media.status, 200);
-  assert.equal(sha(Buffer.from(await media.arrayBuffer())), sha(png));
+  const served = Buffer.from(await media.arrayBuffer());
+  assert.equal(media.status, 200, `media status ${media.status}: ${served.toString().slice(0, 200)}`);
+  assert.equal(sha(served), sha(png), `media bytes differ: served ${served.length} bytes, type ${media.headers.get("content-type")}`);
 });
 
 await check("rate limiting: 11th comment in a minute → 429 with Retry-After", async () => {
