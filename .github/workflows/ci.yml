@@ -194,3 +194,56 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs api 2>&1 | tail -80 || true
+
+      # ── Railway-internal cutover rehearsal with the same production image ───────────────
+      - name: Cutover rehearsal — build a production-shaped legacy SQLite fixture (synthetic)
+        run: |
+          mkdir -p /tmp/cutover-volume && chmod 777 /tmp/cutover-volume
+          docker run --rm -v /tmp/cutover-volume:/fx -w /app/apps/api mybrandos-api:ci \
+            node --import tsx -e "const m = await import('./test/helpers/legacy-fixture.ts'); const r = await m.buildLegacyFixture('/fx/prod.db'); console.log(JSON.stringify({ rows: r.rows, sha256: r.sha256 }));"
+          sha256sum /tmp/cutover-volume/prod.db | tee /tmp/fixture.sha
+          for db in cutover_target cutover_target_fault; do psql "postgresql://mybrandos:mybrandos@127.0.0.1:5432/mybrandos" -c "CREATE DATABASE $db"; done
+
+      - name: Cutover rehearsal — preflight mode (fresh target)
+        env:
+          CUTOVER_STATUS_TOKEN: ci-status-token
+        run: |
+          docker run -d --name cutover-preflight --network host -e PORT=8794 -e CUTOVER_MODE=preflight -e CUTOVER_RUN_ID=ci-preflight \
+            -e CUTOVER_STATUS_TOKEN -e CUTOVER_TARGET_DATABASE_URL="postgresql://mybrandos:mybrandos@127.0.0.1:5432/cutover_target?schema=public" mybrandos-api:ci
+          node scripts/ci/cutover-image-rehearsal.mjs 8794 preflight
+          docker rm -f cutover-preflight
+
+      - name: Cutover rehearsal — job mode against the mounted SQLite "volume"
+        env:
+          CUTOVER_STATUS_TOKEN: ci-status-token
+        run: |
+          docker run -d --name cutover-job --network host -v /tmp/cutover-volume:/app/apps/api/data \
+            -e PORT=8795 -e DATABASE_URL=file:/app/apps/api/data/prod.db -e CUTOVER_MODE=job -e CUTOVER_RUN_ID=ci-job-1 \
+            -e CUTOVER_FREEZE_PROOF_MS=3000 -e CUTOVER_STATUS_TOKEN \
+            -e CUTOVER_TARGET_DATABASE_URL="postgresql://mybrandos:mybrandos@127.0.0.1:5432/cutover_target?schema=public" mybrandos-api:ci
+          node scripts/ci/cutover-image-rehearsal.mjs 8795 job
+          sha256sum -c /tmp/fixture.sha
+          test -f /tmp/cutover-volume/cutover/ci-job-1/final-prod.db
+          test "$(stat -c %a /tmp/cutover-volume/cutover/ci-job-1/final-prod.db)" = "444"
+          cmp /tmp/cutover-volume/prod.db /tmp/cutover-volume/cutover/ci-job-1/final-prod.db
+
+      - name: Cutover rehearsal — container restart after COMPLETED is a no-op
+        env:
+          CUTOVER_STATUS_TOKEN: ci-status-token
+        run: |
+          docker restart cutover-job
+          node scripts/ci/cutover-image-rehearsal.mjs 8795 job-restart
+          test "$(psql 'postgresql://mybrandos:mybrandos@127.0.0.1:5432/cutover_target' -Atc 'select count(*) from cutover.import_commit')" = "1"
+          sha256sum -c /tmp/fixture.sha
+          docker rm -f cutover-job
+
+      - name: Cutover rehearsal — test fault hooks are inert in the production image
+        env:
+          CUTOVER_STATUS_TOKEN: ci-status-token
+        run: |
+          docker run -d --name cutover-fault --network host -v /tmp/cutover-volume:/app/apps/api/data \
+            -e PORT=8796 -e DATABASE_URL=file:/app/apps/api/data/prod.db -e CUTOVER_MODE=job -e CUTOVER_RUN_ID=ci-job-fault \
+            -e CUTOVER_FREEZE_PROOF_MS=1000 -e CUTOVER_STATUS_TOKEN -e CUTOVER_FAULT=import:after-commit \
+            -e CUTOVER_TARGET_DATABASE_URL="postgresql://mybrandos:mybrandos@127.0.0.1:5432/cutover_target_fault?schema=public" mybrandos-api:ci
+          node scripts/ci/cutover-image-rehearsal.mjs 8796 job-fault-ignored
+          docker rm -f cutover-fault

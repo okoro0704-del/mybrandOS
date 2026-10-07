@@ -1,13 +1,15 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { assertMigrationsApplied } from "../lib/migration-guard.js";
+import { assertApplicationDataEmpty } from "../cutover/classification.js";
 
 /**
  * One-time SQLite → PostgreSQL data copy.
  *
  * - Source is a Prisma client generated from the FROZEN legacy SQLite schema
  *   (prisma/legacy-sqlite/schema.prisma), so dates, booleans and enums arrive typed.
- * - Target must be fully migrated (`npm run db:migrate:deploy`) and EMPTY for every copied
- *   table: the tool never merges into, or overwrites, existing data.
+ * - Target must be fully migrated (`npm run db:migrate:deploy`) and APPLICATION_DATA_EMPTY
+ *   (every application table empty, see cutover/classification.ts): the tool never merges
+ *   into, or overwrites, existing data.
  * - Tables are copied in foreign-key dependency order inside ONE transaction; row counts are
  *   verified before commit. Any failure (including Int overflow, see below) rolls back
  *   everything, so the tool can simply be re-run after fixing the cause.
@@ -25,6 +27,12 @@ type TargetDelegate = Delegate & { createMany(args: { data: Row[] }): Promise<{ 
 
 export type TableReport = { model: string; sourceRows: number; copiedRows: number };
 export type OverflowFinding = { model: string; field: string; rowId: unknown; value: number };
+/** Hooks run INSIDE the import transaction (the cutover runner writes its commit marker there). */
+export type ImportHooks = {
+  afterTable?: (tx: Prisma.TransactionClient, model: string) => Promise<void>;
+  beforeCommit?: (tx: Prisma.TransactionClient, report: SqliteImportReport) => Promise<void>;
+};
+
 export type SqliteImportReport = {
   dryRun: boolean;
   tables: TableReport[];
@@ -77,7 +85,7 @@ function primaryKeyFields(model: Prisma.DMMF.Model) {
 export async function importSqliteIntoPostgres(
   source: PrismaClient | Record<string, unknown>,
   target: PrismaClient,
-  opts: { dryRun: boolean; batchSize?: number; log?: (line: string) => void },
+  opts: { dryRun: boolean; batchSize?: number; log?: (line: string) => void; hooks?: ImportHooks },
 ): Promise<SqliteImportReport> {
   const batchSize = opts.batchSize ?? 500;
   const log = opts.log ?? (() => undefined);
@@ -95,10 +103,10 @@ export async function importSqliteIntoPostgres(
   };
 
   await assertMigrationsApplied(target);
-  const tgt = target as unknown as Record<string, TargetDelegate>;
-  for (const name of copyable) {
-    const existing = await tgt[delegateName(name)].count();
-    if (existing > 0) throw new Error(`target table ${name} already has ${existing} rows; refusing to merge into existing data`);
+  try {
+    await assertApplicationDataEmpty(target);
+  } catch (err) {
+    throw Object.assign(new Error(`${(err as Error).message}; refusing to merge into existing data`), { cause: err });
   }
 
   // Pass 1 (always): count rows, and find values that cannot fit a Postgres Int. This must be
@@ -139,7 +147,9 @@ export async function importSqliteIntoPostgres(
           throw new Error(`${table.model}: source ${table.sourceRows}, copied ${table.copiedRows}, target ${landed}; rolling back`);
         }
         log(`copied ${table.model}: ${table.copiedRows}`);
+        await opts.hooks?.afterTable?.(tx, table.model);
       }
+      await opts.hooks?.beforeCommit?.(tx, report);
     },
     { timeout: 60 * 60_000, maxWait: 60_000 },
   );

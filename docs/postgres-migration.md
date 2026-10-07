@@ -79,3 +79,47 @@ re-runs refused/idempotent, and the source file's SHA-256 unchanged.
   schema. Fix forward with a new migration, or `npx prisma migrate resolve --rolled-back <name>`
   after restoring from a Postgres backup. Enable Railway Postgres backups before cutover.
 - **Older code against a newer schema** is refused (`unknown` migrations); deploy forward instead.
+
+## Railway-internal cutover runner (`CUTOVER_MODE`)
+
+The production image can start a cutover runner instead of the API (`docker-entrypoint.sh`).
+The operator's machine is control plane only; all data-plane work runs inside Railway.
+
+| Variable | Meaning |
+|---|---|
+| `CUTOVER_MODE` | `preflight` (target only) or `job` (SQLite → Postgres). Unset = normal API. |
+| `CUTOVER_TARGET_DATABASE_URL` | The NEW Postgres (private URL). Must differ from `DATABASE_URL`, which stays the SQLite source until the final switch. Child Prisma CLI processes receive it explicitly; `process.env.DATABASE_URL` is never changed. |
+| `CUTOVER_SOURCE_SQLITE_PATH` | Default `/app/apps/api/data/prod.db` (job only). |
+| `CUTOVER_RUN_ID` | `^[a-z0-9][a-z0-9-]{2,63}$`. One id per deliberate attempt. |
+| `CUTOVER_STATUS_TOKEN` | Required header `x-cutover-token` for `GET /__cutover/status`. |
+| `CUTOVER_FREEZE_PROOF_MS` | Source must be byte-stable this long before backup (default 60000). |
+
+While a runner owns the service: `/health` → 200, `/__cutover/status` → compact status (token
+only; no URLs, credentials, rows or user content), every other path → 503 maintenance.
+
+**Job stages:** target connect + identity → advisory lock (dedicated single-connection client)
+→ recovery decision → `prisma migrate deploy` + guard on the target → freeze proof → final
+backup `cutover/<runId>/final-prod.db` (read-only, on the volume) + immutable working copy →
+source verify (`integrity_check`, `foreign_key_check`, counts) → import (APPLICATION_DATA_EMPTY
+required; commit marker `cutover.import_commit` written inside the import transaction) →
+canonical reconciliation of every table (`src/cutover/canonical.ts`) → social backfill → exact
+social reconciliation (comments, loves, engagement, `Asset.analytics` transform, Asset
+excluding `analytics`) → source/backup hash unchanged → `COMPLETED`.
+
+**Durable status:** `cutover.run` / `cutover.event` / `cutover.import_commit` in the target, plus
+`cutover/<runId>/status.json` on the volume.
+
+**Recovery (never guessed):** a runner that finds its own run `RUNNING` (owner gone — it now holds
+the lock) records `FAILED stale_run_interrupted` with `IMPORT_NOT_COMMITTED` or
+`IMPORT_COMMITTED_STATUS_NOT_FINALIZED` and stops. A deliberate rerun uses a NEW run id: if the
+commit marker for the source hash exists, the import is skipped and the committed data is
+reconciled; otherwise it imports only into an APPLICATION_DATA_EMPTY target. `COMPLETED` and
+`FAILED` runs are never re-executed.
+
+**APPLICATION_DATA_EMPTY:** every Prisma model's table (in the connection's schema) has zero rows
+and nothing unclassified exists there. Excluded as operational metadata: `_prisma_migrations`
+and the `cutover` schema (`src/cutover/classification.ts`).
+
+**Field transformations:** none in the copy (all 53 tables reconcile exactly). The social backfill
+rewrites only `Asset.analytics` (legacy keys removed, `socialBackfilledAt` added) — reconciled
+separately and exactly — and preserves `Asset.updatedAt`.

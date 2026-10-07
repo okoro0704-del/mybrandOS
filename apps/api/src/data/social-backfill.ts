@@ -39,7 +39,7 @@ function parse(raw: string): Record<string, unknown> | null {
   }
 }
 
-function count(value: unknown): number {
+export function legacyCounter(value: unknown): number {
   const n = Number(value ?? 0);
   return Number.isFinite(n) && n > 0 ? Math.min(Math.trunc(n), 2_147_483_647) : 0;
 }
@@ -113,7 +113,7 @@ async function backfillOne(db: PrismaClient, assetId: string, total: SocialBackf
   // Counted per attempt and merged only after commit, so a rolled-back retry never inflates totals.
   const report = emptyReport();
   const outcome = await db.$transaction(async (tx) => {
-    const row = await tx.asset.findUnique({ where: { id: assetId }, select: { analytics: true } });
+    const row = await tx.asset.findUnique({ where: { id: assetId }, select: { analytics: true, updatedAt: true } });
     if (!row) return "gone" as const;
     const analytics = parse(row.analytics);
     if (!analytics) return "skipped" as const;
@@ -147,9 +147,9 @@ async function backfillOne(db: PrismaClient, assetId: string, total: SocialBackf
     });
     report.reactionsInserted += reactions.count;
 
-    const views = count(analytics.views);
-    const plays = count(analytics.plays);
-    const completions = count(analytics.completions);
+    const views = legacyCounter(analytics.views);
+    const plays = legacyCounter(analytics.plays);
+    const completions = legacyCounter(analytics.completions);
     if (views || plays || completions) {
       await tx.assetEngagement.upsert({
         where: { assetId },
@@ -162,7 +162,8 @@ async function backfillOne(db: PrismaClient, assetId: string, total: SocialBackf
     for (const key of LEGACY_SOCIAL_KEYS) delete next[key];
     const swapped = await tx.asset.updateMany({
       where: { id: assetId, analytics: row.analytics },
-      data: { analytics: JSON.stringify(next) },
+      // Keep updatedAt: a data migration must not reorder creators' content (feeds sort by it).
+      data: { analytics: JSON.stringify(next), updatedAt: row.updatedAt },
     });
     if (swapped.count !== 1) throw new BackfillConflict();
     report.assetsMigrated += 1;

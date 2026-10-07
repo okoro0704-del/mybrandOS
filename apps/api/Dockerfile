@@ -13,6 +13,8 @@ RUN npm install
 
 COPY . .
 RUN npm run build
+# Read-only client for the frozen legacy SQLite schema, used only by CUTOVER_MODE=job.
+RUN npm run db:generate:legacy -w @mybrandos/api
 
 ENV NODE_ENV=production
 ENV WEB_DIST=/app/apps/web/dist
