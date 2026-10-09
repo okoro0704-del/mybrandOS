@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { TwinBrief, TwinBriefSection } from "@mybrandos/shared";
 import { api } from "../lib/api";
+import { TwinActions } from "../studio/TwinActions";
 
 type AskResult = { available: boolean; provider: string; text?: string; detail?: string };
 
@@ -159,6 +160,7 @@ export function DigiTwinPage({
           </div>
         ) : null}
       </form>
+      {variant === "page" ? <TwinActions /> : null}
     </section>
   );
 }

@@ -66,6 +66,13 @@ export const config = {
   trustIdApi: env("TRUSTID_API", "http://localhost:8787"),
   trustIdClientId: env("TRUSTID_CLIENT_ID", "mybrandos_public"),
   trustIdRedirectUri: env("TRUSTID_REDIRECT_URI", "http://localhost:5176/auth/callback"),
+  /** Pinned OIDC issuer; must equal the `issuer` of the live discovery document. */
+  trustIdIssuer: env("TRUSTID_ISSUER", "https://trustedid.netlify.app/api"),
+  /**
+   * New production relying-party sessions are bound to a verified OIDC ID token.
+   * Development may opt in explicitly while the controlled production cutover is pending.
+   */
+  trustIdRequireIdToken: env("NODE_ENV", "development") === "production" || env("TRUSTID_REQUIRE_ID_TOKEN").toLowerCase() === "true",
   trustIdScopes: env(
     "TRUSTID_SCOPES",
     "openid identity.basic identity.zk_claims identity.trust_level identity.verification_status",

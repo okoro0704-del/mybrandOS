@@ -134,6 +134,10 @@ model Session {
   authMethod String  @default("legacy")
   expiresAt DateTime
   createdAt DateTime @default(now())
+  /// Trust ID access token, AES-256-GCM sealed and bound to this session id. Server-side only;
+  /// forwarded only to Digi AI as actor proof. Never returned to the browser.
+  providerAccessToken    String?
+  providerTokenExpiresAt DateTime?
 
   @@index([ownerId])
 }
@@ -1083,3 +1087,85 @@ model DigiAiPublishIdempotency {
   @@index([assetId])
 }
 
+/// Digi Twin delegation: an authenticated creator lets their Twin perform named actions in their
+/// own Space for a short time. The Twin is not a Trust ID subject and holds no authority of its own.
+model TwinDelegation {
+  id           String    @id @default(cuid())
+  /// Canonical Trust ID subject of the human who granted it.
+  humanSubject String
+  /// Creator account (mybrandOS ownerId).
+  ownerId      String
+  /// Creator-owned Space (PersonalSpace.id).
+  spaceId      String
+  twinId       String
+  /// JSON array of registered Twin capabilities.
+  capabilities String
+  /// mybrandOS session that granted it.
+  sessionId    String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  approvals    TwinApproval[]
+
+  @@index([ownerId, createdAt])
+}
+
+/// Single-use human approval for one sensitive Twin action on one exact target and payload.
+model TwinApproval {
+  id            String         @id @default(cuid())
+  delegationId  String
+  delegation    TwinDelegation @relation(fields: [delegationId], references: [id], onDelete: Cascade)
+  humanSubject  String
+  ownerId       String
+  spaceId       String
+  action        String
+  targetId      String
+  payloadDigest String
+  /// sha256 of the one-time approval secret given to the approving human.
+  tokenHash     String         @unique
+  sessionId     String
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  rejectedAt    DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@index([ownerId, createdAt])
+}
+
+/// Idempotency for Twin actions: one execution per delegation and idempotency key.
+model TwinActionExecution {
+  id             String   @id @default(cuid())
+  delegationId   String
+  ownerId        String
+  action         String
+  idempotencyKey String
+  payloadDigest  String
+  status         String
+  resultId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([delegationId, idempotencyKey])
+  @@index([ownerId, createdAt])
+}
+
+/// Audit trail for Twin delegation, approval and action outcomes.
+model TwinAuditEvent {
+  id            String   @id @default(cuid())
+  correlationId String
+  ownerId       String
+  humanSubject  String
+  /// "human:<subject>" or "twin:<twinId>"
+  actor         String
+  delegationId  String?
+  approvalId    String?
+  action        String
+  targetId      String?
+  /// ALLOWED | DENIED | SUCCEEDED | FAILED
+  outcome       String
+  reason        String   @default("")
+  createdAt     DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+  @@index([correlationId])
+}

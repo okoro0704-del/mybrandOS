@@ -35,6 +35,7 @@ import { registerInternalDigitalLifeRoutes } from "./routes/internal-digital-lif
 import { registerInternalDraftRoutes } from "./routes/internal-drafts.js";
 import { registerPublishRoutes } from "./routes/publish.js";
 import { registerTwinRoutes } from "./routes/twin.js";
+import { registerTwinM1Routes } from "./routes/twin-m1.js";
 import {
   configuredServiceCapabilities,
   internalServiceAuthConfigured,
@@ -197,6 +198,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerInternalDraftRoutes(instance, primitives);
   registerPublishRoutes(instance, primitives);
   registerTwinRoutes(instance, primitives);
+  registerTwinM1Routes(instance, primitives);
 }
 
 // Root browser routes cannot also be JSON API routes in the deployed SPA.

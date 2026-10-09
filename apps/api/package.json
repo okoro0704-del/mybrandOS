@@ -18,7 +18,8 @@
     "db:backfill-social": "tsx --env-file=.env scripts/backfill-social.ts",
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --env-file=.env --test test/**/*.test.ts"
+    "test": "tsx --env-file=.env --test test/**/*.test.ts",
+    "test:m1": "node scripts/run-m1-tests.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

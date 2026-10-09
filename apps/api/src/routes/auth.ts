@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma.js";
 import { digitalLifePath } from "@mybrandos/shared";
 import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
+import { loadTrustIdDiscovery, OidcError, verifyTrustIdIdToken } from "../lib/trustid-oidc.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -15,7 +16,7 @@ import {
   revokeSession,
 } from "../lib/auth.js";
 
-const pkceStore = new Map<string, { verifier: string; redirectUri: string; expiresAt: number }>();
+const pkceStore = new Map<string, { verifier: string; nonce: string; redirectUri: string; expiresAt: number }>();
 
 function sha256Base64Url(value: string): string {
   return createHash("sha256")
@@ -97,15 +98,24 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     const { origin } = z.object({ origin: z.string().optional() }).parse(req.query);
     const redirectUri = origin ? trustIdCallbackUri(origin, [...config.corsOrigins, config.publicOrigin, new URL(config.trustIdRedirectUri).origin], config.isDev) : config.trustIdRedirectUri;
     if (!redirectUri) return reply.code(400).send({ error: "invalid_auth_origin", message: "This app origin is not configured for Trust ID sign-in." });
+    try {
+      // Pinned issuer: refuse to start a sign-in against a Trust ID that is not the configured issuer.
+      await loadTrustIdDiscovery();
+    } catch (err) {
+      const code = err instanceof OidcError ? err.code : "issuer_unreachable";
+      return reply.code(503).send({ error: code, message: "Trust ID sign-in is unavailable right now." });
+    }
     const verifier = randomBytes(32).toString("base64url");
     const state = randomBytes(16).toString("hex");
-    pkceStore.set(state, { verifier, redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
+    const nonce = randomBytes(16).toString("base64url");
+    pkceStore.set(state, { verifier, nonce, redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
     const url = primitives.trustId.authorizeUrl({
       clientId: config.trustIdClientId,
       redirectUri,
       scopes: config.trustIdScopes,
       state,
       codeChallenge: sha256Base64Url(verifier),
+      nonce,
     });
     return { url, state };
   });
@@ -130,8 +140,26 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     if (!proof?.trustId) {
       return reply.code(401).send({ error: "userinfo_failed" });
     }
+    if (tokens.id_token) {
+      try {
+        await verifyTrustIdIdToken(tokens.id_token, {
+          clientId: config.trustIdClientId,
+          nonce: stored.nonce,
+          subject: proof.trustId,
+        });
+      } catch (err) {
+        const code = err instanceof OidcError ? err.code : "invalid_id_token";
+        req.log.warn({ code }, "Trust ID ID token rejected");
+        return reply.code(401).send({ error: code });
+      }
+    } else if (config.trustIdRequireIdToken) {
+      return reply.code(401).send({ error: "id_token_required" });
+    }
     const identity = toIdentity(proof, true);
-    const issued = await issueSession(identity, reply, "trustid");
+    const issued = await issueSession(identity, reply, "trustid", {
+      accessToken: tokens.access_token,
+      expiresInSeconds: tokens.expires_in,
+    });
     return { token: issued.token, user: identity };
   });
 

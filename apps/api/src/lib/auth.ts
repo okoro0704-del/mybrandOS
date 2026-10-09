@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { openProviderToken, sealProviderToken } from "./trustid-oidc.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Prisma } from "@prisma/client";
 import type { TrustIdIdentity } from "@mybrandos/shared";
@@ -105,19 +106,41 @@ export async function issueSession(
   identity: TrustIdIdentity,
   reply: FastifyReply,
   authMethod: SessionAuthMethod,
+  provider?: { accessToken: string; expiresInSeconds?: number },
 ): Promise<{ token: string; sessionId: string }> {
   const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + config.sessionTtlHours * 60 * 60 * 1000);
   const session = await prisma.session.create({
     data: {
       tokenHash: hashToken(token),
       ownerId: identity.trustId,
       identity: JSON.stringify(identity),
       authMethod,
-      expiresAt: new Date(Date.now() + config.sessionTtlHours * 60 * 60 * 1000),
+      expiresAt,
     },
   });
+  if (provider?.accessToken) {
+    // Short-lived Trust ID access token: sealed to this session, never returned to the browser.
+    const ttl = Math.min(Math.max(provider.expiresInSeconds ?? 3600, 60), 3600) * 1000;
+    const tokenExpiry = new Date(Math.min(Date.now() + ttl, expiresAt.getTime()));
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { providerAccessToken: sealProviderToken(provider.accessToken, session.id), providerTokenExpiresAt: tokenExpiry },
+    });
+  }
   setSessionCookie(reply, token);
   return { token, sessionId: session.id };
+}
+
+/** The sealed Trust ID access token for a stored session, if still valid. Server-side use only. */
+export async function sessionProviderAccessToken(sessionId: string): Promise<string | null> {
+  const row = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { providerAccessToken: true, providerTokenExpiresAt: true, expiresAt: true },
+  });
+  if (!row?.providerAccessToken || !row.providerTokenExpiresAt) return null;
+  if (row.providerTokenExpiresAt <= new Date() || row.expiresAt <= new Date()) return null;
+  return openProviderToken(row.providerAccessToken, sessionId);
 }
 
 /**

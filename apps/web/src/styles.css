@@ -4750,6 +4750,18 @@ button.linkish {
 }
 .twin-ask .btn { margin-top: 0.85rem; }
 .twin-ask-reply { margin-top: 1rem; white-space: pre-wrap; line-height: 1.55; }
+.twin-actions { margin-top: 1rem; display: grid; gap: 0.6rem; }
+.twin-actions h2 { margin: 0.4rem 0 0; font-size: 1.05rem; }
+.twin-actions h3 { margin: 0.6rem 0 0; font-size: 0.95rem; }
+.twin-actions label { color: var(--bos-muted); font-size: 0.85rem; }
+.twin-actions textarea, .twin-actions input, .twin-actions select { width: 100%; box-sizing: border-box; }
+.twin-actions__row { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.twin-actions__answer { border-left: 3px solid var(--os-accent, #2563eb); padding-left: 0.75rem; }
+.twin-actions__text { white-space: pre-wrap; line-height: 1.55; }
+.twin-actions__meta { color: var(--bos-muted); font-size: 0.82rem; margin: 0; }
+.twin-actions__draft { display: grid; gap: 0.4rem; }
+.twin-actions__error { color: #b91c1c; margin: 0; }
+.twin-actions__list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; font-size: 0.88rem; }
 
 @media (max-width: 430px) {
   .twin-page .page-head p { font-size: 1rem; }

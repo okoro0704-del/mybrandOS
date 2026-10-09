@@ -13,6 +13,14 @@ export type TrustIdSessionProof = {
   verificationLevel?: string;
 };
 
+/** Token endpoint response. `id_token` is only present once Trust ID issues OIDC ID tokens. */
+export type TrustIdTokenResponse = {
+  access_token: string;
+  id_token?: string;
+  expires_in?: number;
+  token_type?: string;
+};
+
 export interface ITrustIdProvider {
   readonly primitiveId: "trust-id";
   readonly bound: boolean;
@@ -25,13 +33,14 @@ export interface ITrustIdProvider {
     redirectUri: string;
     codeVerifier: string;
     clientId: string;
-  }): Promise<{ access_token: string } | null>;
+  }): Promise<TrustIdTokenResponse | null>;
   authorizeUrl(input: {
     clientId: string;
     redirectUri: string;
     scopes: string;
     state: string;
     codeChallenge: string;
+    nonce?: string;
   }): string;
 }
 
@@ -64,6 +73,7 @@ export class RemoteTrustIdAdapter implements ITrustIdProvider {
     scopes: string;
     state: string;
     codeChallenge: string;
+    nonce?: string;
   }): string {
     const params = new URLSearchParams({
       client_id: input.clientId,
@@ -74,6 +84,7 @@ export class RemoteTrustIdAdapter implements ITrustIdProvider {
       code_challenge: input.codeChallenge,
       code_challenge_method: "S256",
     });
+    if (input.nonce) params.set("nonce", input.nonce);
     return `${this.baseUrl.replace(/\/$/, "")}/oauth/authorize?${params}`;
   }
 
@@ -84,7 +95,7 @@ export class RemoteTrustIdAdapter implements ITrustIdProvider {
     clientId: string;
   }) {
     try {
-      return await httpJson<{ access_token: string }>(this.baseUrl, "/oauth/token", {
+      return await httpJson<TrustIdTokenResponse>(this.baseUrl, "/oauth/token", {
         method: "POST",
         body: JSON.stringify({
           grant_type: "authorization_code",
