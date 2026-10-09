@@ -28,7 +28,7 @@ const rule = (selector: string) => {
 };
 
 test("exactly one interaction is active; the states are the documented set", () => {
-  assert.deepEqual([...POST_INTERACTIONS], ["NONE", "COMMENTS", "REACTIONS", "DETAILS", "REPOST", "SHARE"]);
+  assert.deepEqual([...POST_INTERACTIONS], ["NONE", "COMMENTS", "REACTIONS", "SAVE", "REPOST", "SHARE"]);
   assert.equal(isInteractionOpen("NONE"), false);
   for (const open of POST_INTERACTIONS.filter((i) => i !== "NONE")) assert.equal(isInteractionOpen(open), true);
 });
@@ -36,8 +36,8 @@ test("exactly one interaction is active; the states are the documented set", () 
 test("tapping the active control closes it; another control replaces it (never stacks)", () => {
   assert.equal(togglePostInteraction("NONE", "COMMENTS"), "COMMENTS");
   assert.equal(togglePostInteraction("COMMENTS", "COMMENTS"), "NONE");
-  assert.equal(togglePostInteraction("COMMENTS", "DETAILS"), "DETAILS");
-  assert.equal(togglePostInteraction("DETAILS", "SHARE"), "SHARE");
+  assert.equal(togglePostInteraction("COMMENTS", "SAVE"), "SAVE");
+  assert.equal(togglePostInteraction("SAVE", "SHARE"), "SHARE");
   assert.equal(togglePostInteraction("SHARE", "NONE"), "NONE");
   let state: PostInteraction = "NONE";
   for (let i = 0; i < 20; i++) state = togglePostInteraction(state, "COMMENTS");
@@ -125,10 +125,32 @@ test("dismissal paths: same control, close button, swipe, tap outside, Escape, B
 test("Love is a single-tap toggle; hold opens the Love overlay", () => {
   assert.match(dock, /label="Love"[\s\S]*onClick=\{\(\) => \{[\s\S]*void actions\.toggleLove\(\);/);
   assert.match(dock, /toggle\("REACTIONS"\)/);
-  for (const id of ["COMMENTS", "DETAILS", "REPOST", "SHARE"]) assert.match(dock, new RegExp(`toggle\\("${id}"\\)`));
+  for (const id of ["COMMENTS", "SAVE", "REPOST", "SHARE"]) assert.match(dock, new RegExp(`toggle\\("${id}"\\)`));
 });
 
-test("Share and Remix reuse the existing publication actions", () => {
+test("rail order: Love, Comment, Save/Downloads, Reuse, Share/Copy", () => {
+  const bar = dock.slice(dock.indexOf('className="post-dock__bar"'));
+  const order = [...bar.matchAll(/label="(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["Love", "Comment", "Save", "Reuse", "Share"]);
+  const save = dock.slice(dock.indexOf('data-sheet="save"'), dock.indexOf('interaction === "REPOST"'));
+  assert.match(save, /actions\.toggleSaveOffline\(\)/);
+  assert.match(save, /actions\.downloadToDevice\(\)/);
+  const share = dock.slice(dock.indexOf('data-sheet="share"'));
+  assert.match(share, /actions\.onShare\(\)/);
+  assert.match(share, /actions\.copyLink\(\)/);
+  assert.doesNotMatch(share.slice(0, share.indexOf("</div>\n    );")), /toggleSaveOffline|downloadToDevice/);
+});
+
+test("comments panel is fully transparent so the video stays visible and playing behind it", () => {
+  const comments = rule('.post-overlay[data-post-overlay="COMMENTS"]');
+  assert.match(comments, /background: transparent;/);
+  assert.match(comments, /backdrop-filter: none;/);
+  assert.match(comments, /box-shadow: none;/);
+  // Playback follows only the active slide, never an open panel.
+  assert.match(feed, /<PersistentGalleryVideo[\s\S]*?active=\{active\}/);
+});
+
+test("Share and Reuse use the existing publication actions", () => {
   assert.match(actions, /export function usePublicationActions\(/);
   assert.match(actions, /export function ActionBtn\(/);
   assert.match(dock, /usePublicationActions\(\{ asset, slug, mediaBase, creatorLabel: author, onOutcome \}\)/);

@@ -7052,6 +7052,34 @@ button.linkish {
   touch-action: pan-y;
   padding: 0 0.9rem 0.75rem;
 }
+/* Action sheets (Love, Save, Reuse, Share) are compact: sized to their buttons, just above the composer. */
+.post-overlay:not([data-post-overlay="COMMENTS"]) {
+  top: auto;
+  max-height: calc(100% - var(--post-panel-top) - var(--post-above-composer));
+}
+/* While a panel is open on the right, the post's own details step aside so text never collides. */
+.post-slide__details {
+  transition: opacity 160ms var(--os-ease);
+}
+.post-viewport:has(.post-dock:not([data-interaction="NONE"])) .post-slide__details {
+  opacity: 0;
+}
+/* Comments are fully transparent: the video keeps playing and stays visible behind the thread. */
+.post-overlay[data-post-overlay="COMMENTS"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.post-overlay[data-post-overlay="COMMENTS"] .post-overlay__head,
+.post-overlay[data-post-overlay="COMMENTS"] .post-overlay__body {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.45);
+}
+.post-overlay[data-post-overlay="COMMENTS"] .post-overlay__close {
+  background: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
 .post-overlay[data-post-overlay="COMMENTS"] .post-overlay__body {
   display: flex;
   flex-direction: column;

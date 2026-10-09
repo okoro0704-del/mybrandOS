@@ -1289,10 +1289,6 @@ export function ImmersivePostFeed({
 
   const settledAsset = items[settledIndex] ?? items[activeIndex];
   const author = experience.identity.displayName || experience.slug;
-  const settledBody =
-    (typeof settledAsset.presentation?.body === "string" && settledAsset.presentation.body) ||
-    settledAsset.description ||
-    "";
 
   return (
     <div
@@ -1315,10 +1311,6 @@ export function ImmersivePostFeed({
         slug={experience.slug}
         mediaBase={mediaBase}
         author={author}
-        title={humanPublicationTitle(settledAsset.title, settledAsset.id)}
-        body={isWritingSlide(settledAsset) ? "" : settledBody}
-        publishedAt={settledAsset.publishedAt}
-        kind={ASSET_TYPE_LABELS[settledAsset.assetType] || settledAsset.assetType}
         interaction={interaction}
         onInteraction={requestInteraction}
         commentCount={commentCounts[settledAsset.id]}
