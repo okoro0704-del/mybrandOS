@@ -2,9 +2,9 @@
  * Post interactions are summoned layers over the media, never sections of the post.
  * Exactly one may be open at a time; opening or closing one must not change media geometry.
  */
-export type PostInteraction = "NONE" | "COMMENTS" | "REACTIONS" | "DETAILS" | "REPOST" | "SHARE";
+export type PostInteraction = "NONE" | "COMMENTS" | "REACTIONS" | "SAVE" | "REPOST" | "SHARE";
 
-export const POST_INTERACTIONS: readonly PostInteraction[] = ["NONE", "COMMENTS", "REACTIONS", "DETAILS", "REPOST", "SHARE"];
+export const POST_INTERACTIONS: readonly PostInteraction[] = ["NONE", "COMMENTS", "REACTIONS", "SAVE", "REPOST", "SHARE"];
 
 export const SWIPE_DISMISS_PX = 64;
 

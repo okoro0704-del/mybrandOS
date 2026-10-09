@@ -116,11 +116,10 @@ test("12-15. TV, Radio, Digipedia and DigiNews stay APP experiences", () => {
   assert.match(shell, /selectDestination: \(\) => \{[\s\S]*space\.setSurface\("APP"\)/);
 });
 
-test("16. post details sit on the post itself, with more in a Details overlay", () => {
+test("16. post details sit on the post itself", () => {
   const overlay = read("apps/web/src/experience/InteractionOverlay.tsx");
   assert.match(feed, /className="post-slide__details"[\s\S]*<PostDetails[\s\S]*title=\{humanTitle\}/);
-  assert.match(feed, /<InteractionOverlay[\s\S]*title=\{humanPublicationTitle\(settledAsset\.title, settledAsset\.id\)\}/);
-  assert.match(overlay, /interaction === "DETAILS"[\s\S]*<PostDetails title=\{title\}/);
+  assert.doesNotMatch(overlay, /<PostDetails|"DETAILS"/);
   assert.doesNotMatch(overlay, /app-post__identity|app-post__avatar|avatarUrl/);
 });
 

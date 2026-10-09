@@ -2,7 +2,6 @@ import { useCallback, useRef, useState, type CSSProperties, type ReactNode } fro
 import type { PublicAssetCard } from "@mybrandos/shared";
 import { ActionBtn, usePublicationActions } from "../digital-life/personal-os/ContentActionBar";
 import { OsWordmark } from "../digital-life/personal-os/OsWordmark";
-import { PostDetails } from "../digital-life/personal-os/PostDetails";
 import { publicationCollaboratorMarks } from "../digital-life/personal-os/osIdentity";
 import type { MediaOutcome } from "../digital-life/personal-os/MediaOutcomeLayer";
 import { Icons } from "../nav/icons";
@@ -13,8 +12,8 @@ const LONG_PRESS_MS = 520;
 const PANEL_TITLES: Record<Exclude<PostInteraction, "NONE">, string> = {
   COMMENTS: "Comments",
   REACTIONS: "Love",
-  DETAILS: "Details",
-  REPOST: "Repost or remix",
+  SAVE: "Save",
+  REPOST: "Reuse",
   SHARE: "Share",
 };
 
@@ -29,10 +28,6 @@ export function InteractionOverlay({
   slug,
   mediaBase,
   author,
-  title,
-  body,
-  publishedAt,
-  kind,
   interaction,
   onInteraction,
   commentCount,
@@ -44,10 +39,6 @@ export function InteractionOverlay({
   slug: string;
   mediaBase: string;
   author: string;
-  title: string | null;
-  body: string;
-  publishedAt?: string | null;
-  kind: string;
   interaction: PostInteraction;
   onInteraction: (next: PostInteraction) => void;
   commentCount?: number;
@@ -96,22 +87,31 @@ export function InteractionOverlay({
         </button>
       </div>
     );
-  } else if (interaction === "DETAILS") {
+  } else if (interaction === "SAVE") {
     content = (
-      <div className="post-overlay__sheet" data-sheet="details">
-        <PostDetails title={title} body={body} publishedAt={publishedAt} kind={kind} lines={6} />
+      <div className="post-overlay__sheet" data-sheet="save">
+        <button type="button" className="post-overlay__action" onClick={() => void actions.toggleSaveOffline()}>
+          <Icons.save size={20} filled={actions.saved} /> {actions.saved ? "Remove from Offline" : "Save offline"}
+        </button>
+        {social.downloadAllowed ? (
+          <button type="button" className="post-overlay__action" onClick={() => void actions.downloadToDevice()}>
+            <Icons.save size={20} /> Download
+          </button>
+        ) : (
+          <p className="post-overlay__note">The creator has not enabled downloads for this publication.</p>
+        )}
       </div>
     );
   } else if (interaction === "REPOST") {
     content = (
       <div className="post-overlay__sheet" data-sheet="repost">
         <button type="button" className="post-overlay__action" onClick={() => void actions.onReuse()}>
-          <Icons.reuse size={20} /> Remix in Studio
+          <Icons.reuse size={20} /> Reuse in Studio
         </button>
         <p className="post-overlay__note">
           {social.allowReuse
             ? "Opens your Studio to build on this publication."
-            : "The creator has not enabled remixing for this publication."}
+            : "The creator has not enabled reuse for this publication."}
         </p>
       </div>
     );
@@ -132,14 +132,6 @@ export function InteractionOverlay({
             </button>
           </>
         )}
-        <button type="button" className="post-overlay__action" onClick={() => void actions.toggleSaveOffline()}>
-          <Icons.save size={20} filled={actions.saved} /> {actions.saved ? "Remove from Offline" : "Save offline"}
-        </button>
-        {social.downloadAllowed ? (
-          <button type="button" className="post-overlay__action" onClick={() => void actions.downloadToDevice()}>
-            <Icons.save size={20} /> Download
-          </button>
-        ) : null}
       </div>
     );
   }
@@ -249,14 +241,15 @@ export function InteractionOverlay({
           icon={<Icons.messages size={24} />}
         />
         <ActionBtn
-          label="Details"
+          label="Save"
           iconOnly
-          active={interaction === "DETAILS"}
-          onClick={() => toggle("DETAILS")}
-          icon={<Icons.details size={24} />}
+          active={interaction === "SAVE" || actions.saved}
+          title="Save offline or download"
+          onClick={() => toggle("SAVE")}
+          icon={<Icons.save size={24} filled={actions.saved} />}
         />
         <ActionBtn
-          label="Remix"
+          label="Reuse"
           iconOnly
           active={interaction === "REPOST"}
           onClick={() => toggle("REPOST")}
@@ -264,6 +257,7 @@ export function InteractionOverlay({
         />
         <ActionBtn
           label="Share"
+          title="Share or copy link"
           iconOnly
           active={interaction === "SHARE"}
           onClick={() => toggle("SHARE")}

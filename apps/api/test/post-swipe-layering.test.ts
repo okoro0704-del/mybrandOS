@@ -122,7 +122,7 @@ test("interaction controls bind to the settled post and carry no poster identity
   assert.match(feed, /const settledAsset = items\[settledIndex\] \?\? items\[activeIndex\];/);
   assert.match(feed, /<InteractionOverlay\s+key=\{settledAsset\.id\}\s+asset=\{settledAsset\}/);
   assert.doesNotMatch(overlay, /avatar|@\{|author\.slice|app-post__brand/);
-  for (const label of ["Love", "Comment", "Details", "Remix", "Share"]) {
+  for (const label of ["Love", "Comment", "Save", "Reuse", "Share"]) {
     assert.match(overlay, new RegExp(`label="${label}"`));
   }
 });
