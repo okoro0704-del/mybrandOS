@@ -35,8 +35,8 @@ for (const secret of ["postgresql://", "postgres://", token]) assert.equal(raw.i
 
 const r = s.report;
 if (expect === "preflight") {
-  assert.deepEqual(r.applicationDataEmpty, { tables: 56, businessRows: 0 });
-  assert.equal(r.migrations.length, 2);
+  assert.deepEqual(r.applicationDataEmpty, { tables: 60, businessRows: 0 });
+  assert.equal(r.migrations.length, 3); // baseline, relational_social, twin_delegation
 } else {
   assert.equal(r.reconciliation.tables, 53);
   assert.equal(r.reconciliation.rows, 332);

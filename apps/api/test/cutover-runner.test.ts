@@ -192,7 +192,7 @@ test("APPLICATION_DATA_EMPTY ignores migration metadata and the cutover schema, 
   assert.equal(pre.code, 0, pre.stdout);
   let c = await classifyTarget(db);
   assert.deepEqual([c.nonEmptyApplicationTables, c.unexpectedPublicTables, c.missingApplicationTables], [[], [], []]);
-  assert.equal(Object.keys(c.applicationTables).length, 56, "every Prisma model is an application table");
+  assert.equal(Object.keys(c.applicationTables).length, 60, "every Prisma model is an application table");
   await db.$executeRawUnsafe(`CREATE TABLE public.stray (id int)`);
   await db.$executeRawUnsafe(`INSERT INTO "PersonalSpace" (id, "ownerId", "updatedAt") VALUES ('ps', 'o', now())`);
   c = await classifyTarget(db);
@@ -205,8 +205,8 @@ test("preflight: migrates, guards, proves APPLICATION_DATA_EMPTY; refuses a targ
   assert.equal(ok.code, 0, ok.stdout);
   const row = await runRow(db, "pf-ok");
   assert.equal(row.state, "COMPLETED");
-  assert.deepEqual(row.report.applicationDataEmpty, { tables: 56, businessRows: 0 });
-  assert.equal(row.report.migrations.length, 2);
+  assert.deepEqual(row.report.applicationDataEmpty, { tables: 60, businessRows: 0 });
+  assert.equal(row.report.migrations.length, 3); // baseline, relational_social, twin_delegation
   await db.$executeRawUnsafe(`INSERT INTO "PersonalSpace" (id, "ownerId", "updatedAt") VALUES ('ps', 'o', now())`);
   const bad = await runner({ CUTOVER_MODE: "preflight", CUTOVER_TARGET_DATABASE_URL: url, CUTOVER_RUN_ID: "pf-bad" });
   assert.equal(bad.code, 1);

@@ -89,7 +89,16 @@ test("dry run reports counts and Int overflow without writing anything", async (
   const overflowing = { id: "pf-huge" };
   const dry = await importSqliteIntoPostgres(legacy, target, { dryRun: true });
   assert.deepEqual(dry.overflow.map((o) => [o.model, o.field, o.value]), [["ProjectFile", "sizeBytes", 3_000_000_000]]);
-  assert.deepEqual(dry.skippedTargetOnlyModels.sort(), ["AssetEngagement", "PostComment", "PostReaction"]);
+  assert.deepEqual(dry.skippedTargetOnlyModels.sort(), [
+    "AssetEngagement",
+    "PostComment",
+    "PostReaction",
+    // Digi Twin (M1) tables are PostgreSQL-only: never copied from SQLite, empty at cutover.
+    "TwinActionExecution",
+    "TwinApproval",
+    "TwinAuditEvent",
+    "TwinDelegation",
+  ]);
   await assert.rejects(importSqliteIntoPostgres(legacy, target, { dryRun: false }), /Int overflow/);
   assert.equal(await target.asset.count(), 0, "an aborted import writes nothing");
   await legacy.$executeRawUnsafe(`DELETE FROM "ProjectFile" WHERE id = ?`, overflowing.id);
