@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { brandSlugFromHost } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { api } from "../lib/api";
@@ -39,9 +39,17 @@ export function RequireAuth() {
   if (!user) {
     return <Navigate to={`/enter?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
-  if (error) return <div className="gate"><h1>{error.title}</h1><p>{error.message}</p>
-    {error.kind === "service" ? <button className="btn" onClick={() => setAttempt((value) => value + 1)}>Retry authorization</button> : null}
-  </div>;
+  if (error) return <div className="gate"><div className="gate-card">
+    <h1>{error.title}</h1><p>{error.message}</p>
+    <p className="small muted">Signed in as {user.displayName} ({user.trustId}).</p>
+    <div className="actions" style={{ marginTop: "1rem" }}>
+      {error.kind === "service" ? <button className="btn" onClick={() => setAttempt((value) => value + 1)}>Retry authorization</button> : null}
+      {/* Never a dead end: the creator can always sign out, go back, or see the public app. */}
+      <Link className="btn" to="/auth/logout">Sign out</Link>
+      <Link className="btn ghost" to="/auth/start">← Back to sign-in</Link>
+      <a className="btn ghost" href="/">View public app</a>
+    </div>
+  </div></div>;
   if (!access || access.owner !== user.trustId) return <div className="gate">Authorizing Studio…</div>;
   return <Studio.Provider value={access.brand}><Outlet /></Studio.Provider>;
 }
