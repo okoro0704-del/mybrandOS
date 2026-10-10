@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { brandSlugFromHost, studioReturnPath } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
 import { api } from "../lib/api";
+import { needsSignInHandoff } from "../lib/signin-handoff";
+import { SignInHandoff } from "../components/SignInHandoff";
 
 function whiteLabelTrustId(slug: string): string {
   return `TD-WL-${slug.toUpperCase().replace(/-/g, "")}`.slice(0, 80);
@@ -21,6 +23,8 @@ export function EnterPage() {
   const wl = search.get("wl") === "1";
   const requested = search.get("returnTo");
   const safeReturn = studioReturnPath(requested, window.location.hostname);
+  // Inside OS Xperience (or any frame) Trust ID cannot run here; it runs in the phone's browser.
+  const [framed] = useState(() => needsSignInHandoff());
 
   useEffect(() => {
     void api<{ enabled: boolean }>("/auth/bypass")
@@ -78,17 +82,21 @@ export function EnterPage() {
               Enter studio (test bypass)
             </button>
           ) : null}
-          <button
-            className="btn ghost"
-            disabled={entering}
-            onClick={() =>
-              startTrustId(safeReturn).catch((err: Error) =>
-                setError(err.message || "Trust ID is not bound in this environment."),
-              )
-            }
-          >
-            Continue with Trust ID
-          </button>
+          {framed ? (
+            <SignInHandoff onSignedIn={() => navigate(safeReturn, { replace: true })} />
+          ) : (
+            <button
+              className="btn ghost"
+              disabled={entering}
+              onClick={() =>
+                startTrustId(safeReturn).catch((err: Error) =>
+                  setError(err.message || "Trust ID is not bound in this environment."),
+                )
+              }
+            >
+              Continue with Trust ID
+            </button>
+          )}
           <button type="button" className="btn ghost" onClick={() => navigate("/")}>
             Continue without signing in
           </button>

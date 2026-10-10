@@ -9,6 +9,8 @@ type IdentityState = {
   enterLocal: (opts?: { trustId?: string; displayName?: string }) => Promise<void>;
   startTrustId: (returnTo: string) => Promise<void>;
   completeTrustId: (code: string, state: string) => Promise<string>;
+  /** A session handed over by a Trust ID sign-in completed in the phone's browser. */
+  acceptSession: (token: string, user: TrustIdIdentity) => void;
   logout: () => Promise<void>;
   invalidateSession: () => void;
 };
@@ -60,6 +62,11 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
     return returnTo;
   }, []);
 
+  const acceptSession = useCallback((token: string, next: TrustIdIdentity) => {
+    setToken(token);
+    setUser(next);
+  }, []);
+
   const invalidateSession = useCallback(() => {
     setToken(null);
     setUser(null);
@@ -71,8 +78,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   }, [invalidateSession]);
 
   const value = useMemo(
-    () => ({ user, loading, enterLocal, startTrustId, completeTrustId, logout, invalidateSession }),
-    [user, loading, enterLocal, startTrustId, completeTrustId, logout, invalidateSession],
+    () => ({ user, loading, enterLocal, startTrustId, completeTrustId, acceptSession, logout, invalidateSession }),
+    [user, loading, enterLocal, startTrustId, completeTrustId, acceptSession, logout, invalidateSession],
   );
 
   return <IdentityContext.Provider value={value}>{children}</IdentityContext.Provider>;

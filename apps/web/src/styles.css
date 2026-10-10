@@ -8438,3 +8438,13 @@ button.linkish {
     grid-template-columns: 80px 1fr;
   }
 }
+
+/* Creator sign-in hand-off (OS Xperience): the code compared in the app and in the browser. */
+.handoff { display: grid; gap: 0.6rem; justify-items: start; }
+.handoff-code {
+  margin: 0.2rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}

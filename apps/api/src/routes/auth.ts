@@ -8,6 +8,7 @@ import { digitalLifePath } from "@mybrandos/shared";
 import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
 import { rememberProviderToken } from "../lib/provider-tokens.js";
+import { attachIdentity, decideHandoff, handoffForBrowser, pollHandoff, startHandoff } from "../lib/signin-handoff.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -16,7 +17,7 @@ import {
   revokeSession,
 } from "../lib/auth.js";
 
-const pkceStore = new Map<string, { verifier: string; redirectUri: string; expiresAt: number }>();
+const pkceStore = new Map<string, { verifier: string; redirectUri: string; expiresAt: number; handoffId?: string }>();
 
 function sha256Base64Url(value: string): string {
   return createHash("sha256")
@@ -132,10 +133,80 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
       return reply.code(401).send({ error: "userinfo_failed" });
     }
     const identity = toIdentity(proof, true);
+    if (stored.handoffId) {
+      // Sign-in for an app elsewhere (OS Xperience): this browser gets no session, only the
+      // right to approve after comparing the code shown in the app.
+      const held = attachIdentity(stored.handoffId, {
+        user: identity,
+        accessToken: tokens.access_token,
+        expiresInSeconds: (tokens as { expires_in?: number }).expires_in,
+      });
+      if (!held) return reply.code(410).send({ error: "handoff_expired" });
+      return { handoff: { id: stored.handoffId, userCode: held.userCode, approveSecret: held.approveSecret, displayName: identity.displayName } };
+    }
     const issued = await issueSession(identity, reply, "trustid");
     // Server-side only, for Digi AI actor proof. Never returned to the browser.
     rememberProviderToken(issued.sessionId, tokens.access_token, (tokens as { expires_in?: number }).expires_in);
     return { token: issued.token, user: identity };
+  });
+
+  // ── Creator sign-in hand-off (apps hosted where Trust ID cannot run, e.g. OS Xperience) ──
+
+  const handoffOrigin = (origin: string | undefined) =>
+    origin ? trustIdCallbackUri(origin, [...config.corsOrigins, config.publicOrigin, new URL(config.trustIdRedirectUri).origin], config.isDev) : null;
+
+  app.post("/auth/handoff/start", async (req, reply) => {
+    if (!primitives.trustId.bound) return reply.code(503).send({ error: "trust_id_unbound" });
+    const { origin } = z.object({ origin: z.string().max(200) }).parse(req.body);
+    if (!handoffOrigin(origin)) return reply.code(400).send({ error: "invalid_auth_origin" });
+    const started = startHandoff(origin);
+    return {
+      handoffId: started.id,
+      pollSecret: started.pollSecret,
+      userCode: started.userCode,
+      browserUrl: `${origin}/auth/handoff?h=${encodeURIComponent(started.id)}`,
+      expiresAt: started.expiresAt,
+    };
+  });
+
+  app.post("/auth/handoff/:id/authorize", async (req, reply) => {
+    if (!primitives.trustId.bound) return reply.code(503).send({ error: "trust_id_unbound" });
+    const { id } = req.params as { id: string };
+    const { origin } = z.object({ origin: z.string().max(200) }).parse(req.body);
+    const redirectUri = handoffOrigin(origin);
+    if (!redirectUri || !handoffForBrowser(id, origin)) return reply.code(410).send({ error: "handoff_expired" });
+    const verifier = randomBytes(32).toString("base64url");
+    const state = randomBytes(16).toString("hex");
+    pkceStore.set(state, { verifier, redirectUri, expiresAt: Date.now() + 10 * 60 * 1000, handoffId: id });
+    const url = primitives.trustId.authorizeUrl({
+      clientId: config.trustIdClientId,
+      redirectUri,
+      scopes: config.trustIdScopes,
+      state,
+      codeChallenge: sha256Base64Url(verifier),
+    });
+    return { url, state };
+  });
+
+  app.post("/auth/handoff/:id/decision", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z.object({ approveSecret: z.string().min(16).max(200), approve: z.boolean() }).parse(req.body);
+    const decided = decideHandoff(id, body.approveSecret, body.approve);
+    if (!decided) return reply.code(410).send({ error: "handoff_expired" });
+    return { status: decided.status };
+  });
+
+  app.post("/auth/handoff/:id/poll", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { pollSecret } = z.object({ pollSecret: z.string().min(16).max(200) }).parse(req.body);
+    const polled = pollHandoff(id, pollSecret);
+    if (!polled) return reply.code(404).send({ error: "handoff_not_found" });
+    if (polled.status === "CONSUMED" && polled.identity) {
+      const issued = await issueSession(polled.identity.user, reply, "trustid");
+      rememberProviderToken(issued.sessionId, polled.identity.accessToken, polled.identity.expiresInSeconds);
+      return { status: "APPROVED", token: issued.token, user: polled.identity.user };
+    }
+    return { status: polled.status };
   });
 
   app.post("/auth/logout", async (req, reply) => {

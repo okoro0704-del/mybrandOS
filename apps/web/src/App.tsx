@@ -7,6 +7,7 @@ import { AssetsGalaxyPage } from "./pages/AssetsGalaxy";
 import { AssetsPage } from "./pages/Assets";
 import { AudiencePage } from "./pages/Audience";
 import { CallbackPage } from "./pages/Callback";
+import { HandoffStartPage } from "./pages/HandoffStart";
 import { CollaborationPage } from "./pages/Collaboration";
 import { CommandCenterPage } from "./pages/CommandCenter";
 import { CommercePage } from "./pages/Commerce";
@@ -49,6 +50,7 @@ function WorkstationRoutes() {
     <Routes>
       <Route path="/enter" element={<EnterPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
+      <Route path="/auth/handoff" element={<HandoffStartPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
           <Route path={s("/")} element={<HomePage />} />
