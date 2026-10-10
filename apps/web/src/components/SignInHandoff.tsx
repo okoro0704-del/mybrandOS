@@ -104,7 +104,7 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
                 setState("idle");
               }}
             >
-              Cancel
+              ← Back
             </button>
           </div>
         </>

@@ -100,6 +100,9 @@ export function EnterPage() {
           <button type="button" className="btn ghost" onClick={() => navigate("/")}>
             Continue without signing in
           </button>
+          <button type="button" className="btn ghost" onClick={() => navigate("/auth/start")}>
+            ← Back
+          </button>
         </div>
         {error ? <p className="small" style={{ color: "var(--bos-danger)" }}>{error}</p> : null}
         {bypass ? (

@@ -53,7 +53,7 @@ function prefersReducedMotion(): boolean {
 }
 
 export function OsShell() {
-  const { user, logout } = useIdentity();
+  const { user } = useIdentity();
   const studio = useStudio();
   const { moreOpen, setMoreOpen } = useOs();
   const location = useLocation();
@@ -184,9 +184,9 @@ export function OsShell() {
           <div className="eyebrow">Identity</div>
           <strong>{user?.displayName}</strong>
           <div className="small muted">{user?.trustId}</div>
-          <button className="btn ghost" style={{ marginTop: 10, width: "100%" }} onClick={() => void logout()}>
+          <Link className="btn ghost" style={{ marginTop: 10, width: "100%" }} to="/auth/logout">
             Sign out
-          </button>
+          </Link>
         </div>
       </aside>
 

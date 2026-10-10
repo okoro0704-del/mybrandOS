@@ -1,4 +1,6 @@
 import type { PublicBrandExperience, PublicLiveNow } from "@mybrandos/shared";
+import { ENTRY_PATH } from "../../lib/app-entry";
+import { needsSignInHandoff } from "../../lib/signin-handoff";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link } from "react-router-dom";
 import { Icons } from "../../nav/icons";
@@ -77,6 +79,12 @@ export function DigitalLifeTopBar({
       aria-label={reveal ? "Creator identity" : undefined}
     >
       <div className="os-topbar__inner os-topbar__inner--wordmark-only os-topbar__inner--hud">
+        {reveal && needsSignInHandoff() ? (
+          // Installed App / Space: back to the sign-in page (guest ↔ creator).
+          <Link className="os-hud-back" to={ENTRY_PATH} aria-label="Back to sign-in" data-hud-back="true">
+            ‹
+          </Link>
+        ) : null}
         <OsWordmark slug={experience.slug} displayName={name} to={home} hidden={hidden} identity={reveal} className="os-wordmark--signature os-wordmark--owner os-wordmark--space" />
         <BrandLiveBadge liveNow={experience.liveNow} to={liveHref} hidden={hidden} />
       </div>

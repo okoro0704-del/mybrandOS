@@ -180,7 +180,7 @@ export function AiPage() {
 }
 
 export function SettingsPage() {
-  const { user, logout } = useIdentity();
+  const { user } = useIdentity();
   const [primitives, setPrimitives] = useState<PrimitiveHealth[]>([]);
   const [capabilities, setCapabilities] = useState<AppCapability[]>([]);
 
@@ -238,9 +238,9 @@ export function SettingsPage() {
         <a className="btn ghost" href={appPath("/processing")}>Processing</a>
         <a className="btn ghost" href={appPath("/analytics")}>Analytics</a>
       </div>
-      <button className="btn ghost" style={{ marginTop: 16 }} onClick={() => void logout()}>
+      <a className="btn ghost" style={{ marginTop: 16 }} href="/auth/logout">
         Sign out
-      </button>
+      </a>
     </SystemFrame>
   );
 }

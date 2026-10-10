@@ -8,6 +8,9 @@ import { AssetsPage } from "./pages/Assets";
 import { AudiencePage } from "./pages/Audience";
 import { CallbackPage } from "./pages/Callback";
 import { HandoffStartPage } from "./pages/HandoffStart";
+import { AppEntryPage } from "./pages/AppEntry";
+import { LogoutPage } from "./pages/Logout";
+import { needsEntryChoice, ENTRY_PATH } from "./lib/app-entry";
 import { CollaborationPage } from "./pages/Collaboration";
 import { CommandCenterPage } from "./pages/CommandCenter";
 import { CommercePage } from "./pages/Commerce";
@@ -51,6 +54,8 @@ function WorkstationRoutes() {
       <Route path="/enter" element={<EnterPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
       <Route path="/auth/handoff" element={<HandoffStartPage />} />
+      <Route path="/auth/start" element={<AppEntryPage />} />
+      <Route path="/auth/logout" element={<LogoutPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<OsShell />}>
           <Route path={s("/")} element={<HomePage />} />
@@ -110,6 +115,8 @@ export function App() {
   const location = useLocation();
   const context = resolveDigitalLifeRequest(window.location.hostname, location.pathname);
   if (context.surface !== "workstation" && context.slug) {
+    // Installed App / Space (inside OS Xperience): the sign-in page comes first.
+    if (needsEntryChoice()) return <Navigate to={ENTRY_PATH} replace />;
     return <PublicExperiencePage key={context.slug} slugOverride={context.slug} restOverride={context.rest} />;
   }
   if (context.surface !== "workstation") {

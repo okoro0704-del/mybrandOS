@@ -60,19 +60,20 @@ export type OsHomeCategory =
   | "audio"
   | "communities";
 
+/** The public app's top menu: every content type in one scrollable row. */
 export const OS_PRIMARY_TABS: Array<{ id: OsHomeCategory; label: string }> = [
-  { id: "posts", label: "Post" },
+  { id: "posts", label: "Content" },
   { id: "videos", label: "Video" },
-  { id: "products", label: "Product" },
-];
-
-export const OS_MORE_TABS: Array<{ id: OsHomeCategory; label: string }> = [
-  { id: "courses", label: "Courses" },
   { id: "books", label: "Books" },
-  { id: "software", label: "Software" },
+  { id: "courses", label: "Courses" },
+  { id: "products", label: "Products" },
   { id: "audio", label: "Audio" },
+  { id: "software", label: "Software" },
   { id: "communities", label: "Community" },
 ];
+
+/** Kept for compatibility; the top menu no longer folds types behind "More". */
+export const OS_MORE_TABS: Array<{ id: OsHomeCategory; label: string }> = [];
 
 export function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();

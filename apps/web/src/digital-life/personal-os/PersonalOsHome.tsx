@@ -373,6 +373,7 @@ export function PersonalOsHome({
                 {tab.label}
               </button>
             ))}
+            {OS_MORE_TABS.length ? (
             <button
               type="button"
               className={`os-segments__more${moreOpen || OS_MORE_TABS.some((m) => m.id === category) ? " active" : ""}`}
@@ -384,6 +385,7 @@ export function PersonalOsHome({
                 ▾
               </span>
             </button>
+            ) : null}
             <button
               type="button"
               className="os-segments__search"
