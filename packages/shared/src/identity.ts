@@ -8,6 +8,12 @@ export interface TrustIdIdentity {
   trustTier: number;
   trustStars: number;
   bound: boolean;
+  /**
+   * The signed-in human's canonical Trust ID subject when it differs from `trustId` — i.e. the
+   * human signed in with Trust ID and acts as a legacy creator account linked to them by the
+   * operator (see the API's creator account links). Absent for ordinary sessions.
+   */
+  humanSubject?: string;
 }
 
 export interface OsSession {

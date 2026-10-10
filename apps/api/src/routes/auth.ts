@@ -9,6 +9,7 @@ import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
 import { rememberProviderToken } from "../lib/provider-tokens.js";
 import { attachIdentity, decideHandoff, handoffForBrowser, pollHandoff, startHandoff } from "../lib/signin-handoff.js";
+import { applyCreatorLink } from "../lib/creator-links.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -132,7 +133,10 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     if (!proof?.trustId) {
       return reply.code(401).send({ error: "userinfo_failed" });
     }
-    const identity = toIdentity(proof, true);
+    const human = toIdentity(proof, true);
+    // A human linked by the operator to a legacy creator account signs in as that account.
+    const identity = applyCreatorLink(human);
+    if (identity !== human) req.log.info({ humanSubject: human.trustId, creatorAccount: identity.trustId }, "creator account link applied");
     if (stored.handoffId) {
       // Sign-in for an app elsewhere (OS Xperience): this browser gets no session, only the
       // right to approve after comparing the code shown in the app.
