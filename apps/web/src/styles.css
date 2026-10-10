@@ -8531,3 +8531,15 @@ button.linkish {
 }
 .app-entry .app-entry__choice h2 { margin: 0; font-size: 1rem; }
 .app-entry__actions { display: grid; gap: 0.5rem; margin-top: 1rem; }
+.handoff-link { display: grid; gap: 0.4rem; width: 100%; }
+.handoff-link__url {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--os-border, rgba(255, 255, 255, 0.18));
+  background: transparent;
+  color: inherit;
+}

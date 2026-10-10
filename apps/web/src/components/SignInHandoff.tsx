@@ -14,6 +14,30 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
   const [state, setState] = useState<"idle" | "starting" | "waiting" | "approval" | "denied" | "expired" | "error">("idle");
   const [error, setError] = useState("");
   const timer = useRef<number | null>(null);
+  const linkRef = useRef<HTMLInputElement | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // If the device browser did not open (older OS Xperience, or the platform blocked it), the
+  // creator can still finish: copy the link and open it in Chrome / Safari.
+  const copyLink = useCallback(async (url: string) => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      ok = true;
+    } catch {
+      const input = linkRef.current;
+      if (input) {
+        input.focus();
+        input.select();
+        try {
+          ok = document.execCommand("copy");
+        } catch {
+          ok = false;
+        }
+      }
+    }
+    setCopied(ok);
+  }, []);
 
   const stop = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -89,6 +113,22 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
             {handoff?.userCode}
           </p>
           <p className="small muted">{state === "approval" ? "Waiting for you to approve in the browser…" : "Waiting for Trust ID…"}</p>
+          {handoff ? (
+            <div className="handoff-link">
+              <p className="small muted">Browser didn't open? Copy this link and open it in Chrome:</p>
+              <input
+                ref={linkRef}
+                className="handoff-link__url"
+                readOnly
+                value={handoff.browserUrl}
+                aria-label="Sign-in link"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button className="btn" type="button" onClick={() => void copyLink(handoff.browserUrl)}>
+                {copied ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+          ) : null}
           <div className="actions">
             {handoff ? (
               <button className="btn ghost" type="button" onClick={() => openInBrowser(handoff.browserUrl)}>
