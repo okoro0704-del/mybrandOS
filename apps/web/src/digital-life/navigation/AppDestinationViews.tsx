@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import type { PublicBrandExperience } from "@mybrandos/shared";
+import { Link, useNavigate } from "react-router-dom";
+import { publicHomePath, type PublicBrandExperience } from "@mybrandos/shared";
 import { Icons } from "../../nav/icons";
 import { communitiesPath, contactsPath } from "../routes";
 import { useCreatorSpace } from "../space/CreatorSpaceContext";
@@ -52,8 +52,16 @@ export function ContactsAndCommunitiesBody({
 }
 
 /** Digipedia, DigiNews, TV and Radio open as APP surfaces; the bottom nav and Back return to the APP. */
-export function MoreBody({ experience }: { experience: PublicBrandExperience; mediaBase?: string }) {
+export function MoreBody({
+  experience,
+  basePath,
+}: {
+  experience: PublicBrandExperience;
+  basePath: string;
+  mediaBase?: string;
+}) {
   const space = useCreatorSpace();
+  const navigate = useNavigate();
   const name = experience.identity.displayName || experience.slug;
   return (
     <section className="app-more" data-app-destination="more" aria-labelledby="app-more-title">
@@ -62,6 +70,28 @@ export function MoreBody({ experience }: { experience: PublicBrandExperience; me
         <h1 id="app-more-title">{name}</h1>
       </header>
       <ul className="app-more__grid">
+        {/* The App itself sits in More, so opening a deliverable pushes the App here. */}
+        <li key="APP">
+          <button
+            type="button"
+            className="app-more__card app-more__card--app"
+            data-more-destination="APP"
+            aria-label="Open App"
+            aria-current={space.surface === "APP" ? "true" : undefined}
+            onClick={() => {
+              space.launch("APP");
+              navigate(publicHomePath(basePath));
+            }}
+          >
+            <span className="app-more__icon" aria-hidden>
+              <Icons.home size={26} />
+            </span>
+            <span className="app-more__kicker">Home</span>
+            <strong className="app-more__title">App</strong>
+            <span className="app-more__detail">Content, books, courses and products</span>
+            <span className="app-more__go" aria-hidden>→</span>
+          </button>
+        </li>
         {MORE_DESTINATIONS.map((item) => {
           const Icon = MORE_ICONS[item.surface];
           return (
@@ -71,6 +101,7 @@ export function MoreBody({ experience }: { experience: PublicBrandExperience; me
                 className={`app-more__card app-more__card--${item.surface.toLowerCase()}`}
                 data-more-destination={item.surface}
                 aria-label={`Open ${item.title}`}
+                aria-current={space.surface === item.surface ? "true" : undefined}
                 onClick={() => space.launch(item.surface)}
               >
                 <span className="app-more__icon" aria-hidden>

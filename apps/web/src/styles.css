@@ -3436,7 +3436,8 @@ button.linkish {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
-.personal-os[data-reveal-shell]:has(.os-home--immersive) .os-bottom-nav a {
+.personal-os[data-reveal-shell]:has(.os-home--immersive) .os-bottom-nav a,
+.personal-os[data-reveal-shell]:has(.os-home--immersive) .os-bottom-nav .os-bottom-nav__switch {
   color: #3f3f46;
   text-shadow: none;
   min-height: 46px;
@@ -4166,7 +4167,8 @@ button.linkish {
 @media (min-width: 760px) {
   .personal-os .os-bottom-nav { position: absolute; }
 }
-.os-bottom-nav a {
+.os-bottom-nav a,
+.os-bottom-nav .os-bottom-nav__switch {
   display: grid;
   justify-items: center;
   gap: 0.15rem;
@@ -6624,7 +6626,8 @@ button.linkish {
   transition: transform 200ms var(--os-ease), opacity 160ms var(--os-ease) !important;
   will-change: transform, opacity;
 }
-.personal-os[data-experience-mode="APP"] .os-bottom-nav a {
+.personal-os[data-experience-mode="APP"] .os-bottom-nav a,
+.personal-os[data-experience-mode="APP"] .os-bottom-nav .os-bottom-nav__switch {
   min-height: 48px;
   padding: 0.3rem 0.1rem;
   font-size: 0.64rem;
@@ -8542,4 +8545,13 @@ button.linkish {
   border: 1px solid var(--os-border, rgba(255, 255, 255, 0.18));
   background: transparent;
   color: inherit;
+}
+
+/* Installed Space: Switch takes More's place in the bottom nav. */
+.os-bottom-nav .os-bottom-nav__switch {
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
 }

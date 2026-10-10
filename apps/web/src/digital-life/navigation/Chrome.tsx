@@ -1,8 +1,10 @@
 import type { PublicBrandExperience, PublicLiveNow } from "@mybrandos/shared";
 import { ENTRY_PATH } from "../../lib/app-entry";
 import { needsSignInHandoff } from "../../lib/signin-handoff";
+import { isOxSpace } from "../../lib/ox-host";
+import { SPACE_DELIVERABLE_LABEL, nextSpaceDeliverable } from "./spaceDeliverables";
 import { publicHomePath } from "@mybrandos/shared";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Icons } from "../../nav/icons";
 import { contactsPath, livePath, morePath, spotlightPath } from "../routes";
 import { OsWordmark } from "../personal-os/OsWordmark";
@@ -116,6 +118,10 @@ export function DigitalLifeBottomNav({
   };
   const items = APP_BOTTOM_NAV.map((item) => ({ ...item, ...routes[item.id] }));
   const activeId = bottomNavActiveId(primary, space.surface);
+  const navigate = useNavigate();
+  // Installed Space (OS Xperience): "More" becomes Switch — every tap moves to the next deliverable.
+  const spaceSwitch = isOxSpace();
+  const nextDeliverable = nextSpaceDeliverable(space.surface);
 
   return (
     <nav
@@ -129,6 +135,31 @@ export function DigitalLifeBottomNav({
       {items.map((item) => {
         const Icon = item.icon;
         const active = activeId === item.id;
+        if (item.id === "more" && spaceSwitch) {
+          return (
+            <button
+              key="switch"
+              type="button"
+              data-nav-id="switch"
+              className="os-bottom-nav__switch"
+              aria-label={`Switch to ${SPACE_DELIVERABLE_LABEL[nextDeliverable]}`}
+              tabIndex={chromeHidden ? -1 : undefined}
+              onClick={() => {
+                if (nextDeliverable === "APP") {
+                  space.launch("APP");
+                  navigate(publicHomePath(basePath));
+                } else {
+                  space.launch(nextDeliverable);
+                }
+              }}
+            >
+              <Icons.reuse size={20} />
+              <span className="os-bottom-nav__label" data-short="Switch">
+                Switch
+              </span>
+            </button>
+          );
+        }
         const liveOn = item.id === "live" && Boolean(live);
         return (
           <Link

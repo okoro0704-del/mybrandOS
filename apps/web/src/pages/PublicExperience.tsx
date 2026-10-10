@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { announceAppReady } from "../lib/ox-host";
 import { Link, useParams } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicExperienceBasePath, studioPath } from "@mybrandos/shared";
@@ -71,6 +72,11 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
         setError(message);
       });
   }, [slug]);
+
+  // OS Xperience: the app booted (online or from the offline cache), so the Space stays the app.
+  useEffect(() => {
+    if (experience) announceAppReady();
+  }, [experience]);
 
   if (error) {
     return (

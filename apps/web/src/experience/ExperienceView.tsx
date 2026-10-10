@@ -138,7 +138,7 @@ export function ExperienceView({
     ) : primary === "favorites" || section === "favorites" ? (
       <FavoritesBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
     ) : primary === "more" || section === "more" ? (
-      <MoreBody experience={experience} mediaBase={mediaBase} />
+      <MoreBody experience={experience} basePath={appBase} mediaBase={mediaBase} />
     ) : primary === "contacts" || section === "contacts" ? (
       <ContactsAndCommunitiesBody tab="contacts" basePath={appBase}>
         <ContactsBody experience={experience} basePath={appBase} websiteBase={websiteBase} preview={preview} />
