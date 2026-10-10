@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CREATE_MODES, PROJECT_STATUSES } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
-import { requireIdentity, readSessionToken } from "../lib/auth.js";
+import { digiAiActorToken, requireIdentity } from "../lib/auth.js";
 import { createProject, getWorkspace, listProjects, transitionProject, updateProject, archiveProject } from "../creation/project-service.js";
 import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "../creation/block-service.js";
 import { autosave } from "../creation/autosave-service.js";
@@ -237,7 +237,7 @@ export function registerCreationRoutes(app: FastifyInstance, primitives: Primiti
         apply: z.enum(["replace_block", "new_block", "none"]).optional(),
       })
       .parse(req.body);
-    return invokeAi(session.ownerId, id, { ...body, actorToken: readSessionToken(req) ?? undefined }, primitives);
+    return invokeAi(session.ownerId, id, { ...body, actorToken: await digiAiActorToken(req, session) }, primitives);
   });
 
   app.get("/projects/:id/ai", async (req, reply) => {

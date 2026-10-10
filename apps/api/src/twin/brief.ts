@@ -1,7 +1,7 @@
 import { requestTwinBrief } from "@mybrandos/integrations";
 import { config } from "../config.js";
 import { HttpError } from "../lib/errors.js";
-import { readSessionToken } from "../lib/auth.js";
+import { digiAiActorToken } from "../lib/auth.js";
 import type { AuthedIdentity } from "../lib/auth.js";
 import type { FastifyRequest } from "fastify";
 import { buildOwnerTwinContext, rejectClientTwinAssertions } from "./owner-context.js";
@@ -13,7 +13,7 @@ export async function studioTwinBrief(req: FastifyRequest, identity: AuthedIdent
     url: config.digiAiUrl,
     callerId: config.digiAiCallerId,
     callerKey: config.digiAiCallerKey,
-    actorToken: readSessionToken(req) || undefined,
+    actorToken: await digiAiActorToken(req, identity),
     ownerContext,
   });
   if (!result.ok) {

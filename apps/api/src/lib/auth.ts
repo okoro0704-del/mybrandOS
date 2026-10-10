@@ -132,6 +132,17 @@ export async function issueSession(
   return { token, sessionId: session.id };
 }
 
+/**
+ * Actor proof forwarded server-to-server to Digi AI: always a Trust ID token, never the mybrandOS
+ * session token (which would hand Digi AI full access to the creator's account). A stored session
+ * forwards its sealed Trust ID access token; a request authenticated directly with a Trust ID bearer
+ * forwards that bearer.
+ */
+export async function digiAiActorToken(req: FastifyRequest, identity: AuthedIdentity): Promise<string | undefined> {
+  if (identity.sessionId === "trustid") return readSessionToken(req) ?? undefined;
+  return (await sessionProviderAccessToken(identity.sessionId)) ?? undefined;
+}
+
 /** The sealed Trust ID access token for a stored session, if still valid. Server-side use only. */
 export async function sessionProviderAccessToken(sessionId: string): Promise<string | null> {
   const row = await prisma.session.findUnique({

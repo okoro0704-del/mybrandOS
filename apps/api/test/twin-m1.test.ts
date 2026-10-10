@@ -16,7 +16,7 @@ import {
 import type { TrustIdIdentity } from "@mybrandos/shared";
 import { config } from "../src/config.js";
 import { HttpError } from "../src/lib/errors.js";
-import { issueSession, sessionProviderAccessToken } from "../src/lib/auth.js";
+import { digiAiActorToken, issueSession, resolveRequestIdentity, sessionProviderAccessToken } from "../src/lib/auth.js";
 import { prisma } from "../src/lib/prisma.js";
 import {
   OidcError,
@@ -645,6 +645,22 @@ test("callback: forged ID token or wrong audience is refused; no session is issu
   } finally {
     setTrustIdOidcFetcherForTests(null);
     await local.close();
+  }
+});
+
+test("Digi AI actor proof is the Trust ID token, never the mybrandOS session token", async () => {
+  const req = { headers: as(A), cookies: {}, log: { warn() {} } } as never;
+  const identityA = await resolveRequestIdentity(req, primitives());
+  assert.ok(identityA);
+  const proof = await digiAiActorToken(req, identityA!);
+  assert.equal(proof, `tid-access-${A}`);
+  assert.notEqual(proof, creators[A]!.token);
+  // Expired Trust ID token: nothing is forwarded rather than the session token.
+  await prisma.session.update({ where: { id: creators[A]!.sessionId }, data: { providerTokenExpiresAt: new Date(Date.now() - 1000) } });
+  assert.equal(await digiAiActorToken(req, identityA!), undefined);
+  for (const file of ["src/twin/brief.ts", "src/routes/twin.ts", "src/routes/creation.ts"]) {
+    const source = await import("node:fs").then((fs) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
+    assert.doesNotMatch(source, /actorToken:\s*readSessionToken/, file);
   }
 });
 
