@@ -18,7 +18,7 @@ export function registerTwinRoutes(app: FastifyInstance, primitives: PrimitiveBi
       : "";
     if (!message) return reply.code(400).send({ error: "invalid_request", message: "A question is required." });
     const { buildOwnerTwinContext, rejectClientTwinAssertions } = await import("../twin/owner-context.js");
-    const { readSessionToken } = await import("../lib/auth.js");
+    const { digiAiActorToken } = await import("../lib/auth.js");
     const owner = await buildOwnerTwinContext(identity.ownerId, identity.identity.displayName);
     rejectClientTwinAssertions(req.body, owner.entitySlug);
     const result = await primitives.ai.invoke({
@@ -26,7 +26,7 @@ export function registerTwinRoutes(app: FastifyInstance, primitives: PrimitiveBi
       instruction: message,
       projectTitle: owner.displayName || "Digital Life",
       projectType: "OTHER",
-      actorToken: readSessionToken(req) || undefined,
+      actorToken: await digiAiActorToken(req, identity),
       entitySlug: owner.entitySlug,
     });
     return result;

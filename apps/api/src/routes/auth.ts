@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma.js";
 import { digitalLifePath } from "@mybrandos/shared";
 import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
+import { rememberProviderToken } from "../lib/provider-tokens.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -132,6 +133,8 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     }
     const identity = toIdentity(proof, true);
     const issued = await issueSession(identity, reply, "trustid");
+    // Server-side only, for Digi AI actor proof. Never returned to the browser.
+    rememberProviderToken(issued.sessionId, tokens.access_token, (tokens as { expires_in?: number }).expires_in);
     return { token: issued.token, user: identity };
   });
 

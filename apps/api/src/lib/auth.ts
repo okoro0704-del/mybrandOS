@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { providerTokenFor } from "./provider-tokens.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Prisma } from "@prisma/client";
 import type { TrustIdIdentity } from "@mybrandos/shared";
@@ -156,6 +157,17 @@ export async function resolveRequestIdentity(
     sessionId: "trustid",
     identity,
   };
+}
+
+/**
+ * Actor proof forwarded server-to-server to Digi AI: always a Trust ID token, never the mybrandOS
+ * session token (which Trust ID rejects, and which would hand Digi AI full access to the creator's
+ * account). A stored session forwards the Trust ID access token kept in memory for it; a request
+ * authenticated directly with a Trust ID bearer forwards that bearer.
+ */
+export async function digiAiActorToken(req: FastifyRequest, identity: AuthedIdentity): Promise<string | undefined> {
+  if (identity.sessionId === "trustid") return readSessionToken(req) ?? undefined;
+  return providerTokenFor(identity.sessionId) ?? undefined;
 }
 
 export async function requireIdentity(
