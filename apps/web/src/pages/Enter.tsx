@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { brandSlugFromHost, studioReturnPath } from "@mybrandos/shared";
 import { useIdentity } from "../state/identity-store";
@@ -14,7 +14,9 @@ export function EnterPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [bypass, setBypass] = useState(false);
+  const [bypassKnown, setBypassKnown] = useState(false);
   const [entering, setEntering] = useState(false);
+  const autoEntryTried = useRef(false);
   const slug = brandSlugFromHost(typeof window !== "undefined" ? window.location.hostname : null);
   const wl = search.get("wl") === "1";
   const requested = search.get("returnTo");
@@ -23,11 +25,15 @@ export function EnterPage() {
   useEffect(() => {
     void api<{ enabled: boolean }>("/auth/bypass")
       .then((d) => setBypass(d.enabled))
-      .catch(() => setBypass(false));
+      .catch(() => setBypass(false))
+      .finally(() => setBypassKnown(true));
   }, []);
 
   useEffect(() => {
-    if (loading || user || entering || !wl) return;
+    // White-label auto-entry is a test-bypass convenience only: never under Trust ID enforcement,
+    // and never retried (a refused attempt must not lock the Trust ID button).
+    if (loading || user || entering || !wl || !bypassKnown || !bypass || autoEntryTried.current) return;
+    autoEntryTried.current = true;
     const trustId = search.get("trustId") || (slug ? whiteLabelTrustId(slug) : undefined);
     const displayName = search.get("name") || slug || undefined;
     setEntering(true);
@@ -37,7 +43,7 @@ export function EnterPage() {
         setError(err.message || "Could not open your white-label studio.");
         setEntering(false);
       });
-  }, [loading, user, entering, wl, slug, search, enterLocal, navigate, safeReturn]);
+  }, [loading, user, entering, wl, bypassKnown, bypass, slug, search, enterLocal, navigate, safeReturn]);
 
   if (!loading && user) return <Navigate to={safeReturn} replace />;
 
