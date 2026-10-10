@@ -53,6 +53,11 @@ export function openInBrowser(url: string): void {
   const parent = hostFrameOrigin();
   if (parent && OX_HOST_ORIGINS.includes(parent)) {
     window.parent.postMessage({ type: "ox.openExternal", version: 1, url }, parent);
+    // An OS Xperience build without ox.openExternal ignores the message. Opening the device
+    // browser hides this page; if it is still visible shortly after, open it ourselves.
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") window.open(url, "_blank", "noopener");
+    }, 1200);
     return;
   }
   window.open(url, "_blank", "noopener");
