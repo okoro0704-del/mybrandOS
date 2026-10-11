@@ -1,3 +1,4 @@
+import { ACTOR_PROOF_EXPIRED } from "./ai.js";
 import type { TwinBrief, TwinOwnerContext } from "@mybrandos/shared";
 
 export type TwinBriefRequest = {
@@ -37,7 +38,7 @@ export async function requestTwinBrief(input: TwinBriefRequest): Promise<TwinBri
         ok: false,
         status: res.status,
         error: raw.error || "twin_brief_failed",
-        message: raw.message || "Digi AI could not complete that briefing.",
+        message: /actor proof/i.test(raw.message ?? "") ? ACTOR_PROOF_EXPIRED : raw.message || "Digi AI could not complete that briefing.",
       };
     }
     return { ok: true, brief: raw };

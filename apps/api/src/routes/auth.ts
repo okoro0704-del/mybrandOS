@@ -150,7 +150,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     }
     const issued = await issueSession(identity, reply, "trustid");
     // Server-side only, for Digi AI actor proof. Never returned to the browser.
-    rememberProviderToken(issued.sessionId, tokens.access_token, (tokens as { expires_in?: number }).expires_in);
+    await rememberProviderToken(issued.sessionId, tokens.access_token, (tokens as { expires_in?: number }).expires_in);
     return { token: issued.token, user: identity };
   });
 
@@ -207,7 +207,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     if (!polled) return reply.code(404).send({ error: "handoff_not_found" });
     if (polled.status === "CONSUMED" && polled.identity) {
       const issued = await issueSession(polled.identity.user, reply, "trustid");
-      rememberProviderToken(issued.sessionId, polled.identity.accessToken, polled.identity.expiresInSeconds);
+      await rememberProviderToken(issued.sessionId, polled.identity.accessToken, polled.identity.expiresInSeconds);
       return { status: "APPROVED", token: issued.token, user: polled.identity.user };
     }
     return { status: polled.status };

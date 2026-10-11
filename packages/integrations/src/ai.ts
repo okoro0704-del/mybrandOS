@@ -30,6 +30,10 @@ export type AiHealth = {
   detail: string;
 };
 
+/** Shown when Digi AI has no Trust ID proof for the creator (signed in > 1 hour ago, or never via Trust ID). */
+export const ACTOR_PROOF_EXPIRED =
+  "Your Trust ID sign-in for Digi AI has expired. Sign out, then sign in with Trust ID again to keep using Digi AI.";
+
 export interface IAiProvider {
   readonly kind: "ai-provider";
   health(): AiHealth;
@@ -116,7 +120,7 @@ export class RemoteDigiAiProvider implements IAiProvider {
         return {
           available: false,
           provider: "digi-ai",
-          detail: raw.message || "Digi AI did not return generated text.",
+          detail: /actor proof/i.test(raw.message ?? "") ? ACTOR_PROOF_EXPIRED : raw.message || "Digi AI did not return generated text.",
         };
       }
       return {

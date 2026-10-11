@@ -9,7 +9,7 @@ import { writeJson } from "../lib/json.js";
 export async function invokeAssetAi(
   userId: string,
   assetId: string,
-  input: { actionType: string; instruction?: string; includeContent?: boolean },
+  input: { actionType: string; instruction?: string; includeContent?: boolean; actorToken?: string },
   primitives: PrimitiveBindings,
 ) {
   const access = await requireAsset(userId, assetId, "ai");
@@ -62,6 +62,7 @@ export async function invokeAssetAi(
     projectTitle: intel.asset.title,
     projectType: intel.asset.assetType,
     projectDescription: intel.asset.description,
+    actorToken: input.actorToken || undefined,
   });
 
   if (!result.available) {

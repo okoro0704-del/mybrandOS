@@ -108,7 +108,7 @@ test("approved hand-off: the browser gets no session, the app gets it exactly on
   assert.ok(session.token);
   const row = await prisma.session.findFirstOrThrow({ where: { ownerId: CREATOR } });
   assert.equal(row.authMethod, "trustid");
-  assert.equal(providerTokenFor(row.id), "tid-access-ok");
+  assert.equal(await providerTokenFor(row.id), "tid-access-ok");
   assert.equal(got.body.includes("tid-access-ok"), false, "the Trust ID token never reaches the app");
 
   const replay = await post(`/auth/handoff/${s.handoffId}/poll`, { pollSecret: s.pollSecret });

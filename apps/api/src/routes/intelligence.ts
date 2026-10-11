@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
-import { requireIdentity } from "../lib/auth.js";
+import { digiAiActorToken, requireIdentity } from "../lib/auth.js";
 import { getAssetIntelligence } from "../intelligence/studio.js";
 import { getLineage } from "../intelligence/lineage.js";
 import { searchDigitalLife } from "../intelligence/search.js";
@@ -106,7 +106,7 @@ export function registerIntelligenceRoutes(app: FastifyInstance, primitives: Pri
         includeContent: z.boolean().optional(),
       })
       .parse(req.body);
-    return invokeAssetAi(session.ownerId, id, body, primitives);
+    return invokeAssetAi(session.ownerId, id, { ...body, actorToken: await digiAiActorToken(req, session) }, primitives);
   });
 
   app.post("/assets/:id/distribute", async (req, reply) => {

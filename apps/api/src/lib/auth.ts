@@ -167,7 +167,7 @@ export async function resolveRequestIdentity(
  */
 export async function digiAiActorToken(req: FastifyRequest, identity: AuthedIdentity): Promise<string | undefined> {
   if (identity.sessionId === "trustid") return readSessionToken(req) ?? undefined;
-  return providerTokenFor(identity.sessionId) ?? undefined;
+  return (await providerTokenFor(identity.sessionId)) ?? undefined;
 }
 
 export async function requireIdentity(

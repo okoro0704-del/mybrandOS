@@ -5,24 +5,24 @@ import { forgetProviderToken, providerTokenFor, rememberProviderToken } from "..
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Trust ID access tokens are held per session, capped at one hour, and forgettable", () => {
-  rememberProviderToken("session-a", "tid-a", 3600);
-  rememberProviderToken("session-b", "tid-b", 999_999);
-  assert.equal(providerTokenFor("session-a"), "tid-a");
-  assert.equal(providerTokenFor("session-b"), "tid-b");
-  assert.equal(providerTokenFor("session-c"), null);
-  forgetProviderToken("session-a");
-  assert.equal(providerTokenFor("session-a"), null);
+test("Trust ID access tokens are held per session, capped at one hour, and forgettable", async () => {
+  await rememberProviderToken("session-a", "tid-a", 3600);
+  await rememberProviderToken("session-b", "tid-b", 999_999);
+  assert.equal(await providerTokenFor("session-a"), "tid-a");
+  assert.equal(await providerTokenFor("session-b"), "tid-b");
+  assert.equal(await providerTokenFor("session-c"), null);
+  await forgetProviderToken("session-a");
+  assert.equal(await providerTokenFor("session-a"), null);
 });
 
-test("an expired Trust ID token is never returned", (t) => {
+test("an expired Trust ID token is never returned", async (t) => {
   const realNow = Date.now;
   t.after(() => {
     Date.now = realNow;
   });
-  rememberProviderToken("session-x", "tid-x", 3600);
+  await rememberProviderToken("session-x", "tid-x", 3600);
   Date.now = () => realNow() + 60 * 60 * 1000 + 1;
-  assert.equal(providerTokenFor("session-x"), null);
+  assert.equal(await providerTokenFor("session-x"), null);
 });
 
 test("Digi AI receives the Trust ID token, never the mybrandOS session token", () => {
@@ -32,9 +32,9 @@ test("Digi AI receives the Trust ID token, never the mybrandOS session token", (
     assert.match(source, /actorToken:\s*await digiAiActorToken\(req, (identity|session)\)/, file);
   }
   const auth = read("src/lib/auth.ts");
-  assert.match(auth, /return providerTokenFor\(identity\.sessionId\) \?\? undefined;/);
+  assert.match(auth, /return \(await providerTokenFor\(identity\.sessionId\)\) \?\? undefined;/);
   const callback = read("src/routes/auth.ts");
-  assert.match(callback, /rememberProviderToken\(issued\.sessionId, tokens\.access_token,/);
+  assert.match(callback, /await rememberProviderToken\(issued\.sessionId, tokens\.access_token,/);
   // The browser still receives only the mybrandOS session token.
   assert.match(callback, /return \{ token: issued\.token, user: identity \};/);
 });
