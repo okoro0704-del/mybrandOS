@@ -5,6 +5,8 @@
  * - Public API reads (/api/public/**): network-first; offline → last good response.
  * - Covers / logos / images: cached when fetched, served from cache offline.
  * - Offline-kernel media: served from its own cache when present.
+ * Lookups ignore Vary: responses vary on Origin, and a module script (sent with Origin) must
+ * still find the copy fetched without one.
  * Never cached: sign-in, Studio, session or any non-public API, non-GETs, ranged media.
  */
 const CACHE = "mybrandos-dl-static-v3";
@@ -47,7 +49,7 @@ async function networkFirst(cacheName, req, ignoreSearch) {
     if (response.status === 200) await cache.put(req, response.clone());
     return response;
   } catch (err) {
-    const hit = await cache.match(req, { ignoreSearch });
+    const hit = await cache.match(req, { ignoreSearch, ignoreVary: true });
     if (hit) return hit;
     throw err;
   }
@@ -94,7 +96,7 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       } catch (err) {
-        const shell = await cache.match(SHELL);
+        const shell = await cache.match(SHELL, { ignoreVary: true });
         if (shell) return shell;
         throw err;
       }
@@ -115,7 +117,7 @@ self.addEventListener("fetch", (event) => {
   if (maybeOfflineMedia) {
     event.respondWith((async () => {
       try {
-        const hit = await caches.open(OFFLINE_MEDIA).then((c) => c.match(req.url));
+        const hit = await caches.open(OFFLINE_MEDIA).then((c) => c.match(req.url, { ignoreVary: true }));
         if (hit) return range ? rangeResponse(hit, range) : hit;
       } catch {
         /* ignore */
@@ -130,7 +132,7 @@ self.addEventListener("fetch", (event) => {
   if (isStatic) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
-      const cached = await cache.match(req);
+      const cached = await cache.match(req, { ignoreVary: true });
       if (cached) return cached;
       const response = await fetch(req);
       if (response.ok) await cache.put(req, response.clone());
