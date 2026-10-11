@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openInBrowser, pollSignInHandoff, startSignInHandoff, type HandoffStart } from "../lib/signin-handoff";
+import { completeHandoffInApp, hostFrameOrigin, openInBrowser, pollSignInHandoff, startSignInHandoff, type HandoffStart } from "../lib/signin-handoff";
 import { useIdentity } from "../state/identity-store";
 
 const POLL_MS = 2000;
@@ -46,6 +46,30 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
 
   useEffect(() => stop, [stop]);
 
+  // Return-to-app: after Trust ID, OS Xperience hands the browser's approval back to this frame.
+  // Only the hand-off this frame started (and holds the poll secret for) is completed.
+  const handoffRef = useRef<HandoffStart | null>(null);
+  handoffRef.current = handoff;
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const current = handoffRef.current;
+      const data = event.data as { type?: unknown; version?: unknown; handoffId?: unknown; approveSecret?: unknown } | null;
+      if (!current?.returnToApp || !data || data.type !== "ox.authReturn" || data.version !== 1) return;
+      if (event.source !== window.parent || event.origin !== hostFrameOrigin()) return;
+      if (data.handoffId !== current.handoffId || typeof data.approveSecret !== "string") return;
+      stop();
+      setState("approval");
+      void completeHandoffInApp(current.handoffId, current.pollSecret, data.approveSecret)
+        .then((result) => {
+          acceptSession(result.token, result.user);
+          onSignedIn();
+        })
+        .catch(() => setState("expired"));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [acceptSession, onSignedIn, stop]);
+
   const poll = useCallback(
     (current: HandoffStart) => {
       timer.current = window.setTimeout(async () => {
@@ -78,7 +102,8 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
       setHandoff(started);
       setState("waiting");
       openInBrowser(started.browserUrl);
-      poll(started);
+      // Return-to-app hand-offs finish when OS Xperience hands back; the code flow polls.
+      if (!started.returnToApp) poll(started);
     } catch (err) {
       setState("error");
       setError(err instanceof Error && err.message ? err.message : "Trust ID sign-in could not start.");
@@ -108,11 +133,21 @@ export function SignInHandoff({ onSignedIn }: { onSignedIn: () => void }) {
         </>
       ) : (
         <>
-          <p className="small muted">Finish signing in with Trust ID in your browser, then approve this code there:</p>
-          <p className="handoff-code" aria-label="Sign-in code">
-            {handoff?.userCode}
-          </p>
-          <p className="small muted">{state === "approval" ? "Waiting for you to approve in the browser…" : "Waiting for Trust ID…"}</p>
+          {handoff?.returnToApp ? (
+            <p className="small muted">
+              {state === "approval"
+                ? "Signing you in…"
+                : "Scan your face with Trust ID. You'll come straight back here, into your Studio."}
+            </p>
+          ) : (
+            <>
+              <p className="small muted">Finish signing in with Trust ID in your browser, then approve this code there:</p>
+              <p className="handoff-code" aria-label="Sign-in code">
+                {handoff?.userCode}
+              </p>
+              <p className="small muted">{state === "approval" ? "Waiting for you to approve in the browser…" : "Waiting for Trust ID…"}</p>
+            </>
+          )}
           {handoff ? (
             <div className="handoff-link">
               <p className="small muted">Browser didn't open? Copy this link and open it in Chrome:</p>

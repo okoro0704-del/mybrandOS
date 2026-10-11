@@ -22,6 +22,7 @@ import { usePublicLiveNow } from "../digital-life/personal-os/usePublicLiveNow";
 import { ContactsAndCommunitiesBody, MoreBody } from "../digital-life/navigation/AppDestinationViews";
 import type { ExperienceMode } from "../digital-life/experience/experienceMode";
 import { FeedVisibilityContext } from "./FeedVisibilityContext";
+import { ImmersivePostFeed } from "./ImmersivePostFeed";
 
 const HOME_ROUTE = Symbol("home-route");
 
@@ -330,6 +331,28 @@ function ContactsBody({
           <p className="be-lead">Direct messaging stays here. Communities have their own tab in C &amp; C.</p>
         </div>
       </header>
+
+      {/* The creator's own DM is always the first contact. */}
+      <article className="panel cc-contact cc-contact--creator" data-cc-contact="creator">
+        <span className="cc-contact__avatar" aria-hidden>
+          {experience.identity.hasAvatar ? (
+            <img src={`/api/public/${experience.slug}/media/avatar`} alt="" />
+          ) : (
+            (experience.identity.displayName || experience.slug).slice(0, 1).toUpperCase()
+          )}
+        </span>
+        <div className="cc-contact__copy">
+          <strong>{experience.identity.displayName || experience.slug} DM</strong>
+          <span className="small muted">
+            {experience.messaging.available
+              ? "Direct message the creator."
+              : experience.messaging.detail || "Direct messages open when the creator turns on messaging."}
+          </span>
+        </div>
+        <button type="button" className="os-btn" disabled={!experience.messaging.available}>
+          Message
+        </button>
+      </article>
 
       <article className="panel">
         <div className="eyebrow">People / contacts</div>
@@ -980,63 +1003,21 @@ function SpotlightBody({
     );
   }
 
+  // Same form as Content: the full-screen post feed (pinned, most watched, trending).
   return (
-    <section className="os-home spotlight-surface">
-      <header className="dl-section-head">
-        <div>
-          <p className="eyebrow">Spotlight</p>
-          <h1>Spotlight</h1>
-          <p className="be-lead">Pinned, most watched, and trending — shuffled each visit.</p>
-        </div>
-      </header>
-      <div className="os-feed os-feed--spotlight">
-        {items.map(({ asset, markers }) => (
-          <article className="os-card os-card--spotlight" key={asset.id}>
-            <div className="spotlight-markers" aria-label="Spotlight markers">
-              {markers.includes("pinned") ? (
-                <span className="spotlight-marker spotlight-marker--pinned" title="Pinned by creator">
-                  ✦ Pin
-                </span>
-              ) : null}
-              {markers.includes("most_watched") ? (
-                <span className="spotlight-marker spotlight-marker--watched" title="Most watched">
-                  Most watched
-                </span>
-              ) : null}
-              {markers.includes("trending") ? (
-                <span className="spotlight-marker spotlight-marker--trending" title="Trending">
-                  Trending
-                </span>
-              ) : null}
-            </div>
-            <div className="os-card__media os-card__media--lg os-card__media--video">
-              <AdaptiveVideoPlayer
-                src={`${mediaBase}/assets/${asset.id}/media`}
-                presentation={
-                  asset.presentationTypes.includes("REEL")
-                    ? "REEL"
-                    : asset.presentationTypes.includes("CINEMA")
-                      ? "CINEMA"
-                      : "WATCH"
-                }
-                poster={asset.coverAvailable ? `${mediaBase}/assets/${asset.id}/cover` : null}
-                title={asset.title}
-                creatorLabel={name}
-                caption={asset.description || undefined}
-                autoPlayMuted={asset.presentationTypes.includes("REEL")}
-              />
-            </div>
-            <div className="os-card__copy">
-              <h3>
-                <Link to={assetDetailPath(basePath, asset.id)}>{asset.title}</Link>
-              </h3>
-              {asset.description ? <p>{asset.description}</p> : null}
-            </div>
-            <ContentActionBar asset={asset} slug={experience.slug} mediaBase={mediaBase} creatorLabel={name} />
-          </article>
-        ))}
-      </div>
-    </section>
+    <FeedVisibilityContext.Provider value={true}>
+      <section className="spotlight-feed" data-app-destination="spotlight" aria-label="Spotlight">
+        <ImmersivePostFeed
+          assets={items.map(({ asset }) => asset)}
+          experience={experience}
+          mediaBase={mediaBase}
+          slug={experience.slug}
+          basePath={basePath}
+          category="videos"
+          empty="No public videos yet."
+        />
+      </section>
+    </FeedVisibilityContext.Provider>
   );
 }
 

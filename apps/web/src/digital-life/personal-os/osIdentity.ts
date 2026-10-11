@@ -63,11 +63,10 @@ export type OsHomeCategory =
 
 /** The public app's top menu: every content type in one scrollable row. */
 export const OS_PRIMARY_TABS: Array<{ id: OsHomeCategory; label: string }> = [
+  // Content covers video and photo posts; Software covers products.
   { id: "posts", label: "Content" },
-  { id: "videos", label: "Videos" },
   { id: "books", label: "Books" },
   { id: "courses", label: "Courses" },
-  { id: "products", label: "Products" },
   { id: "audio", label: "Audio" },
   { id: "software", label: "Software" },
   { id: "communities", label: "Community" },
@@ -82,12 +81,12 @@ export const OS_TOP_MENU_VISIBLE = 4;
 /** Section ids from the creator's specialty order → top-menu categories. */
 const SECTION_TO_CATEGORY: Record<string, OsHomeCategory> = {
   posts: "posts",
-  videos: "videos",
-  reels: "videos",
+  videos: "posts",
+  reels: "posts",
   books: "books",
   writing: "books",
   courses: "courses",
-  products: "products",
+  products: "software",
   audio: "audio",
   podcasts: "audio",
   software: "software",
@@ -96,7 +95,7 @@ const SECTION_TO_CATEGORY: Record<string, OsHomeCategory> = {
 /**
  * Creator-sensitive top menu: Content first, then categories in the creator's specialty order
  * (a singer gets Audio up front, an educator Courses, a developer Software). A creator with no
- * clear specialty gets Content · Video · Books · Courses. The rest sit behind "See more".
+ * clear specialty gets Content · Books · Courses · Audio. The rest sit behind "See more".
  */
 export function osTopMenu(experience: PublicBrandExperience): {
   primary: Array<{ id: OsHomeCategory; label: string }>;

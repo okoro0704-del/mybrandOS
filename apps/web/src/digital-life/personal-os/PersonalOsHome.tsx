@@ -47,6 +47,14 @@ function assetsForCategory(experience: PublicBrandExperience, category: OsHomeCa
               : category === "audio"
                 ? "audio"
                 : "posts";
+  if (chip === "posts") {
+    // Content serves every video and photo post (Videos is no longer a separate tab).
+    const seen = new Set<string>();
+    return ["posts", "videos", "reels"]
+      .flatMap((id) => assetsForSpecialtyChip(experience.publishedAssets, id))
+      .filter((asset) => (seen.has(asset.id) ? false : (seen.add(asset.id), true)))
+      .sort((a, b) => String(b.publishedAt ?? "").localeCompare(String(a.publishedAt ?? "")));
+  }
   return assetsForSpecialtyChip(experience.publishedAssets, chip);
 }
 

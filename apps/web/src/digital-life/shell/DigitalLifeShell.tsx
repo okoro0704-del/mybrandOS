@@ -229,7 +229,8 @@ function DigitalLifeShellFrame({
       ) : null}
 
       <div className="os-phone-frame">
-        {!spaceMode || spaceReveal === "BARS" ? <div className="os-identity-hud" data-ui-mode={spaceMode ? "space" : "app"} data-brand-persist="true">
+        {/* More is a plain destination grid: no wordmark bar over it. */}
+        {(!spaceMode || spaceReveal === "BARS") && primary !== "more" ? <div className="os-identity-hud" data-ui-mode={spaceMode ? "space" : "app"} data-brand-persist="true">
           <DigitalLifeTopBar
             experience={experience}
             basePath={basePath}

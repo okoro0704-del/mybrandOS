@@ -128,6 +128,8 @@ export interface PublicAssetCard {
   durationMs?: number | null;
   aspectRatio?: string | null;
   isLiveReplay: boolean;
+  /** Recorded or produced in the mybrandOS Studio (camera, production, live replay), not uploaded. */
+  createdInStudio?: boolean;
   /** Derived from Asset.analytics — public-safe engagement only. */
   engagement: {
     views: number;
@@ -327,6 +329,7 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "durationMs",
     "aspectRatio",
     "isLiveReplay",
+    "createdInStudio",
     "engagement",
     "downloadAllowed",
     "allowSharing",

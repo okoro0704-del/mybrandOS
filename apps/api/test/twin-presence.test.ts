@@ -30,7 +30,7 @@ const shell = readFileSync(join(root, "apps/web/src/components/OsShell.tsx"), "u
 const presence = readFileSync(join(root, "apps/web/src/studio/DigiTwinPresence.tsx"), "utf8");
 const engine = readFileSync(join(root, "apps/web/src/studio/twinPresence.ts"), "utf8");
 const icons = readFileSync(join(root, "apps/web/src/nav/icons.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const twinPage = readFileSync(join(root, "apps/web/src/pages/DigiTwin.tsx"), "utf8");
 
 function mobileGeo(overrides: Partial<TwinViewportGeometry> = {}): TwinViewportGeometry {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { completeHandoffCallback, decideHandoff, takeHandoffForState, type HandoffApproval } from "../lib/signin-handoff";
+import { appReturnUrl, completeHandoffCallback, decideHandoff, takeHandoffForState, type HandoffApproval } from "../lib/signin-handoff";
 import { useIdentity } from "../state/identity-store";
 
 export function CallbackPage() {
@@ -25,7 +25,11 @@ export function CallbackPage() {
     // A sign-in for an app elsewhere (OS Xperience): this browser approves, it does not sign in.
     if (takeHandoffForState(state)) {
       completeHandoffCallback(code, state)
-        .then(setApproval)
+        .then((held) => {
+          setApproval(held);
+          // OS Xperience on Android: go straight back to the app, which finishes the sign-in.
+          if (held.returnToApp) window.location.href = appReturnUrl(held);
+        })
         .catch(() => setError("This sign-in has expired. Start again from the app."));
       return;
     }
@@ -45,6 +49,23 @@ export function CallbackPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (approval?.returnToApp) {
+    return (
+      <div className="gate">
+        <div className="gate-card">
+          <div className="eyebrow">Trust ID</div>
+          <h1>Signed in{approval.displayName ? ` as ${approval.displayName}` : ""}</h1>
+          <p>Taking you back to your app…</p>
+          <div className="actions">
+            <a className="btn" href={appReturnUrl(approval)}>
+              Return to the app
+            </a>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (approval) {

@@ -2405,7 +2405,7 @@ button.linkish {
   grid-template-columns: 1.3fr 2.4fr 1fr 1.4fr;
 }
 .comment-keyboard__key {
-  min-height: 44px;
+  min-height: 48px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -2413,24 +2413,24 @@ button.linkish {
   background: transparent;
   color: #f8fafc;
   font: inherit;
-  font-size: 1.22rem;
-  font-weight: 700;
+  font-size: 1.55rem;
+  font-weight: 750;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.72);
   cursor: pointer;
   touch-action: manipulation;
 }
 .comment-keyboard__key.is-space {
-  font-size: 0.86rem;
+  font-size: 1.02rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   opacity: 0.72;
 }
 .comment-keyboard__key.is-wide {
-  font-size: 1.02rem;
+  font-size: 1.25rem;
 }
 .comment-keyboard__key.is-accent {
-  font-size: 1.02rem;
+  font-size: 1.25rem;
   font-weight: 750;
 }
 .comment-keyboard__key.is-active,
@@ -6709,7 +6709,7 @@ button.linkish {
 }
 
 /* Post feed: the identity sits directly on the media at the left end — no glass pill. */
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud .os-topbar {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-identity-hud .os-topbar {
   left: 0;
   right: 0;
   padding: 0.28rem 0;
@@ -6720,7 +6720,7 @@ button.linkish {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
   color: #fff;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
@@ -8454,7 +8454,7 @@ button.linkish {
 
 /* Restored top menu on the immersive post feed (Content · Video · Books · Courses · Products ·
    Audio · …): pinned over the media under the identity, never taking space from the media. */
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments-wrap {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments-wrap {
   position: absolute !important;
   top: calc(env(safe-area-inset-top, 0px) + 2.55rem) !important;
   left: 0 !important;
@@ -8472,14 +8472,14 @@ button.linkish {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0.15rem 0;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments button {
   flex: none;
   min-height: 34px;
   padding: 0 0.8rem;
@@ -8492,7 +8492,7 @@ button.linkish {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   white-space: nowrap;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button.active {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments button.active {
   background: #fff;
   color: #111;
   text-shadow: none;
@@ -8566,29 +8566,31 @@ button.linkish {
 .personal-os[data-experience-mode="SPACE"] :is(.post-dock, .post-slide__details, .post-composer-host) {
   transition: opacity 180ms var(--os-ease, ease-out), visibility 180ms;
 }
-/* The launcher pops out from the left edge, opposite the action dock and comments. */
+/* The launcher pops out from the left edge, opposite the action dock and comments: a slim tab. */
 .personal-os[data-experience-mode="SPACE"] .space-ui-launcher {
   position: fixed;
   left: 0;
   top: 50%;
   z-index: 96;
-  width: 30px;
-  height: 64px;
+  width: 18px;
+  height: 40px;
   display: grid;
   place-items: center;
-  padding: 0 0 0 2px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-left: 0;
-  border-radius: 0 18px 18px 0;
+  border-radius: 0 12px 12px 0;
   color: #fff;
-  background: rgba(10, 14, 22, 0.42);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(10, 14, 22, 0.38);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   cursor: pointer;
   transform: translateY(-50%);
   animation: space-ui-launcher-in 220ms var(--os-ease, ease-out) both;
 }
 .personal-os[data-experience-mode="SPACE"] .space-ui-launcher svg {
+  width: 14px;
+  height: 14px;
   transition: transform 200ms var(--os-ease, ease-out);
 }
 .personal-os[data-experience-mode="SPACE"] .space-ui-launcher[data-space-launcher="open"] svg {
@@ -8604,9 +8606,10 @@ button.linkish {
   pointer-events: auto;
 }
 
-/* App and Space: portrait media fills the whole screen (status bar to system keys), no black bands. */
-.post-viewport video.adaptive-video__el[data-orientation="portrait"],
-.post-viewport img.immersive-feed__asset[data-orientation="portrait"] {
+/* App and Space: portrait media made in the Studio (camera, production) fills the whole screen,
+   status bar to system keys. Uploaded media keeps its natural size (never zoomed/cropped). */
+.post-viewport [data-studio-media="true"] video.adaptive-video__el[data-orientation="portrait"],
+.post-viewport [data-studio-media="true"] img.immersive-feed__asset[data-orientation="portrait"] {
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
@@ -8620,15 +8623,15 @@ button.linkish {
 .personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__slide.living-gallery::before {
   background: none;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button,
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row button {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments button,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-more-row button {
   background: transparent;
   color: rgba(255, 255, 255, 0.86);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.35);
   box-shadow: none;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button.active,
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row button.active {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments button.active,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-more-row button.active {
   background: transparent;
   color: #fff;
   font-weight: 800;
@@ -8637,7 +8640,7 @@ button.linkish {
   text-decoration-thickness: 2px;
   text-underline-offset: 6px;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments .os-segments__search {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments .os-segments__search {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -8646,7 +8649,7 @@ button.linkish {
   border: 1px solid rgba(255, 255, 255, 0.55);
   color: #fff;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-more-row {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
@@ -8655,18 +8658,117 @@ button.linkish {
   background: transparent;
   border: 0;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-search {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-search {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.55);
   color: #fff;
 }
-.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-search input {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-search input {
   background: transparent;
   color: #fff;
 }
 /* Space: the top menu (like every bar) stays hidden until the launcher brings the bars in. */
-.personal-os[data-experience-mode="SPACE"]:not([data-space-reveal="BARS"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments-wrap {
+.personal-os[data-experience-mode="SPACE"]:not([data-space-reveal="BARS"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments-wrap {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
+}
+
+/* Wordmark starts at the left edge, aligned with the top menu below it. */
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-identity-hud {
+  left: max(0.6rem, env(safe-area-inset-left, 0px));
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-identity-hud .os-topbar__inner {
+  justify-content: flex-start;
+  padding-left: 0;
+  margin-left: 0;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-identity-hud .os-wordmark--signature {
+  margin-left: 0 !important;
+  padding-left: 0.8rem;
+}
+/* Search is always visible: a circle pinned at the end of the menu while the tabs scroll. */
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments .os-segments__search {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  flex: none;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.18);
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments .os-segments__search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* C & C: the creator's DM is the first contact. */
+.cc-contact {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 16px;
+}
+.cc-contact__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-weight: 800;
+  background: var(--os-accent, #2563eb);
+  color: #fff;
+}
+.cc-contact__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cc-contact__copy { display: grid; gap: 0.15rem; min-width: 0; }
+
+/* Spotlight uses the Content feed: full frame, no page padding. */
+.app-page:has(> .spotlight-feed) {
+  padding: 0;
+  overflow: hidden;
+}
+.spotlight-feed {
+  position: absolute;
+  inset: 0;
+}
+
+/* Space: with the bars hidden, the post details sit at the very top (creator name first) and the
+   comment box sits at the bottom of the video. */
+.personal-os[data-experience-mode="SPACE"]:not([data-space-reveal="BARS"]) .post-viewport {
+  --post-details-top: calc(env(safe-area-inset-top, 0px) + 0.9rem);
+  --post-dock-rest: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+}
+.post-slide__creator {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+/* Space: Switch glows so the five deliverables are easy to find. */
+.os-bottom-nav .os-bottom-nav__switch svg {
+  border-radius: 999px;
+  padding: 3px;
+  box-sizing: content-box;
+  box-shadow: 0 0 0 1.5px rgba(96, 165, 250, 0.9), 0 0 10px 2px rgba(96, 165, 250, 0.75);
+  animation: switch-glow 2.4s ease-in-out infinite;
+}
+@keyframes switch-glow {
+  0%, 100% { box-shadow: 0 0 0 1.5px rgba(96, 165, 250, 0.85), 0 0 8px 1px rgba(96, 165, 250, 0.55); }
+  50% { box-shadow: 0 0 0 1.5px rgba(147, 197, 253, 1), 0 0 16px 4px rgba(96, 165, 250, 0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .os-bottom-nav .os-bottom-nav__switch svg { animation: none; }
 }

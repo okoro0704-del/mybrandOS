@@ -8,7 +8,7 @@ import { digitalLifePath } from "@mybrandos/shared";
 import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
 import { rememberProviderToken } from "../lib/provider-tokens.js";
-import { attachIdentity, decideHandoff, handoffForBrowser, pollHandoff, startHandoff } from "../lib/signin-handoff.js";
+import { attachIdentity, completeHandoff, decideHandoff, handoffForBrowser, pollHandoff, startHandoff } from "../lib/signin-handoff.js";
 import { applyCreatorLink } from "../lib/creator-links.js";
 import {
   clearSessionCookie,
@@ -146,7 +146,15 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
         expiresInSeconds: (tokens as { expires_in?: number }).expires_in,
       });
       if (!held) return reply.code(410).send({ error: "handoff_expired" });
-      return { handoff: { id: stored.handoffId, userCode: held.userCode, approveSecret: held.approveSecret, displayName: identity.displayName } };
+      return {
+        handoff: {
+          id: stored.handoffId,
+          userCode: held.userCode,
+          approveSecret: held.approveSecret,
+          displayName: identity.displayName,
+          returnToApp: held.returnToApp,
+        },
+      };
     }
     const issued = await issueSession(identity, reply, "trustid");
     // Server-side only, for Digi AI actor proof. Never returned to the browser.
@@ -161,13 +169,16 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
 
   app.post("/auth/handoff/start", async (req, reply) => {
     if (!primitives.trustId.bound) return reply.code(503).send({ error: "trust_id_unbound" });
-    const { origin } = z.object({ origin: z.string().max(200) }).parse(req.body);
+    const { origin, returnToApp } = z
+      .object({ origin: z.string().max(200), returnToApp: z.boolean().optional() })
+      .parse(req.body);
     if (!handoffOrigin(origin)) return reply.code(400).send({ error: "invalid_auth_origin" });
-    const started = startHandoff(origin);
+    const started = startHandoff(origin, { returnToApp });
     return {
       handoffId: started.id,
       pollSecret: started.pollSecret,
       userCode: started.userCode,
+      returnToApp: started.returnToApp,
       browserUrl: `${origin}/auth/handoff?h=${encodeURIComponent(started.id)}`,
       expiresAt: started.expiresAt,
     };
@@ -198,6 +209,20 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     const decided = decideHandoff(id, body.approveSecret, body.approve);
     if (!decided) return reply.code(410).send({ error: "handoff_expired" });
     return { status: decided.status };
+  });
+
+  // Return-to-app: the app that started the hand-off completes it with the approve secret the
+  // browser handed back on the same device. No code; both secrets required.
+  app.post("/auth/handoff/:id/complete", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z
+      .object({ pollSecret: z.string().min(16).max(200), approveSecret: z.string().min(16).max(200) })
+      .parse(req.body);
+    const identity = completeHandoff(id, body.pollSecret, body.approveSecret);
+    if (!identity) return reply.code(410).send({ error: "handoff_expired" });
+    const issued = await issueSession(identity.user, reply, "trustid");
+    await rememberProviderToken(issued.sessionId, identity.accessToken, identity.expiresInSeconds);
+    return { status: "APPROVED", token: issued.token, user: identity.user };
   });
 
   app.post("/auth/handoff/:id/poll", async (req, reply) => {

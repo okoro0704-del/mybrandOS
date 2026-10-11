@@ -15,6 +15,11 @@ import type { TrustIdIdentity } from "@mybrandos/shared";
  * secret never leaves the browser that completed Trust ID. A matching code the creator sees on both
  * screens defends against approving someone else's hand-off. Everything expires in 10 minutes and
  * is single use. In memory: one API instance (as today); a restart cancels pending hand-offs.
+ *
+ * Return-to-app mode (OS Xperience on Android): no code. After Trust ID the browser hands the
+ * approve secret straight back to the app on the same device (osxperience:// link), and the app
+ * completes with BOTH secrets. Someone else's hand-off link cannot sign anyone in: the approve
+ * secret only works together with the poll secret held by the app that started it.
  */
 
 export const HANDOFF_TTL_MS = 10 * 60 * 1000;
@@ -30,6 +35,8 @@ type Handoff = {
   pollSecretHash: string;
   approveSecretHash: string | null;
   status: HandoffStatus;
+  /** The browser returns to the app (native OS Xperience) instead of approving with a code. */
+  returnToApp: boolean;
   expiresAt: number;
   /** Verified Trust ID identity + its access token, held until the app collects it. No session yet. */
   identity: { user: TrustIdIdentity; accessToken: string; expiresInSeconds?: number } | null;
@@ -64,7 +71,7 @@ function sweep() {
   for (const [id, row] of handoffs) if (row.expiresAt <= now) handoffs.delete(id);
 }
 
-export function startHandoff(origin: string) {
+export function startHandoff(origin: string, options: { returnToApp?: boolean } = {}) {
   sweep();
   if (handoffs.size >= MAX_PENDING) throw new Error("handoff_capacity");
   const id = randomBytes(16).toString("base64url");
@@ -76,11 +83,19 @@ export function startHandoff(origin: string) {
     pollSecretHash: hash(pollSecret),
     approveSecretHash: null,
     status: "PENDING",
+    returnToApp: Boolean(options.returnToApp),
     expiresAt: Date.now() + HANDOFF_TTL_MS,
     identity: null,
   };
   handoffs.set(id, row);
-  return { id, pollSecret, userCode: row.userCode, origin, expiresAt: new Date(row.expiresAt).toISOString() };
+  return {
+    id,
+    pollSecret,
+    userCode: row.userCode,
+    origin,
+    returnToApp: row.returnToApp,
+    expiresAt: new Date(row.expiresAt).toISOString(),
+  };
 }
 
 /** The browser may only begin Trust ID for a hand-off that is still waiting, on the same origin. */
@@ -94,14 +109,33 @@ export function handoffForBrowser(id: string, origin: string): { id: string } | 
 export function attachIdentity(
   id: string,
   identity: { user: TrustIdIdentity; accessToken: string; expiresInSeconds?: number },
-): { userCode: string; approveSecret: string } | null {
+): { userCode: string; approveSecret: string; returnToApp: boolean } | null {
   const row = live(id);
   if (!row || row.status !== "PENDING") return null;
   const approveSecret = randomBytes(32).toString("base64url");
   row.identity = identity;
   row.approveSecretHash = hash(approveSecret);
   row.status = "AWAITING_APPROVAL";
-  return { userCode: row.userCode, approveSecret };
+  return { userCode: row.userCode, approveSecret, returnToApp: row.returnToApp };
+}
+
+/**
+ * Return-to-app completion: the app that started the hand-off (poll secret) presents the approve
+ * secret the browser handed back on this device. Both must match; the identity is released once.
+ */
+export function completeHandoff(
+  id: string,
+  pollSecret: string,
+  approveSecret: string,
+): { user: TrustIdIdentity; accessToken: string; expiresInSeconds?: number } | null {
+  const row = live(id);
+  if (!row || !row.returnToApp || row.status !== "AWAITING_APPROVAL" || !row.identity) return null;
+  if (!sameSecret(pollSecret, row.pollSecretHash) || !sameSecret(approveSecret, row.approveSecretHash)) return null;
+  const identity = row.identity;
+  row.identity = null;
+  row.status = "CONSUMED";
+  handoffs.delete(id);
+  return identity;
 }
 
 export function decideHandoff(id: string, approveSecret: string, approve: boolean): { status: HandoffStatus } | null {

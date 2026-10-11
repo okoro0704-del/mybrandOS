@@ -16,7 +16,7 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const publish = readFileSync(join(root, "apps/web/src/pages/PublishCenter.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const home = readFileSync(join(root, "apps/web/src/pages/Home.tsx"), "utf8");
 const shell = readFileSync(join(root, "apps/web/src/components/OsShell.tsx"), "utf8");
 const sourceHelper = readFileSync(join(root, "apps/web/src/publish/contentSource.ts"), "utf8");

@@ -22,8 +22,9 @@ test("installed App / Space opens on a sign-in page; guests continue without sig
   }
 });
 
-test("back to the sign-in page, and Studio sign-out lands on the logout page", () => {
-  assert.match(read("digital-life/navigation/Chrome.tsx"), /needsSignInHandoff\(\) \? \([\s\S]*to=\{ENTRY_PATH\}/);
+test("no back arrow over the top menu; Studio sign-out lands on the logout page", () => {
+  // The wordmark starts at the left edge: the old back arrow above the menu is gone.
+  assert.doesNotMatch(read("digital-life/navigation/Chrome.tsx"), /os-hud-back/);
   assert.match(read("pages/Enter.tsx"), /navigate\("\/auth\/start"\)/);
   assert.match(read("components/OsShell.tsx"), /to="\/auth\/logout"/);
   assert.match(read("pages/SystemPages.tsx"), /href="\/auth\/logout"/);
@@ -32,7 +33,7 @@ test("back to the sign-in page, and Studio sign-out lands on the logout page", (
 test("the public top menu lists every content type: Content + 3, See more, Search", () => {
   assert.deepEqual(
     OS_PRIMARY_TABS.map((t) => t.label),
-    ["Content", "Videos", "Books", "Courses", "Products", "Audio", "Software", "Community"],
+    ["Content", "Books", "Courses", "Audio", "Software", "Community"],
   );
   assert.deepEqual(OS_MORE_TABS, []);
   const home = read("digital-life/personal-os/PersonalOsHome.tsx");

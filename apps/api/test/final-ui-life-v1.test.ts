@@ -41,7 +41,7 @@ const player = read("apps/web/src/media/AdaptiveVideoPlayer.tsx");
 const digipedia = read("apps/web/src/digital-life/digipedia/DigipediaScreen.tsx");
 const news = read("apps/web/src/digital-life/news/NewsScreen.tsx");
 const publicPage = read("apps/web/src/pages/PublicExperience.tsx");
-const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
 

@@ -12,7 +12,7 @@ const router = readFileSync(join(root, "apps/web/src/digital-life/space/SpaceRou
 const ctx = readFileSync(join(root, "apps/web/src/digital-life/space/CreatorSpaceContext.tsx"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const stationSurface = readFileSync(join(root, "apps/web/src/digital-life/station/StationSurface.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const knowledge = readFileSync(join(root, "apps/web/src/digital-life/space/KnowledgeSurfaces.tsx"), "utf8");
 const interactions = readFileSync(join(root, "apps/web/src/digital-life/space/InteractionsPanel.tsx"), "utf8");
 const details = readFileSync(join(root, "apps/web/src/digital-life/space/PostDetailsOverlay.tsx"), "utf8");

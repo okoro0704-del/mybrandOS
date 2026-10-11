@@ -15,7 +15,25 @@ const OX_HOST_ORIGINS = [
   "capacitor://localhost", // OS Xperience iOS (Capacitor)
 ];
 
-export type HandoffStart = { handoffId: string; pollSecret: string; userCode: string; browserUrl: string; expiresAt: string };
+export type HandoffStart = {
+  handoffId: string;
+  pollSecret: string;
+  userCode: string;
+  browserUrl: string;
+  expiresAt: string;
+  /** The browser hands straight back to the app (OS Xperience on Android): no code to compare. */
+  returnToApp?: boolean;
+};
+
+/** OS Xperience's Android shell, which can be returned to from the browser (osxperience:// link). */
+const ANDROID_APP_HOSTS = ["https://localhost"];
+export const OX_ANDROID_PACKAGE = "com.digiconomy.osexperience";
+
+/** True inside the OS Xperience Android app, which the browser can return to by itself. */
+export function hostCanReturnFromBrowser(): boolean {
+  const parent = hostFrameOrigin();
+  return Boolean(parent && ANDROID_APP_HOSTS.includes(parent));
+}
 export type HandoffPoll =
   | { status: "PENDING" | "AWAITING_APPROVAL" | "DENIED" | "EXPIRED" }
   | { status: "APPROVED"; token: string; user: TrustIdIdentity };
@@ -42,7 +60,21 @@ export function needsSignInHandoff(): boolean {
 }
 
 export async function startSignInHandoff(): Promise<HandoffStart> {
-  return api<HandoffStart>("/auth/handoff/start", { method: "POST", body: JSON.stringify({ origin: window.location.origin }) });
+  return api<HandoffStart>("/auth/handoff/start", {
+    method: "POST",
+    body: JSON.stringify({ origin: window.location.origin, returnToApp: hostCanReturnFromBrowser() }),
+  });
+}
+
+/**
+ * Return-to-app completion, in the app: OS Xperience delivered the approve secret from the browser
+ * on this device. Works only together with this app's own poll secret.
+ */
+export async function completeHandoffInApp(handoffId: string, pollSecret: string, approveSecret: string) {
+  return api<{ status: "APPROVED"; token: string; user: TrustIdIdentity }>(
+    `/auth/handoff/${encodeURIComponent(handoffId)}/complete`,
+    { method: "POST", body: JSON.stringify({ pollSecret, approveSecret }) },
+  );
 }
 
 /**
@@ -96,7 +128,16 @@ export function takeHandoffForState(state: string): string | null {
   return id;
 }
 
-export type HandoffApproval = { id: string; userCode: string; approveSecret: string; displayName?: string };
+export type HandoffApproval = { id: string; userCode: string; approveSecret: string; displayName?: string; returnToApp?: boolean };
+
+/**
+ * The link that brings the person straight back to OS Xperience (Android) with the approve secret.
+ * An Android intent link: Chrome opens the app, and falls back to nothing if it is not installed.
+ */
+export function appReturnUrl(approval: HandoffApproval, origin = window.location.origin): string {
+  const query = new URLSearchParams({ h: approval.id, a: approval.approveSecret, o: origin });
+  return `intent://auth/return?${query.toString()}#Intent;scheme=osxperience;package=${OX_ANDROID_PACKAGE};end`;
+}
 
 export async function completeHandoffCallback(code: string, state: string): Promise<HandoffApproval> {
   const data = await api<{ handoff?: HandoffApproval }>("/auth/trustid/callback", {

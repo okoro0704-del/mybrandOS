@@ -20,7 +20,7 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const keyboardUi = readFileSync(join(root, "apps/web/src/digital-life/personal-os/CommentKeyboard.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 
 test("comment keyboard state machine is deterministic", () => {
@@ -83,7 +83,7 @@ test("immersive composer uses internal keyboard and does not focus custom-mode t
   assert.match(feed, /<Icons.send/);
   assert.match(feed, /comment-composer__type-in/);
   assert.match(feed, /System keyboard/);
-  assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*font-size:\s*1\.22rem/s);
+  assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*font-size:\s*1\.55rem/s);
   assert.match(feed, /inputMode === "system"/);
   assert.match(feed, /composerRef\.current\?\.focus/);
   assert.equal(feed.includes("contenteditable"), false);
@@ -92,6 +92,6 @@ test("immersive composer uses internal keyboard and does not focus custom-mode t
   assert.equal(feed.includes("predictive"), false);
   assert.match(styles, /\.comment-keyboard\s*\{[^}]*background:\s*transparent/s);
   assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*background:\s*transparent/s);
-  assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(styles, /\.comment-keyboard__key\s*\{[^}]*min-height:\s*48px/s);
   assert.match(player, /getSoundEnabledByUser/);
 });

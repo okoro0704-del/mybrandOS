@@ -38,8 +38,9 @@ test("creator-sensitive top menu: Content first, then the creator's specialty", 
   const { osTopMenu } = await import("../../web/src/digital-life/personal-os/osIdentity.js");
   const base = { slug: "x", identity: { displayName: "X", tagline: "", bio: "" }, publishedAssets: [], featuredAssets: [], offers: [], presentation: undefined };
   const mixed = osTopMenu(base as never);
-  assert.deepEqual(mixed.primary.map((t) => t.label), ["Content", "Videos", "Books", "Courses"]);
-  assert.ok(mixed.more.some((t) => t.label === "Products"));
+  assert.deepEqual(mixed.primary.map((t) => t.label), ["Content", "Books", "Courses", "Audio"]);
+  assert.ok(mixed.more.some((t) => t.label === "Software"));
+  assert.ok(![...mixed.primary, ...mixed.more].some((t) => t.label === "Videos" || t.label === "Products"));
   const singer = osTopMenu({ ...base, identity: { displayName: "X", tagline: "Singer and songwriter", bio: "" } } as never);
   assert.deepEqual(singer.primary.map((t) => t.label).slice(0, 2), ["Content", "Audio"]);
   const teacher = osTopMenu({ ...base, identity: { displayName: "X", tagline: "Maths tutor", bio: "" } } as never);

@@ -54,8 +54,8 @@ let app: FastifyInstance;
 const post = (url: string, payload: unknown, headers: Record<string, string> = {}) =>
   app.inject({ method: "POST", url, payload: payload as object, headers });
 
-async function startAndSignIn() {
-  const start = await post("/auth/handoff/start", { origin: ORIGIN });
+async function startAndSignIn(returnToApp = false) {
+  const start = await post("/auth/handoff/start", { origin: ORIGIN, returnToApp });
   assert.equal(start.statusCode, 200, start.body);
   const s = start.json() as { handoffId: string; pollSecret: string; userCode: string; browserUrl: string };
   const authz = await post(`/auth/handoff/${s.handoffId}/authorize`, { origin: ORIGIN });
@@ -158,4 +158,37 @@ test("a failed Trust ID exchange releases nothing", async () => {
   const { state } = (await post(`/auth/handoff/${s.handoffId}/authorize`, { origin: ORIGIN })).json() as { state: string };
   assert.equal((await post("/auth/trustid/callback", { code: "bad-code", state })).statusCode, 401);
   assert.equal((await post(`/auth/handoff/${s.handoffId}/poll`, { pollSecret: s.pollSecret })).json().status, "PENDING");
+});
+
+test("return-to-app (Android): no code, the app completes with both secrets, exactly once", async () => {
+  const { s, cb } = await startAndSignIn(true);
+  assert.equal(cb.statusCode, 200, cb.body);
+  const held = (cb.json() as { handoff: { approveSecret: string; returnToApp: boolean } }).handoff;
+  assert.equal(held.returnToApp, true, "the browser hands straight back to the app");
+  assert.equal(await prisma.session.count({ where: { ownerId: CREATOR } }), 0, "the browser gets no session");
+
+  // Someone else's app (wrong poll secret) or a guessed approval never completes it.
+  const stranger = await post(`/auth/handoff/${s.handoffId}/complete`, { pollSecret: "x".repeat(43), approveSecret: held.approveSecret });
+  assert.equal(stranger.statusCode, 410);
+  const guessed = await post(`/auth/handoff/${s.handoffId}/complete`, { pollSecret: s.pollSecret, approveSecret: "y".repeat(43) });
+  assert.equal(guessed.statusCode, 410);
+
+  const done = await post(`/auth/handoff/${s.handoffId}/complete`, { pollSecret: s.pollSecret, approveSecret: held.approveSecret });
+  assert.equal(done.statusCode, 200, done.body);
+  const session = done.json() as { status: string; token: string; user: { trustId: string } };
+  assert.equal(session.status, "APPROVED");
+  assert.equal(session.user.trustId, CREATOR);
+  const row = await prisma.session.findFirstOrThrow({ where: { ownerId: CREATOR } });
+  assert.equal(await providerTokenFor(row.id), "tid-access-ok", "Digi AI keeps its Trust ID proof");
+
+  const replay = await post(`/auth/handoff/${s.handoffId}/complete`, { pollSecret: s.pollSecret, approveSecret: held.approveSecret });
+  assert.equal(replay.statusCode, 410, "released once");
+  assert.equal(await prisma.session.count({ where: { ownerId: CREATOR } }), 1);
+});
+
+test("a code hand-off cannot be completed without the code approval", async () => {
+  const { s, cb } = await startAndSignIn(false);
+  const held = (cb.json() as { handoff: { approveSecret: string } }).handoff;
+  const res = await post(`/auth/handoff/${s.handoffId}/complete`, { pollSecret: s.pollSecret, approveSecret: held.approveSecret });
+  assert.equal(res.statusCode, 410);
 });

@@ -25,7 +25,7 @@ import { publicationBrandMarks, publicationCollaboratorMarks } from "../../web/s
 import { readLayoutMode } from "../../web/src/media/AdaptiveVideoPlayer.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
 const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/revealChrome.ts"), "utf8");

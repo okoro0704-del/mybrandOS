@@ -187,6 +187,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
     durationMs,
     aspectRatio,
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
+    createdInStudio: asset.origin === "CREATED_INTERNAL" || asset.origin === "LIVE_REPLAY",
     engagement: { views, plays, score: score + loves * 2, loves },
     downloadAllowed: Boolean(rights.allowDownload),
     allowSharing: rights.allowSharing !== false,

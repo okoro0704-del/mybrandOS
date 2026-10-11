@@ -20,7 +20,7 @@ const overlay = read("apps/web/src/experience/InteractionOverlay.tsx");
 const shell = read("apps/web/src/digital-life/shell/DigitalLifeShell.tsx");
 const navHook = read("apps/web/src/digital-life/navigation/useScrollAwareNav.ts");
 const actions = read("apps/web/src/digital-life/personal-os/ContentActionBar.tsx");
-const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
+const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]').replaceAll('.post-viewport, .spotlight-feed .post-viewport)', '.post-viewport)');  // App rules are shared with the Space
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
 
 const run = (events: SwipeEvent[], start: SwipePhase = "RESTING") => {

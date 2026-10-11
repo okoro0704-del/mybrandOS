@@ -637,6 +637,7 @@ function PostSlide({
       data-active={active ? "true" : undefined}
       data-asset-id={asset.id}
       data-publication-id={asset.id}
+      data-studio-media={asset.createdInStudio ? "true" : undefined}
       data-gallery-mode={layout.mode}
       data-gallery-fit="contain"
       data-comment-mode={commentMode ? "open" : undefined}
@@ -720,6 +721,8 @@ function PostSlide({
 
       {appPost ? (
         <header className="post-slide__details" data-post-details={asset.id}>
+          {/* Space: the creator's name heads the post details (the Space has no wordmark). */}
+          {mode === "SPACE" ? <strong className="post-slide__creator">{author}</strong> : null}
           <PostDetails
             title={humanTitle}
             body={writing ? "" : body}
