@@ -83,7 +83,9 @@ test("studio dock is Home Create Camera Publish More; Assets is a side rail", ()
 });
 
 test("studio home is twin-first and not a navigation icon grid", () => {
-  assert.match(home, /\/twin\/brief/);
+  // Twin-first, but Digi Twin itself only answers after a Trust ID approval (never on Home load).
+  assert.doesNotMatch(home, /\/twin\/brief/);
+  assert.match(home, /Trust ID approval/);
   assert.match(home, /Here's your Digital Life today/);
   assert.match(home, /Needs attention/);
   assert.equal(home.includes("Create shortcut"), false);

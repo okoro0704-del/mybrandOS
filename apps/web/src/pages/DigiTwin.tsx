@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import type { TwinBrief, TwinBriefSection } from "@mybrandos/shared";
 import { api } from "../lib/api";
+import { TrustAuthorize, type TrustAuthorizationView } from "../components/TrustAuthorize";
+import { LikenessInbox } from "../components/LikenessInbox";
 
 type AskResult = { available: boolean; provider: string; text?: string; detail?: string };
 
@@ -13,9 +15,8 @@ export function DigiTwinPage({
   seedPrompt?: string;
   onDismiss?: () => void;
 }) {
+  // Nothing loads on open: every briefing and every question is authorized with Trust ID.
   const [brief, setBrief] = useState<TwinBrief | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [openSources, setOpenSources] = useState<string | null>(null);
   const [question, setQuestion] = useState(seedPrompt ?? "");
 
@@ -23,44 +24,6 @@ export function DigiTwinPage({
     if (seedPrompt) setQuestion(seedPrompt);
   }, [seedPrompt]);
   const [ask, setAsk] = useState<AskResult | null>(null);
-  const [asking, setAsking] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const next = await api<TwinBrief>("/twin/brief", { method: "POST", body: JSON.stringify({}) });
-      setBrief(next);
-    } catch (err) {
-      setBrief(null);
-      setError(err instanceof Error ? err.message : "Digi Twin could not load that briefing.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function onAsk(event: FormEvent) {
-    event.preventDefault();
-    const message = question.trim();
-    if (!message) return;
-    setAsking(true);
-    try {
-      const result = await api<AskResult>("/twin/ask", { method: "POST", body: JSON.stringify({ message }) });
-      setAsk(result);
-    } catch (err) {
-      setAsk({
-        available: false,
-        provider: "digi-ai",
-        detail: err instanceof Error ? err.message : "Digi Twin could not answer.",
-      });
-    } finally {
-      setAsking(false);
-    }
-  }
 
   return (
     <section className="page twin-page">
@@ -74,14 +37,16 @@ export function DigiTwinPage({
               Back to Studio
             </button>
           ) : null}
-          <button className="btn" type="button" onClick={() => void load()} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
         </div>
       </header>
 
-      {error ? <p className="placeholder-note">{error}</p> : null}
-      {loading && !brief ? <p className="muted">Gathering what's popping…</p> : null}
+      <TrustAuthorize
+        label={brief ? "Refresh my Digi Twin briefing" : "Show my Digi Twin briefing"}
+        start={() => api<TrustAuthorizationView>("/twin/authorize", { method: "POST", body: JSON.stringify({ kind: "brief" }) })}
+        onApproved={async (authorizationId) => {
+          setBrief(await api<TwinBrief>("/twin/brief", { method: "POST", body: JSON.stringify({ authorizationId }) }));
+        }}
+      />
 
       {brief ? (
         <>
@@ -142,7 +107,7 @@ export function DigiTwinPage({
         </>
       ) : null}
 
-      <form className="panel twin-ask" onSubmit={(event) => void onAsk(event)}>
+      <div className="panel twin-ask">
         <label htmlFor="twin-ask">Ask your Twin</label>
         <textarea
           id="twin-ask"
@@ -150,15 +115,29 @@ export function DigiTwinPage({
           onChange={(event) => setQuestion(event.target.value)}
           placeholder="Ask a follow-up about your Digital Life…"
         />
-        <button className="btn" type="submit" disabled={asking}>
-          {asking ? "Asking…" : "Ask"}
-        </button>
+        {question.trim() ? (
+          <TrustAuthorize
+            key={question.trim()}
+            label="Ask Digi Twin this question"
+            start={() =>
+              api<TrustAuthorizationView>("/twin/authorize", {
+                method: "POST",
+                body: JSON.stringify({ kind: "ask", message: question.trim() }),
+              })
+            }
+            onApproved={async (authorizationId) => {
+              setAsk(await api<AskResult>("/twin/ask", { method: "POST", body: JSON.stringify({ authorizationId }) }));
+            }}
+          />
+        ) : null}
         {ask ? (
           <div className="twin-ask-reply">
             {ask.available && ask.text ? ask.text : ask.detail || "Digi Twin could not answer."}
           </div>
         ) : null}
-      </form>
+      </div>
+
+      <LikenessInbox />
     </section>
   );
 }

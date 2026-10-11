@@ -20,6 +20,7 @@ export * from "./container.js";
 
 export * from "./ai.js";
 export * from "./twin.js";
+export * from "./trust-id-step-up.js";
 
 export * from "./live.js";
 

@@ -17,9 +17,7 @@ export function HomePage() {
     void api<HomeGateway>("/home")
       .then(setHome)
       .catch(() => setError("Your Digital Life could not be loaded."));
-    void api<TwinBrief>("/twin/brief", { method: "POST", body: JSON.stringify({}) })
-      .then(setBrief)
-      .catch((err) => setBriefError(err instanceof Error ? err.message : "Twin briefing is unavailable."));
+    // Digi Twin is never fetched automatically: it answers only after a Trust ID approval (Digi Twin page).
   }, []);
 
   if (error) {
@@ -76,7 +74,11 @@ export function HomePage() {
           <h2 id="home-twin">Twin</h2>
         </div>
         {briefError ? <p className="placeholder-note">{briefError}</p> : null}
-        {!brief && !briefError ? <p className="muted">Gathering what's happening…</p> : null}
+        {!brief && !briefError ? (
+          <article className="panel">
+            <p>Digi Twin answers only with your Trust ID approval. Tap the Digi Twin eye to authorize a briefing.</p>
+          </article>
+        ) : null}
         {brief?.quiet ? (
           <article className="panel">
             <p>Your Digital Life is still quiet. I don't have enough activity to identify a pattern yet.</p>

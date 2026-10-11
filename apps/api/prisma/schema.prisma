@@ -1028,3 +1028,49 @@ model DigiAiPublishIdempotency {
   @@index([assetId])
 }
 
+
+/// One Trust ID step-up approval for ONE operation (Digi Twin request, likeness consent…).
+/// mybrandOS creates the challenge with the person's Trust ID token; the person approves in
+/// Trust ID; mybrandOS consumes it once. Never reusable.
+model TrustAuthorization {
+  id              String    @id @default(cuid())
+  ownerId         String
+  sessionId       String
+  challengeId     String    @unique
+  action          String
+  /// The exact operation approved (JSON). The approval only ever runs this.
+  operation       String
+  operationDigest String
+  method          String
+  status          String    @default("pending")
+  /// Trust ID-signed approval, kept as evidence after consumption.
+  approval        String?
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  consumedAt      DateTime?
+
+  @@index([ownerId, createdAt])
+}
+
+/// A request to make AI video / photo of a person. Nothing may be generated until the person
+/// approves it with Trust ID; an approval allows one creation and expires.
+model LikenessRequest {
+  id               String    @id @default(cuid())
+  subjectOwnerId   String
+  subjectSlug      String
+  requesterOwnerId String
+  requesterName    String
+  purpose          String
+  /// JSON array: "video" | "photo".
+  mediaKinds       String
+  description      String    @default("")
+  status           String    @default("PENDING")
+  authorizationId  String?
+  decidedAt        DateTime?
+  usedAt           DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+
+  @@index([subjectOwnerId, status])
+  @@index([requesterOwnerId, createdAt])
+}
