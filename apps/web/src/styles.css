@@ -8772,3 +8772,21 @@ button.linkish {
 @media (prefers-reduced-motion: reduce) {
   .os-bottom-nav .os-bottom-nav__switch svg { animation: none; }
 }
+/* The hidden home (kept alive behind other destinations) never shows its menu over them —
+   no ghost Content/Audio/… row over More, C & C, Spotlight or Live. */
+.personal-os.personal-os .app-home-keepalive[data-keepalive="hidden"] .os-segments-wrap.os-segments-wrap.os-segments-wrap {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+/* Search circle: solid enough that tabs scrolling under it never show through. */
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport, .spotlight-feed .post-viewport) .os-segments .os-segments__search {
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: -10px 0 12px -6px rgba(0, 0, 0, 0.45);
+}
+.cc-contact .cc-contact__copy strong {
+  color: var(--bos-text, #f4eee2);
+  font-size: 1rem;
+}
