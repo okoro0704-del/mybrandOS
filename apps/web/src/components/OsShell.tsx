@@ -263,6 +263,17 @@ export function OsShell() {
 
       <div className={`more-sheet${moreOpen ? " open" : ""}`} onClick={() => setMoreOpen(false)}>
         <div className="more-panel" onClick={(e) => e.stopPropagation()}>
+          {/* Phone Studio has no side rail: identity and Sign out live at the top of More. */}
+          <div className="more-identity" data-studio-signout="true">
+            <div>
+              <div className="eyebrow">Signed in</div>
+              <strong>{user?.displayName}</strong>
+              <div className="small muted">{user?.trustId}</div>
+            </div>
+            <Link className="btn ghost more-identity__signout" to="/auth/logout" onClick={() => setMoreOpen(false)}>
+              Sign out
+            </Link>
+          </div>
           <div className="eyebrow">More</div>
           <button type="button" className="nav-link" onClick={() => { setMoreOpen(false); setAssetsOpen(true); dispatch("CLOSE"); }}>
             <Icons.assets />

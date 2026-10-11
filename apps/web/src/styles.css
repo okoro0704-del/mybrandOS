@@ -8790,3 +8790,22 @@ button.linkish {
   color: var(--bos-text, #f4eee2);
   font-size: 1rem;
 }
+
+/* Studio (phone): identity + Sign out at the top of the More sheet. */
+.more-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.75rem;
+  border-radius: 14px;
+  background: var(--bos-elevated);
+  border: 1px solid var(--bos-border);
+}
+.more-identity strong { display: block; overflow-wrap: anywhere; }
+.more-identity__signout {
+  flex: none;
+  color: var(--bos-danger);
+  border-color: rgba(212, 106, 92, 0.45);
+}

@@ -69,6 +69,11 @@ export async function providerTokenFor(sessionId: string): Promise<string | null
   return token;
 }
 
+/** Drop the in-memory copy only (the session row is being deleted anyway). */
+export function forgetProviderTokenInMemory(sessionId: string) {
+  tokens.delete(sessionId);
+}
+
 export async function forgetProviderToken(sessionId: string) {
   tokens.delete(sessionId);
   await prisma.session

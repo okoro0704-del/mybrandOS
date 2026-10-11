@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { providerTokenFor } from "./provider-tokens.js";
+import { forgetProviderTokenInMemory, providerTokenFor } from "./provider-tokens.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Prisma } from "@prisma/client";
 import type { TrustIdIdentity } from "@mybrandos/shared";
@@ -204,5 +204,8 @@ export async function requireIdentity(
 export async function revokeSession(req: FastifyRequest) {
   const token = readSessionToken(req);
   if (!token) return;
+  const rows = await prisma.session.findMany({ where: { tokenHash: hashToken(token) }, select: { id: true } });
+  // Signing out also drops the Trust ID proof kept for Digi AI (memory and the session row).
+  for (const row of rows) forgetProviderTokenInMemory(row.id);
   await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
 }
