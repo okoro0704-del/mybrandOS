@@ -49,13 +49,13 @@ test("OS identity is data-driven from slug, not hard-coded mrfundzman", () => {
   assert.match(wordmark, /identity/);
   assert.equal(wordmark.includes("mrfundzmanOS"), false);
   assert.equal(shell.includes('"mrfundzmanOS"'), false);
-  assert.match(shell, /OsWordmark/);
+  assert.match(shell, /DigitalLifeTopBar/);
 });
 
 test("public shell uses one reveal controller over edge launchers", () => {
   assert.match(shell, /data-reveal-shell/);
   assert.match(shell, /useRevealDoubleTap/);
-  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(shell, /toggleControls/);
   assert.equal(REVEAL_IDLE_MS, 3800);
 });

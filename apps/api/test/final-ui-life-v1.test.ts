@@ -54,7 +54,7 @@ function scrollTo(state: NavScrollState, positions: number[]): NavScrollState {
 }
 
 test("1. APP contains no Space Xperience selector", () => {
-  const appBranch = shell.slice(shell.indexOf("</> : <>"), shell.indexOf("{spaceMode && space.ui === \"INTERACTION\""));
+  const appBranch = shell.slice(shell.indexOf("</> : <>"), shell.indexOf("{spaceMode && spaceReveal === \"DETAILS\" && space.ui === \"INTERACTION\""));
   assert.match(appBranch, /<DigitalLifeBottomNav/);
   assert.doesNotMatch(appBranch, /Space|selectExperienceMode/);
   assert.equal(shell.includes("data-space-entry"), false);
@@ -128,7 +128,7 @@ test("17. comments and interaction are available in APP as summoned overlays", (
   assert.match(feed, /createPortal\(commentsLayer, commentsHost\)/);
   assert.match(overlay, /data-comments-host="true" ref=\{onCommentsHost\}/);
   assert.match(feed, /enabled: active \|\| \(appPost && adjacent\)/);
-  assert.match(shell, /spaceMode && space\.ui === "INTERACTION"/);
+  assert.match(shell, /spaceMode && spaceReveal === "DETAILS" && space\.ui === "INTERACTION"/);
 });
 
 test("18-20. media fills the canvas; controls and nav float over it", () => {
@@ -229,8 +229,8 @@ test("30. existing Space implementation is not destroyed", () => {
   for (const file of ["useSpaceRuntime.ts", "SpaceControls.tsx", "SpaceRouterPanel.tsx", "HomeEdgeNav.tsx", "spaceOfflineAdapter.ts", "PostDetailsOverlay.tsx", "InteractionsPanel.tsx"]) {
     assert.ok(existsSync(join(root, "apps/web/src/digital-life/space", file)), file);
   }
-  assert.match(shell, /<HomeEdgeNav experience=\{experience\} \/>/);
-  assert.match(shell, /<SpaceControls state=\{runtime\.state\}/);
+  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /useSpaceRuntime\(definition/);
   assert.match(shell, /<SpaceRouterPanel/);
   assert.match(shell, /useSpaceRuntime\(definition/);
 });

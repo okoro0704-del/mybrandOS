@@ -7,11 +7,9 @@ import { InstallPrompt } from "../install/InstallPrompt";
 import { registerDigitalLifeServiceWorker } from "../pwa/registerDigitalLifeSw";
 import { BrandLiveBadge, DigitalLifeBottomNav, DigitalLifeTopBar } from "../navigation/Chrome";
 import { HomeChromeContext } from "../personal-os/HomeChromeContext";
-import { OsWordmark } from "../personal-os/OsWordmark";
 import { RevealChromeContext, type RevealChromeApi } from "../personal-os/RevealChromeContext";
 import { CreatorSpaceProvider, useCreatorSpace } from "../space/CreatorSpaceContext";
 import { HomeExperienceProvider } from "../space/HomeExperienceContext";
-import { HomeEdgeNav } from "../space/HomeEdgeNav";
 import { SpaceRouterPanel } from "../space/SpaceRouterPanel";
 import { DigiNewsSurface, DigiPediaSurface } from "../space/KnowledgeSurfaces";
 import { InteractionsPanel } from "../space/InteractionsPanel";
@@ -20,12 +18,13 @@ import { StationSurface } from "../station/StationSurface";
 import { isRevealKeyboardBlocked } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
 import { useSpaceRuntime } from "../space/useSpaceRuntime";
-import { SpaceControls } from "../space/SpaceControls";
-import { CREATOR_MEDIA_SURFACES, publicApplicationUrl, type SpaceDefinition, type SpaceEvent } from "@mybrandos/shared";
+import { CREATOR_MEDIA_SURFACES, publicApplicationUrl, type SpaceDefinition } from "@mybrandos/shared";
 import { listRouterSpaces } from "../space/spaceRecents";
 import { SPACE_ENTRY_PARAM, isSpaceExperience, nextExperienceMode, type ExperienceMode } from "../experience/experienceMode";
 import { ExperienceModeContext } from "../experience/ExperienceModeContext";
 import { useScrollAwareNav } from "../navigation/useScrollAwareNav";
+import { Icons } from "../../nav/icons";
+import { useSpaceAutoSync } from "../offline/useSpaceAutoSync";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -108,11 +107,6 @@ function DigitalLifeShellFrame({
     }
     lastInteraction.current = space.interactionsOpen;
   }, [space.interactionsOpen, runtime.state.presentationState, runtime.dispatch]);
-  function spaceEvent(event: SpaceEvent) {
-    runtime.dispatch(event);
-    if (event.type === "OPEN_INTERACTIONS") space.openInteractions();
-    if (event.type === "CLOSE_INTERACTIONS") space.closeInteractions();
-  }
   // SPACE may hand back to APP; APP can never select SPACE (nextExperienceMode seals it).
   function selectExperienceMode(target: ExperienceMode) {
     if (space.interactionsOpen) space.closeInteractions();
@@ -126,6 +120,35 @@ function DigitalLifeShellFrame({
     }
     setExperienceMode(current => nextExperienceMode(current, target));
   }
+  void selectExperienceMode;
+
+  /*
+   * SPACE presentation: 100% media, no UI.
+   *   CLEAN    media only (no creator name, post details, interactions or bars)
+   *   DETAILS  double-tap: post details + interactions + a side launcher
+   *   BARS     launcher: the top bar and bottom bar (Switch) come in
+   * A double-tap from DETAILS or BARS returns to CLEAN.
+   */
+  const [spaceReveal, setSpaceReveal] = useState<"CLEAN" | "DETAILS" | "BARS">("CLEAN");
+  const hideSpaceUi = () => {
+    if (space.interactionsOpen) space.closeInteractions();
+    setSpaceReveal("CLEAN");
+  };
+  const spaceDoubleTap = () => {
+    if (spaceReveal === "CLEAN") {
+      space.openInteractions();
+      setSpaceReveal("DETAILS");
+    } else hideSpaceUi();
+  };
+  // Closing the interactions panel itself also leaves DETAILS.
+  const sawInteraction = useRef(false);
+  useEffect(() => {
+    if (spaceReveal !== "DETAILS") { sawInteraction.current = false; return; }
+    if (space.ui === "INTERACTION") sawInteraction.current = true;
+    else if (sawInteraction.current) setSpaceReveal("CLEAN");
+  }, [spaceReveal, space.ui]);
+  // The Space keeps the creator's media on this device, with nothing asked of the person.
+  useSpaceAutoSync(experience, mediaBase, spaceMode && !preview);
 
   const location = useLocation();
   const scrollNavVisible = useScrollAwareNav(!spaceMode, `${location.pathname}|${space.surface}`);
@@ -135,8 +158,8 @@ function DigitalLifeShellFrame({
   // APP keeps destination chrome persistently visible; only SPACE uses the clean, gesture-revealed canvas.
   const revealApi = useMemo<RevealChromeApi>(
     () => ({
-      state: spaceMode ? "CLEAN" : "NAVIGATION_VISIBLE",
-      navVisible: !spaceMode,
+      state: spaceMode && spaceReveal !== "BARS" ? "CLEAN" : "NAVIGATION_VISIBLE",
+      navVisible: !spaceMode || spaceReveal === "BARS",
       wordmarkVisible: true,
       toggle: () => space.toggleControls(),
       open: () => undefined,
@@ -146,10 +169,10 @@ function DigitalLifeShellFrame({
         if (space.surface !== "APP") space.setSurface("APP");
       },
     }),
-    [space, spaceMode],
+    [space, spaceMode, spaceReveal],
   );
 
-  useRevealDoubleTap(revealEnabled, () => spaceMode ? runtime.dispatch({ type: "DOUBLE_TAP_CANVAS" }) : space.toggleControls(), ".os-phone-frame", spaceMode);
+  useRevealDoubleTap(revealEnabled, () => spaceMode ? spaceDoubleTap() : space.toggleControls(), ".os-phone-frame", spaceMode);
 
   useEffect(() => {
     applyBrandDocument(experience, { assetTitle });
@@ -203,6 +226,7 @@ function DigitalLifeShellFrame({
       data-space-mode={spaceMode ? "SPACE" : "APP"}
       data-experience-mode={experienceMode}
       data-space-presentation={runtime.state.presentationState}
+      data-space-reveal={spaceMode ? spaceReveal : undefined}
       data-current-space-id={runtime.state.currentSpaceId}
       data-current-experience-id={runtime.state.currentExperienceId}
       data-station-mode={space.surface === "TV" ? "TV" : space.surface === "RADIO" ? "RADIO" : "APP"}
@@ -222,7 +246,7 @@ function DigitalLifeShellFrame({
       ) : null}
 
       <div className="os-phone-frame">
-        {!spaceMode ? <div className="os-identity-hud" data-ui-mode="app" data-brand-persist="true">
+        {!spaceMode || spaceReveal === "BARS" ? <div className="os-identity-hud" data-ui-mode={spaceMode ? "space" : "app"} data-brand-persist="true">
           <DigitalLifeTopBar
             experience={experience}
             basePath={basePath}
@@ -288,23 +312,31 @@ function DigitalLifeShellFrame({
         {websiteMode ? null : (
           <>
             {spaceMode ? <>
-              <OsWordmark
-                slug={experience.slug}
-                displayName={experience.identity.displayName || experience.slug}
-                to=""
-                className="os-wordmark--signature os-wordmark--owner os-wordmark--space"
-                identity
-              />
-              <HomeEdgeNav experience={experience} />
-              <SpaceControls state={runtime.state} definition={definition} dispatch={spaceEvent}>
-              <button type="button" onClick={space.openSpace}>Spaces</button>
-              {space.surface === "TV" || space.surface === "RADIO" ? <button type="button" onClick={space.toggleProgrammeInfo}>Programme information</button> : null}
-              <button type="button" onClick={() => selectExperienceMode("APP")}>App mode</button>
-            </SpaceControls>
+              {spaceReveal !== "CLEAN" ? (
+                <button
+                  type="button"
+                  className="space-launcher"
+                  data-space-launcher={spaceReveal === "BARS" ? "open" : "closed"}
+                  aria-label={spaceReveal === "BARS" ? "Hide bars" : "Show bars"}
+                  aria-pressed={spaceReveal === "BARS"}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (spaceReveal === "BARS") { hideSpaceUi(); return; }
+                    if (space.interactionsOpen) space.closeInteractions();
+                    setSpaceReveal("BARS");
+                  }}
+                >
+                  <Icons.menu size={20} />
+                </button>
+              ) : null}
+              {spaceReveal === "BARS" ? (
+                <DigitalLifeBottomNav experience={experience} basePath={basePath} primary={primary} chromeHidden={false} />
+              ) : null}
             </> : <>
               <DigitalLifeBottomNav experience={experience} basePath={basePath} primary={primary} chromeHidden={false} />
             </>}
-            {spaceMode && space.ui === "INTERACTION" ? (
+            {spaceMode && spaceReveal === "DETAILS" && space.ui === "INTERACTION" ? (
               <>
                 <PostDetailsOverlay experience={experience} mediaBase={mediaBase} />
                 <InteractionsPanel experience={experience} mediaBase={mediaBase} />

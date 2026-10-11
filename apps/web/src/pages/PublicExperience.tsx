@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { announceAppReady } from "../lib/ox-host";
+import { announceAppReady, isOxSpace } from "../lib/ox-host";
 import { Link, useParams } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicExperienceBasePath, studioPath } from "@mybrandos/shared";
@@ -58,7 +58,7 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
   const [experience, setExperience] = useState<PublicBrandExperience | null>(null);
   const [error, setError] = useState("");
   // Resolved once per document: in-app navigation and network changes never re-decide execution.
-  const [entryExecutionMode] = useState(() => resolveEntryExecutionMode(window.location.search));
+  const [entryExecutionMode] = useState(() => (isOxSpace() ? "SPACE" : resolveEntryExecutionMode(window.location.search)));
 
   useEffect(() => {
     if (!slug) return;

@@ -2,6 +2,7 @@ import type { PublicBrandExperience, PublicLiveNow } from "@mybrandos/shared";
 import { ENTRY_PATH } from "../../lib/app-entry";
 import { needsSignInHandoff } from "../../lib/signin-handoff";
 import { isOxSpace } from "../../lib/ox-host";
+import { useExperienceMode } from "../experience/ExperienceModeContext";
 import { SPACE_DELIVERABLE_LABEL, nextSpaceDeliverable } from "./spaceDeliverables";
 import { publicHomePath } from "@mybrandos/shared";
 import { Link, useNavigate } from "react-router-dom";
@@ -120,7 +121,7 @@ export function DigitalLifeBottomNav({
   const activeId = bottomNavActiveId(primary, space.surface);
   const navigate = useNavigate();
   // Installed Space (OS Xperience): "More" becomes Switch — every tap moves to the next deliverable.
-  const spaceSwitch = isOxSpace();
+  const spaceSwitch = useExperienceMode() === "SPACE" || isOxSpace();
   const nextDeliverable = nextSpaceDeliverable(space.surface);
 
   return (

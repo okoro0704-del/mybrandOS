@@ -24,13 +24,13 @@ test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(digitalLife, /station\?: StationOwnerConfig/);
   assert.match(mode, /CreatorSpaceProvider/);
   assert.match(shell, /data-station-mode/);
-  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
 });
 
 test("surface launchers are tiny edge handles until first touch", () => {
-  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(shell, /collapseLaunchers/);
   assert.match(shell, /useRevealDoubleTap/);
   assert.match(reveal, /\.edge-handle/);

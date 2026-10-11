@@ -268,8 +268,8 @@ test("love hearts and action writing fly through media without a toast panel", (
 });
 
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
-  assert.match(shell, /HomeEdgeNav/);
-  assert.match(shell, /os-wordmark--owner/);
+  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /data-brand-persist="true"/);
   assert.match(shell, /data-brand-persist/);
   assert.equal(feed.includes("os-wordmark--signature"), false);
   assert.match(html, /interactive-widget=overlays-content/);

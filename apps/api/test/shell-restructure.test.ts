@@ -18,7 +18,7 @@ const app = readFileSync(join(root, "apps/web/src/App.tsx"), "utf8");
 const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
 
 test("public APP uses destination chrome; SPACE keeps edge launchers", () => {
-  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(shell, /DigitalLifeBottomNav/);
   assert.match(shell, /DigitalLifeTopBar/);
   assert.match(shell, /data-app-nav=/);

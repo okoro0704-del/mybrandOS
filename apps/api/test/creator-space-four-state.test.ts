@@ -34,7 +34,7 @@ test("1 home loads with media, brand, and tiny handles only", () => {
   assert.equal(home.surface, "APP");
   assert.equal(home.summonedSide, null);
   assert.match(shell, /data-space-surface="APP"/);
-  assert.match(shell, /<HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(shell, /<DigitalLifeBottomNav/);
   assert.match(shell, /<DigitalLifeTopBar/);
   assert.match(rails, /data-edge-handle="left"/);
@@ -42,10 +42,10 @@ test("1 home loads with media, brand, and tiny handles only", () => {
   assert.match(rails, /data-edge-handle="space"/);
 });
 
-test("2 brand remains persistent across states", () => {
+test("2 brand persists in APP; in Space it appears only with the bars (100% media)", () => {
   assert.match(shell, /data-brand-persist="true"/);
-  assert.match(shell, /<OsWordmark/);
-  assert.match(shell, /os-wordmark--space/);
+  assert.match(shell, /<DigitalLifeTopBar/);
+  assert.match(shell, /\{!spaceMode \|\| spaceReveal === "BARS" \? <div className="os-identity-hud"/);
   assert.equal(styles.includes('.personal-os[data-space-surface="DIGIPEDIA"] .os-identity-hud'), false);
   assert.match(pedia, /\{os\.stem\} Digipedia/);
   assert.match(hero, /\{stem\} Digipedia/);

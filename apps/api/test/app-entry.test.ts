@@ -12,7 +12,7 @@ test("installed App / Space opens on a sign-in page; guests continue without sig
   assert.match(app, /<Route path="\/auth\/logout" element=\{<LogoutPage \/>\} \/>/);
   assert.match(app, /if \(needsEntryChoice\(\)\) return <Navigate to=\{ENTRY_PATH\} replace \/>;/);
   const entry = read("lib/app-entry.ts");
-  assert.match(entry, /return needsSignInHandoff\(\) && entryChoice\(\) === null;/);
+  assert.match(entry, /return needsSignInHandoff\(\) && entryChoice\(\) === null && !isOxSpace\(\);/);
   const page = read("pages/AppEntry.tsx");
   assert.match(page, /Continue as guest/);
   assert.match(page, /framed \? \(\s*<SignInHandoff/);

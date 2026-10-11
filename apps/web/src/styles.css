@@ -8555,3 +8555,41 @@ button.linkish {
   font: inherit;
   cursor: pointer;
 }
+
+/* ── Installed Space: 100% media; double-tap reveals details, interactions and the side launcher ── */
+.personal-os[data-experience-mode="SPACE"] .space-launcher {
+  position: fixed;
+  right: max(0.5rem, env(safe-area-inset-right, 0px));
+  top: 50%;
+  z-index: 96;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  color: #fff;
+  background: rgba(10, 14, 22, 0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: pointer;
+  animation: space-launcher-in 220ms var(--os-ease, ease-out) both;
+}
+.personal-os[data-experience-mode="SPACE"] .space-launcher[data-space-launcher="open"] {
+  background: rgba(255, 255, 255, 0.9);
+  color: #0b1220;
+}
+@keyframes space-launcher-in {
+  from { transform: translate(120%, -50%); opacity: 0; }
+  to { transform: translate(0, -50%); opacity: 1; }
+}
+.personal-os[data-experience-mode="SPACE"] .space-launcher { transform: translateY(-50%); }
+.personal-os[data-experience-mode="SPACE"][data-space-reveal="BARS"] .os-identity-hud {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.personal-os[data-experience-mode="SPACE"] .os-bottom-nav {
+  position: fixed;
+  z-index: 96;
+}

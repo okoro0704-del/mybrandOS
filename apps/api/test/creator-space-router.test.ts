@@ -36,7 +36,7 @@ test("tiny edge handles reveal destinations on first touch only", () => {
   assert.match(styles, /\.edge-handle/);
   assert.match(styles, /\.edge-tray--left/);
   // Edge launchers are SPACE presentation; APP restores destination chrome.
-  assert.match(shell, /spaceMode \? <>[\s\S]*<HomeEdgeNav/);
+  assert.match(shell, /spaceMode \? <>[\s\S]*className="space-launcher"/);
   assert.match(shell, /<DigitalLifeBottomNav/);
   assert.match(shell, /<DigitalLifeTopBar/);
   assert.equal(shell.includes("<StationSwitcher"), false);
@@ -45,8 +45,8 @@ test("tiny edge handles reveal destinations on first touch only", () => {
 
 test("persistent Space brand is a shell landmark, not a launched destination", () => {
   assert.match(shell, /data-brand-persist="true"/);
-  assert.match(shell, /os-wordmark--owner/);
-  assert.match(shell, /<OsWordmark/);
+  assert.match(shell, /data-brand-persist="true"/);
+  assert.match(shell, /<DigitalLifeTopBar/);
   assert.equal(shell.includes("<BrandSurface"), false);
   assert.match(shell, /data-space-surface="NEWS"/);
   assert.match(shell, /data-space-surface="DIGIPEDIA"/);
@@ -64,7 +64,7 @@ test("second touch launches a surface and collapses the launcher", () => {
   assert.match(ctx, /reduceCreatorSpace/);
   assert.match(ctx, /history\.pushState/);
   assert.match(ctx, /popstate/);
-  assert.match(shell, /HomeEdgeNav/);
+  assert.match(shell, /className="space-launcher"/);
   assert.match(ctx, /LAUNCHER_IDLE_MS/);
 });
 

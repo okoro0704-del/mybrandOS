@@ -39,6 +39,29 @@ async function networkFirst(cacheName, req, ignoreSearch) {
   }
 }
 
+/** A video/audio element asks for byte ranges; answer them from the cached full file. */
+async function rangeResponse(full, range) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  const blob = await full.blob();
+  const size = blob.size;
+  let start = match && match[1] ? Number(match[1]) : 0;
+  let end = match && match[2] ? Number(match[2]) : size - 1;
+  if (match && !match[1] && match[2]) { start = Math.max(0, size - Number(match[2])); end = size - 1; }
+  if (!match || start >= size || start > end) {
+    return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
+  }
+  end = Math.min(end, size - 1);
+  return new Response(blob.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      "Content-Type": full.headers.get("content-type") || blob.type || "application/octet-stream",
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1),
+      "Accept-Ranges": "bytes",
+    },
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -65,26 +88,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isPrivatePath(url.pathname) || req.headers.has("range")) return;
+  if (isPrivatePath(url.pathname)) return;
 
   const isStatic = /^\/assets\/[^/]+-[a-zA-Z0-9_-]+\.(js|css|woff2?|svg|png|webp)$/.test(url.pathname);
   const maybeOfflineMedia = /\/assets\/[^/]+\/(media|cover)(\/|$|\?)/.test(url.pathname);
   const isImage = req.destination === "image" || /\/(cover|logo|avatar|poster|thumbnail)(\/|$)/.test(url.pathname);
   const isStream =
     req.destination === "audio" || req.destination === "video" || (req.destination !== "image" && /\/media(\/|$)/.test(url.pathname));
+  const range = req.headers.get("range");
 
+  // Media the Space synced to the Offline Kernel plays from the device, with or without a network.
   if (maybeOfflineMedia) {
     event.respondWith((async () => {
       try {
-        const hit = await caches.open(OFFLINE_MEDIA).then((c) => c.match(req));
-        if (hit) return hit;
+        const hit = await caches.open(OFFLINE_MEDIA).then((c) => c.match(req.url));
+        if (hit) return range ? rangeResponse(hit, range) : hit;
       } catch {
         /* ignore */
       }
-      return isImage && !isStream ? networkFirst(IMAGES, req, true) : fetch(req);
+      return isImage && !isStream && !range ? networkFirst(IMAGES, req, true) : fetch(req);
     })());
     return;
   }
+
+  if (range) return;
 
   if (isStatic) {
     event.respondWith((async () => {

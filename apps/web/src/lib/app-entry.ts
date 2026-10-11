@@ -1,3 +1,4 @@
+import { isOxSpace } from "./ox-host";
 import { needsSignInHandoff } from "./signin-handoff";
 
 /**
@@ -32,7 +33,10 @@ export function forgetEntry() {
   storage()?.removeItem(ENTRY_KEY);
 }
 
-/** Installed App / Space: show the sign-in page before the public app until a choice is made. */
+/**
+ * Installed App: show the sign-in page before the public app until a choice is made.
+ * The installed Space never asks: it opens straight onto the creator's media (offline-first).
+ */
 export function needsEntryChoice(): boolean {
-  return needsSignInHandoff() && entryChoice() === null;
+  return needsSignInHandoff() && entryChoice() === null && !isOxSpace();
 }
