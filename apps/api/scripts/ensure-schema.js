@@ -7,8 +7,10 @@ try {
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='PersonalSpace' LIMIT 1",
   );
   if (!Array.isArray(tables) || tables.length === 0) {
+    // 10 (not 1): only a readable database without the core table may be reseeded. Node exits 1
+    // on its own crashes, which must never wipe the database.
     await prisma.$disconnect();
-    process.exit(1);
+    process.exit(10);
   }
   const cols = await prisma.$queryRawUnsafe("PRAGMA table_info(PersonalSpace)");
   const names = Array.isArray(cols)
@@ -43,11 +45,14 @@ try {
   if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
   if (!Array.isArray(publishIdem) || publishIdem.length === 0) process.exit(2);
   process.exit(0);
-} catch {
+} catch (err) {
+  // A database ERROR (locked, busy, unreadable) is never evidence of a missing schema: exit 3 so the
+  // entrypoint leaves prod.db untouched. Only a readable DB without PersonalSpace exits 1 (reseed).
+  console.error("mybrandos: schema check failed; leaving the database untouched:", err?.message ?? err);
   try {
     await prisma.$disconnect();
   } catch {
     // ignore
   }
-  process.exit(1);
+  process.exit(3);
 }
