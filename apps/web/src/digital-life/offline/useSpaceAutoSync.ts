@@ -65,7 +65,9 @@ export async function syncSpaceOffline(
 
   // 1. The app: its bundles and the creator's public data, through the service worker's caches.
   if (await serviceWorkerInControl()) {
-    const urls = new Set<string>([`/api/public/${experience.slug}`]);
+    // The creator's public data, Digipedia, and each post's counts and comments.
+    const urls = new Set<string>([`/api/public/${experience.slug}`, `/api/public/${experience.slug}/digipedia`]);
+    for (const asset of candidates) urls.add(`/api/public/${experience.slug}/assets/${asset.id}/social`);
     for (const entry of performance.getEntriesByType("resource")) {
       const url = new URL(entry.name, window.location.href);
       if (url.origin === window.location.origin && /^\/assets\/[^/]+\.(js|css|woff2?|svg|png|webp)$/.test(url.pathname)) urls.add(url.pathname);
