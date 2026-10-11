@@ -9,8 +9,9 @@ import { useStudio } from "../components/RequireAuth";
 export function HomePage() {
   const brand = useStudio();
   const [home, setHome] = useState<HomeGateway | null>(null);
-  const [brief, setBrief] = useState<TwinBrief | null>(null);
-  const [briefError, setBriefError] = useState("");
+  // Digi Twin content only appears after a Trust ID approval on the Digi Twin page, never on Home.
+  const [brief] = useState<TwinBrief | null>(null);
+  const [briefError] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
