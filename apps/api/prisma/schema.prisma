@@ -374,6 +374,8 @@ model PersonalSpace {
   headline          String   @default("")
   bio               String   @default("")
   links             String   @default("[]")
+  /// People who manage this Digital Life with the creator: JSON BrandManager[].
+  managers          String   @default("[]")
   featuredAssetIds  String   @default("[]")
   slug              String?  @unique
   publicEnabled     Boolean  @default(false)

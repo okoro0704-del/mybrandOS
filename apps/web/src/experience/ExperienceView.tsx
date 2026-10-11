@@ -354,6 +354,21 @@ function ContactsBody({
         </button>
       </article>
 
+      {(experience.managers ?? []).map((manager) => (
+        <article className="panel cc-contact" data-cc-contact="manager" key={manager.id}>
+          <span className="cc-contact__avatar" aria-hidden>
+            {manager.displayName.slice(0, 1).toUpperCase()}
+          </span>
+          <div className="cc-contact__copy">
+            <strong>{manager.displayName}</strong>
+            <span className="small muted">{manager.role} · {experience.identity.displayName || experience.slug}</span>
+          </div>
+          <button type="button" className="os-btn" disabled={!experience.messaging.available}>
+            Message
+          </button>
+        </article>
+      ))}
+
       <article className="panel">
         <div className="eyebrow">People / contacts</div>
         <p className="small muted">

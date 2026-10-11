@@ -35,6 +35,9 @@ export function BrandPage() {
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaHref, setCtaHref] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
+  const [managerName, setManagerName] = useState("");
+  const [managerRole, setManagerRole] = useState("Manager");
+  const [managerTrustId, setManagerTrustId] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
 
   async function load() {
@@ -305,6 +308,56 @@ export function BrandPage() {
             }}
           >
             Add link
+          </button>
+        </div>
+      </article>
+
+      <article className="panel" style={{ marginTop: 16 }} data-brand-managers="true">
+        <div className="eyebrow">Managers</div>
+        <p className="small muted">
+          People who manage this Digital Life with you. Visitors see their name and role in C &amp; C, under your DM.
+          Trust IDs stay private to your Studio.
+        </p>
+        {(brand.managers ?? []).map((manager) => (
+          <div className="list-row" key={manager.id}>
+            <span>
+              <strong>{manager.displayName}</strong> <span className="small muted">· {manager.role}</span>
+              {manager.trustId ? <span className="small muted"> · {manager.trustId}</span> : null}
+            </span>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => void patch({ managers: (brand.managers ?? []).filter((m) => m.id !== manager.id) }, "Manager removed.")}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <div className="toolbar" style={{ marginTop: 12 }}>
+          <input placeholder="Name" value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+          <input placeholder="Role (e.g. Manager, Booking)" value={managerRole} onChange={(e) => setManagerRole(e.target.value)} />
+          <input placeholder="Trust ID (optional, TD-…)" value={managerTrustId} onChange={(e) => setManagerTrustId(e.target.value.toUpperCase())} />
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={!managerName.trim() || (brand.managers ?? []).length >= 20}
+            onClick={() => {
+              const trustId = managerTrustId.trim();
+              void patch(
+                {
+                  managers: [
+                    ...(brand.managers ?? []),
+                    { id: crypto.randomUUID(), displayName: managerName.trim(), role: managerRole.trim() || "Manager", trustId: trustId || null },
+                  ],
+                },
+                "Manager added.",
+              );
+              setManagerName("");
+              setManagerRole("Manager");
+              setManagerTrustId("");
+            }}
+          >
+            Add manager
           </button>
         </div>
       </article>

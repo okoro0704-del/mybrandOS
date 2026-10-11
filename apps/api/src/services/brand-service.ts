@@ -36,8 +36,7 @@ import {
   type PublicLink,
   type PublicLiveNow,
   type PublicNavItem,
-  type PublicNavItemConfig,
-} from "@mybrandos/shared";
+  type PublicNavItemConfig, type BrandManager, publicManagers } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson, writeJson } from "../lib/json.js";
 import { badRequest, conflict, notFound, unavailable } from "../lib/errors.js";
@@ -343,6 +342,7 @@ export async function getBrandConfig(
     navigation: nav,
     cta: parseCta(space?.cta),
     links: space ? readJson<PublicLink[]>(space.links, []) : [],
+    managers: space ? readJson<BrandManager[]>(space.managers, []) : [],
     featuredAssetIds,
     featuredAssets,
     publishedAssets: eligibleCards,
@@ -369,6 +369,7 @@ export async function updateBrandConfig(
     navigation?: PublicNavItemConfig[];
     cta?: BrandCta | null;
     links?: PublicLink[];
+    managers?: BrandManager[];
     featuredAssetIds?: string[];
     presentation?: Partial<PublicExperiencePresentation>;
   },
@@ -444,6 +445,7 @@ export async function updateBrandConfig(
       publicNav: writeJson(navigation ?? DEFAULT_PUBLIC_NAV),
       cta: writeJson(cta ?? {}),
       links: writeJson(patch.links ?? []),
+      managers: writeJson(patch.managers ?? []),
       featuredAssetIds: writeJson(featuredAssetIds ?? []),
       presentationConfig: writeJson(presentation ?? normalizePresentation({})),
     },
@@ -457,6 +459,7 @@ export async function updateBrandConfig(
       ...(navigation !== undefined ? { publicNav: writeJson(navigation) } : {}),
       ...(cta !== undefined ? { cta: writeJson(cta) } : {}),
       ...(patch.links ? { links: writeJson(patch.links) } : {}),
+      ...(patch.managers ? { managers: writeJson(patch.managers) } : {}),
       ...(featuredAssetIds !== undefined ? { featuredAssetIds: writeJson(featuredAssetIds) } : {}),
       ...(presentation !== undefined ? { presentationConfig: writeJson(presentation) } : {}),
     },
@@ -635,6 +638,7 @@ async function experienceFrom(
     feed: buildFeedFromAssets(slug || "preview", publishedAssets, feedExtras),
     websitePages: publicPages,
     publicLinks: readJson<PublicLink[]>(space.links, []),
+    managers: publicManagers(readJson<BrandManager[]>(space.managers, [])),
     messaging,
     liveNow,
     stationResume: await publicStationResumeForOwner(space.ownerId),

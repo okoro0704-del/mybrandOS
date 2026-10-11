@@ -49,6 +49,17 @@ const brandPatch = z.object({
   navigation: z.array(navItem).optional(),
   cta: z.object({ label: z.string(), href: z.string() }).nullable().optional(),
   links: z.array(z.object({ id: z.string(), label: z.string(), url: z.string() })).optional(),
+  managers: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(64),
+        displayName: z.string().trim().min(1).max(80),
+        role: z.string().trim().max(40).default("Manager"),
+        trustId: z.string().regex(/^TD-[A-Z0-9-]{3,48}$/).nullable().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
   featuredAssetIds: z.array(z.string()).optional(),
   presentation: z
     .object({

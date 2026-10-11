@@ -91,6 +91,30 @@ export interface PublicLink {
   url: string;
 }
 
+/** Someone who manages this Digital Life with the creator (Studio only: includes the Trust ID). */
+export interface BrandManager {
+  id: string;
+  displayName: string;
+  /** e.g. "Manager", "Booking", "PR". */
+  role: string;
+  trustId?: string | null;
+}
+
+/** Public view of a manager for C & C: name and role only. */
+export interface PublicBrandManager {
+  id: string;
+  displayName: string;
+  role: string;
+}
+
+/** Public projection of managers: never the Trust ID, never an empty name. */
+export function publicManagers(managers: BrandManager[] | null | undefined): PublicBrandManager[] {
+  return (managers ?? [])
+    .filter((m) => m && typeof m.displayName === "string" && m.displayName.trim())
+    .slice(0, 20)
+    .map((m) => ({ id: String(m.id), displayName: m.displayName.trim(), role: (m.role || "Manager").trim() }));
+}
+
 /** Public-safe extras. Never includes DataZone IDs, source files, secrets, or job IDs. */
 export interface PublicAssetPresentation {
   artist: string;
@@ -181,6 +205,8 @@ export interface PublicBrandExperience {
   /** Published website pages only. */
   websitePages: import("./digital-life.js").PublicWebsitePage[];
   publicLinks: PublicLink[];
+  /** People who manage this Digital Life with the creator (C & C). */
+  managers?: PublicBrandManager[];
   messaging: { available: boolean; detail: string };
   liveNow: PublicLiveNow | null;
   /** How TV/Radio continue after a recent live interruption. */
@@ -209,6 +235,7 @@ export interface BrandConfigPayload {
   navigation: PublicNavItemConfig[];
   cta: BrandCta | null;
   links: PublicLink[];
+  managers: BrandManager[];
   featuredAssetIds: string[];
   featuredAssets: PublicAssetCard[];
   publishedAssets: PublicAssetCard[];
