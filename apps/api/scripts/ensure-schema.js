@@ -27,6 +27,9 @@ try {
   await prisma.$disconnect();
   if (!names.includes("presentationConfig")) process.exit(2);
   if (!sessionNames.includes("authMethod")) process.exit(2);
+  // Additive columns: a missing one means "apply the additive schema" (db push), never a reseed.
+  if (!sessionNames.includes("providerToken")) process.exit(2);
+  if (!names.includes("managers")) process.exit(2);
   if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
   if (!Array.isArray(publishIdem) || publishIdem.length === 0) process.exit(2);
   process.exit(0);
