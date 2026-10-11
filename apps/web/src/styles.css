@@ -6595,7 +6595,7 @@ button.linkish {
 }
 
 /* ===== mybrandOS APP — Final UI Life V1 ===== */
-.personal-os[data-experience-mode="APP"] {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) {
   --app-nav-h: 3.7rem;
   --app-nav-gap: 0.55rem;
   --app-nav-reserve: calc(var(--app-nav-h) + var(--app-nav-gap) + 0.35rem + env(safe-area-inset-bottom, 0px));
@@ -6603,7 +6603,7 @@ button.linkish {
 }
 
 /* Bottom navigation: always present in APP, hidden only by scroll intent. */
-.personal-os[data-experience-mode="APP"] .os-bottom-nav {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav {
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   position: absolute;
@@ -6626,8 +6626,8 @@ button.linkish {
   transition: transform 200ms var(--os-ease), opacity 160ms var(--os-ease) !important;
   will-change: transform, opacity;
 }
-.personal-os[data-experience-mode="APP"] .os-bottom-nav a,
-.personal-os[data-experience-mode="APP"] .os-bottom-nav .os-bottom-nav__switch {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav a,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav .os-bottom-nav__switch {
   min-height: 48px;
   padding: 0.3rem 0.1rem;
   font-size: 0.64rem;
@@ -6636,26 +6636,26 @@ button.linkish {
   border-radius: 18px;
   white-space: nowrap;
 }
-.personal-os[data-experience-mode="APP"] .os-bottom-nav a.active {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav a.active {
   color: #111;
   background: rgba(15, 23, 42, 0.08);
 }
-.personal-os[data-experience-mode="APP"] .os-bottom-nav a:focus-visible {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav a:focus-visible {
   outline: 2px solid var(--os-accent, #2563eb);
   outline-offset: 1px;
 }
-.personal-os[data-experience-mode="APP"][data-app-nav="hidden"] .os-bottom-nav {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])[data-app-nav="hidden"] .os-bottom-nav {
   transform: translate(-50%, calc(100% + var(--app-nav-gap) + env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
-.personal-os[data-experience-mode="APP"][data-app-nav="hidden"] .os-bottom-nav:focus-within {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])[data-app-nav="hidden"] .os-bottom-nav:focus-within {
   transform: translate(-50%, 0) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  .personal-os[data-experience-mode="APP"] .os-bottom-nav {
+  .personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-bottom-nav {
     transition: none !important;
   }
 }
@@ -6675,7 +6675,7 @@ button.linkish {
   visibility: hidden;
   pointer-events: none;
 }
-.personal-os[data-experience-mode="APP"] .space-surface--app[hidden] {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .space-surface--app[hidden] {
   display: block;
   visibility: hidden;
   pointer-events: none;
@@ -6697,19 +6697,19 @@ button.linkish {
   z-index: 1;
 }
 /* The HUD already sits below the top safe area; the header inside it must not add the inset again. */
-.personal-os[data-experience-mode="APP"] .os-identity-hud .os-topbar {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-identity-hud .os-topbar {
   top: 0;
 }
-.personal-os[data-experience-mode="APP"] .os-identity-hud .os-topbar .os-wordmark--signature {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-identity-hud .os-topbar .os-wordmark--signature {
   top: 0.4rem;
 }
-.personal-os[data-experience-mode="APP"] .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
   color: var(--os-text, #14171f);
   filter: none;
 }
 
 /* Post feed: the identity sits directly on the media at the left end — no glass pill. */
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud .os-topbar {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud .os-topbar {
   left: 0;
   right: 0;
   padding: 0.28rem 0;
@@ -6720,7 +6720,7 @@ button.linkish {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-identity-hud[data-brand-persist="true"] .os-wordmark--signature {
   color: #fff;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
@@ -6747,19 +6747,19 @@ button.linkish {
   overflow: hidden;
   background: var(--post-canvas);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed {
   position: absolute;
   inset: 0;
   height: 100%;
   max-height: none;
   background: var(--post-canvas);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__slide.living-gallery {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__slide.living-gallery {
   display: block;
   padding: 0;
   background: var(--post-canvas);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .living-gallery .living-gallery__media.immersive-feed__media {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .living-gallery .living-gallery__media.immersive-feed__media {
   position: absolute;
   inset: 0;
   flex: none;
@@ -6770,7 +6770,7 @@ button.linkish {
   contain: layout paint;
   background: var(--post-canvas);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__slide.living-gallery::before {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__slide.living-gallery::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
@@ -6788,16 +6788,16 @@ button.linkish {
   pointer-events: none;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.12) 60%, transparent);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__writing {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__writing {
   position: absolute;
   inset: 0;
   height: auto;
   padding: calc(var(--post-details-top) + 4.5rem) 1.4rem calc(var(--post-dock-rest) + 4.5rem);
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__writing p {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__writing p {
   color: #f8fafc;
 }
-.personal-os[data-experience-mode="APP"] .post-viewport .immersive-feed__asset--empty {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__asset--empty {
   background: var(--post-canvas);
   color: rgba(248, 250, 252, 0.6);
 }
@@ -6920,11 +6920,11 @@ button.linkish {
 }
 
 /* The composer dock: detached from the comments, always under the post, still while posts slide. */
-.personal-os[data-experience-mode="APP"][data-app-nav="hidden"] .post-viewport,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])[data-app-nav="hidden"] .post-viewport,
 .post-viewport[data-composing="true"] {
   --post-composer-bottom: calc(var(--post-dock-bar) + var(--vv-bottom, 0px));
 }
-.personal-os[data-experience-mode="APP"]:has(.post-viewport[data-composing="true"]) .os-bottom-nav {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.post-viewport[data-composing="true"]) .os-bottom-nav {
   transform: translate(-50%, calc(100% + var(--app-nav-gap) + env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -8454,7 +8454,7 @@ button.linkish {
 
 /* Restored top menu on the immersive post feed (Content · Video · Books · Courses · Products ·
    Audio · …): pinned over the media under the identity, never taking space from the media. */
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments-wrap {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments-wrap {
   position: absolute !important;
   top: calc(env(safe-area-inset-top, 0px) + 2.55rem) !important;
   left: 0 !important;
@@ -8472,14 +8472,14 @@ button.linkish {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0.15rem 0;
 }
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button {
   flex: none;
   min-height: 34px;
   padding: 0 0.8rem;
@@ -8492,13 +8492,13 @@ button.linkish {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   white-space: nowrap;
 }
-.personal-os[data-experience-mode="APP"]:has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button.active {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button.active {
   background: #fff;
   color: #111;
   text-shadow: none;
 }
 /* The post's own details (and summoned panels) start below the menu. */
-.personal-os[data-experience-mode="APP"] .post-viewport {
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport {
   --post-details-top: calc(env(safe-area-inset-top, 0px) + 5.6rem);
   --post-panel-top: calc(env(safe-area-inset-top, 0px) + 5.4rem);
 }
@@ -8556,40 +8556,117 @@ button.linkish {
   cursor: pointer;
 }
 
-/* ── Installed Space: 100% media; double-tap reveals details, interactions and the side launcher ── */
-.personal-os[data-experience-mode="SPACE"] .space-launcher {
+/* ── Installed Space: same post design as the App, hidden until a double-tap ──────────────── */
+/* CLEAN: 100% media — no post details, action dock, comments or composer. */
+.personal-os[data-experience-mode="SPACE"][data-space-reveal="CLEAN"] :is(.post-dock, .post-slide__details, .post-composer-host, .post-overlay, .post-collab) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.personal-os[data-experience-mode="SPACE"] :is(.post-dock, .post-slide__details, .post-composer-host) {
+  transition: opacity 180ms var(--os-ease, ease-out), visibility 180ms;
+}
+/* The launcher pops out from the left edge, opposite the action dock and comments. */
+.personal-os[data-experience-mode="SPACE"] .space-ui-launcher {
   position: fixed;
-  right: max(0.5rem, env(safe-area-inset-right, 0px));
+  left: 0;
   top: 50%;
   z-index: 96;
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 64px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 14px;
+  padding: 0 0 0 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-left: 0;
+  border-radius: 0 18px 18px 0;
   color: #fff;
-  background: rgba(10, 14, 22, 0.62);
+  background: rgba(10, 14, 22, 0.42);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   cursor: pointer;
-  animation: space-launcher-in 220ms var(--os-ease, ease-out) both;
+  transform: translateY(-50%);
+  animation: space-ui-launcher-in 220ms var(--os-ease, ease-out) both;
 }
-.personal-os[data-experience-mode="SPACE"] .space-launcher[data-space-launcher="open"] {
-  background: rgba(255, 255, 255, 0.9);
-  color: #0b1220;
+.personal-os[data-experience-mode="SPACE"] .space-ui-launcher svg {
+  transition: transform 200ms var(--os-ease, ease-out);
 }
-@keyframes space-launcher-in {
-  from { transform: translate(120%, -50%); opacity: 0; }
+.personal-os[data-experience-mode="SPACE"] .space-ui-launcher[data-space-launcher="open"] svg {
+  transform: rotate(180deg);
+}
+@keyframes space-ui-launcher-in {
+  from { transform: translate(-100%, -50%); opacity: 0; }
   to { transform: translate(0, -50%); opacity: 1; }
 }
-.personal-os[data-experience-mode="SPACE"] .space-launcher { transform: translateY(-50%); }
 .personal-os[data-experience-mode="SPACE"][data-space-reveal="BARS"] .os-identity-hud {
   opacity: 1;
   transform: none;
   pointer-events: auto;
 }
-.personal-os[data-experience-mode="SPACE"] .os-bottom-nav {
-  position: fixed;
-  z-index: 96;
+
+/* App and Space: portrait media fills the whole screen (status bar to system keys), no black bands. */
+.post-viewport video.adaptive-video__el[data-orientation="portrait"],
+.post-viewport img.immersive-feed__asset[data-orientation="portrait"] {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: cover !important;
+}
+
+/* Top menu over the post: 100% see-through — no dark band or pills behind it, just legible text.
+   Content · creator's top 3 · See more · Search; "See more" opens the rest underneath. */
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]) .post-viewport .immersive-feed__slide.living-gallery::before {
+  background: none;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row button {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments button.active,
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row button.active {
+  background: transparent;
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments .os-segments__search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 6.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-more-row {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0.1rem 0;
+  background: transparent;
+  border: 0;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-search {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-search input {
+  background: transparent;
+  color: #fff;
+}
+/* Space: the top menu (like every bar) stays hidden until the launcher brings the bars in. */
+.personal-os[data-experience-mode="SPACE"]:not([data-space-reveal="BARS"]):has(.app-home-keepalive[data-keepalive="active"] .post-viewport) .os-segments-wrap {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }

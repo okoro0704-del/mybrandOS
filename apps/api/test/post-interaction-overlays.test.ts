@@ -18,7 +18,7 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 const feed = read("apps/web/src/experience/ImmersivePostFeed.tsx");
 const dock = read("apps/web/src/experience/InteractionOverlay.tsx");
 const actions = read("apps/web/src/digital-life/personal-os/ContentActionBar.tsx");
-const styles = read("apps/web/src/styles.css");
+const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
 
 const rule = (selector: string) => {

@@ -40,3 +40,24 @@ export function announceAppReady() {
     /* host gone */
   }
 }
+
+/** OS Xperience loaded this Space invisibly (`?ox-prepare=1`) only to refresh its offline copy. */
+export function isOxPrepare(): boolean {
+  if (!hostFrameOrigin()) return false;
+  try {
+    return new URLSearchParams(window.location.search).get("ox-prepare") === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Tell OS Xperience the offline copy is refreshed, so it can unload the invisible frame. */
+export function announceSpaceSynced(result: { saved: number; total: number }) {
+  const parent = hostFrameOrigin();
+  if (!parent || !OX_HOSTS.includes(parent)) return;
+  try {
+    window.parent.postMessage({ type: "ox.spaceSynced", version: 1, saved: result.saved, total: result.total }, parent);
+  } catch {
+    /* host gone */
+  }
+}

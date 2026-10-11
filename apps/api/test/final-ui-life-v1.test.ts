@@ -41,7 +41,7 @@ const player = read("apps/web/src/media/AdaptiveVideoPlayer.tsx");
 const digipedia = read("apps/web/src/digital-life/digipedia/DigipediaScreen.tsx");
 const news = read("apps/web/src/digital-life/news/NewsScreen.tsx");
 const publicPage = read("apps/web/src/pages/PublicExperience.tsx");
-const styles = read("apps/web/src/styles.css");
+const styles = read("apps/web/src/styles.css").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 
 const appBlock = styles.slice(styles.indexOf("/* ===== mybrandOS APP — Final UI Life V1 ===== */"));
 
@@ -128,7 +128,8 @@ test("17. comments and interaction are available in APP as summoned overlays", (
   assert.match(feed, /createPortal\(commentsLayer, commentsHost\)/);
   assert.match(overlay, /data-comments-host="true" ref=\{onCommentsHost\}/);
   assert.match(feed, /enabled: active \|\| \(appPost && adjacent\)/);
-  assert.match(shell, /spaceMode && spaceReveal === "DETAILS" && space\.ui === "INTERACTION"/);
+  // The Space shares this post layer (appPost covers both modes) and only hides it until revealed.
+  assert.match(feed, /const appPost = mode === "APP" \|\| mode === "SPACE";/);
 });
 
 test("18-20. media fills the canvas; controls and nav float over it", () => {
@@ -229,7 +230,7 @@ test("30. existing Space implementation is not destroyed", () => {
   for (const file of ["useSpaceRuntime.ts", "SpaceControls.tsx", "SpaceRouterPanel.tsx", "HomeEdgeNav.tsx", "spaceOfflineAdapter.ts", "PostDetailsOverlay.tsx", "InteractionsPanel.tsx"]) {
     assert.ok(existsSync(join(root, "apps/web/src/digital-life/space", file)), file);
   }
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /useSpaceRuntime\(definition/);
   assert.match(shell, /<SpaceRouterPanel/);
   assert.match(shell, /useSpaceRuntime\(definition/);

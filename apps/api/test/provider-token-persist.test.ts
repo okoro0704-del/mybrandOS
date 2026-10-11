@@ -10,7 +10,10 @@ test("the stored Trust ID proof is encrypted and only opens with the server key"
   assert.ok(!sealed.includes("tid-access-token"));
   assert.equal(openProviderToken(sealed, k), "tid-access-token");
   assert.equal(openProviderToken(sealed, randomBytes(32)), null);
-  assert.equal(openProviderToken(sealed.replace(/.$/, (c) => (c === "A" ? "B" : "A")), k), null);
+  const parts = sealed.split(".");
+  const body = parts[3]!;
+  parts[3] = (body[0] === "A" ? "B" : "A") + body.slice(1);
+  assert.equal(openProviderToken(parts.join("."), k), null, "a tampered token never opens");
   assert.equal(sealProviderToken("x", null), null);
 });
 

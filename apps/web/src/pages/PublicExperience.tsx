@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { announceAppReady, isOxSpace } from "../lib/ox-host";
+import { announceAppReady, announceSpaceSynced, isOxPrepare, isOxSpace } from "../lib/ox-host";
+import { syncSpaceOffline } from "../digital-life/offline/useSpaceAutoSync";
 import { Link, useParams } from "react-router-dom";
 import type { PublicBrandExperience } from "@mybrandos/shared";
 import { publicExperienceBasePath, studioPath } from "@mybrandos/shared";
@@ -74,9 +75,22 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
   }, [slug]);
 
   // OS Xperience: the app booted (online or from the offline cache), so the Space stays the app.
+  const [preparing] = useState(isOxPrepare);
   useEffect(() => {
-    if (experience) announceAppReady();
-  }, [experience]);
+    if (experience && !preparing) announceAppReady();
+  }, [experience, preparing]);
+
+  // Loaded invisibly by OS Xperience: refresh the offline copy (app + all media), report, done.
+  useEffect(() => {
+    if (!preparing || !experience || !slug) return;
+    let cancelled = false;
+    void syncSpaceOffline(experience, `/api/public/${slug}`, () => cancelled).then((result) => {
+      if (!cancelled) announceSpaceSynced(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [preparing, experience, slug]);
 
   if (error) {
     return (
@@ -97,6 +111,8 @@ export function PublicExperiencePage(props?: { slugOverride?: string; restOverri
       </div>
     );
   }
+
+  if (preparing) return null;
 
   const parsed = parseDigitalLifePath(rest);
   const basePath = publicExperienceBasePath(slug, window.location.hostname);

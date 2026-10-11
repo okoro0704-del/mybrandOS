@@ -29,11 +29,15 @@ test("back to the sign-in page, and Studio sign-out lands on the logout page", (
   assert.match(read("pages/SystemPages.tsx"), /href="\/auth\/logout"/);
 });
 
-test("the public top menu lists every content type", () => {
+test("the public top menu lists every content type: Content + 3, See more, Search", () => {
   assert.deepEqual(
     OS_PRIMARY_TABS.map((t) => t.label),
-    ["Content", "Video", "Books", "Courses", "Products", "Audio", "Software", "Community"],
+    ["Content", "Videos", "Books", "Courses", "Products", "Audio", "Software", "Community"],
   );
   assert.deepEqual(OS_MORE_TABS, []);
+  const home = read("digital-life/personal-os/PersonalOsHome.tsx");
+  assert.match(home, /menu\.primary\.map/);
+  assert.match(home, /"See more"/);
+  assert.match(home, /className="os-segments__search"/);
   assert.match(read("styles.css"), /\.post-viewport\) \.os-segments-wrap \{\s*position: absolute !important;/);
 });

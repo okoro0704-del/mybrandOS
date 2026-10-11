@@ -12,8 +12,6 @@ import { CreatorSpaceProvider, useCreatorSpace } from "../space/CreatorSpaceCont
 import { HomeExperienceProvider } from "../space/HomeExperienceContext";
 import { SpaceRouterPanel } from "../space/SpaceRouterPanel";
 import { DigiNewsSurface, DigiPediaSurface } from "../space/KnowledgeSurfaces";
-import { InteractionsPanel } from "../space/InteractionsPanel";
-import { PostDetailsOverlay } from "../space/PostDetailsOverlay";
 import { StationSurface } from "../station/StationSurface";
 import { isRevealKeyboardBlocked } from "../personal-os/revealChrome";
 import { useRevealDoubleTap } from "../personal-os/useRevealDoubleTap";
@@ -125,28 +123,13 @@ function DigitalLifeShellFrame({
   /*
    * SPACE presentation: 100% media, no UI.
    *   CLEAN    media only (no creator name, post details, interactions or bars)
-   *   DETAILS  double-tap: post details + interactions + a side launcher
-   *   BARS     launcher: the top bar and bottom bar (Switch) come in
-   * A double-tap from DETAILS or BARS returns to CLEAN.
+   *   DETAILS  double-tap: the App's own post details, action dock, comments and composer under
+   *            the post (one post architecture for App and Space) + a launcher on the left edge
+   *   BARS     launcher: the top bar and bottom bar (Switch) come in as well
+   * A double-tap from DETAILS or BARS returns to CLEAN; the launcher toggles BARS.
    */
   const [spaceReveal, setSpaceReveal] = useState<"CLEAN" | "DETAILS" | "BARS">("CLEAN");
-  const hideSpaceUi = () => {
-    if (space.interactionsOpen) space.closeInteractions();
-    setSpaceReveal("CLEAN");
-  };
-  const spaceDoubleTap = () => {
-    if (spaceReveal === "CLEAN") {
-      space.openInteractions();
-      setSpaceReveal("DETAILS");
-    } else hideSpaceUi();
-  };
-  // Closing the interactions panel itself also leaves DETAILS.
-  const sawInteraction = useRef(false);
-  useEffect(() => {
-    if (spaceReveal !== "DETAILS") { sawInteraction.current = false; return; }
-    if (space.ui === "INTERACTION") sawInteraction.current = true;
-    else if (sawInteraction.current) setSpaceReveal("CLEAN");
-  }, [spaceReveal, space.ui]);
+  const spaceDoubleTap = () => setSpaceReveal((current) => (current === "CLEAN" ? "DETAILS" : "CLEAN"));
   // The Space keeps the creator's media on this device, with nothing asked of the person.
   useSpaceAutoSync(experience, mediaBase, spaceMode && !preview);
 
@@ -315,19 +298,17 @@ function DigitalLifeShellFrame({
               {spaceReveal !== "CLEAN" ? (
                 <button
                   type="button"
-                  className="space-launcher"
+                  className="space-ui-launcher"
                   data-space-launcher={spaceReveal === "BARS" ? "open" : "closed"}
                   aria-label={spaceReveal === "BARS" ? "Hide bars" : "Show bars"}
                   aria-pressed={spaceReveal === "BARS"}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (spaceReveal === "BARS") { hideSpaceUi(); return; }
-                    if (space.interactionsOpen) space.closeInteractions();
-                    setSpaceReveal("BARS");
+                    setSpaceReveal(spaceReveal === "BARS" ? "DETAILS" : "BARS");
                   }}
                 >
-                  <Icons.menu size={20} />
+                  <Icons.chevron size={22} />
                 </button>
               ) : null}
               {spaceReveal === "BARS" ? (
@@ -336,12 +317,6 @@ function DigitalLifeShellFrame({
             </> : <>
               <DigitalLifeBottomNav experience={experience} basePath={basePath} primary={primary} chromeHidden={false} />
             </>}
-            {spaceMode && spaceReveal === "DETAILS" && space.ui === "INTERACTION" ? (
-              <>
-                <PostDetailsOverlay experience={experience} mediaBase={mediaBase} />
-                <InteractionsPanel experience={experience} mediaBase={mediaBase} />
-              </>
-            ) : null}
           </>
         )}
       </div>

@@ -15,7 +15,21 @@ const OFFLINE_MEDIA = "mybrandos-offline-media-v1";
 const SHELL = "/__app-shell";
 const KEEP = [CACHE, PAGES, API, IMAGES];
 
-self.addEventListener("install", () => self.skipWaiting());
+// The app page is stored on install, so the Space opens offline even if it was only ever
+// prepared in the background and never shown online.
+self.addEventListener("install", (event) => {
+  event.waitUntil((async () => {
+    try {
+      const response = await fetch("/", { credentials: "include" });
+      if (response.status === 200 && (response.headers.get("content-type") || "").includes("text/html")) {
+        await caches.open(PAGES).then((cache) => cache.put(SHELL, response));
+      }
+    } catch {
+      /* offline install: the next page load stores it */
+    }
+    await self.skipWaiting();
+  })());
+});
 self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(keys
     .filter((key) => key.startsWith("mybrandos-dl-") && !KEEP.includes(key))

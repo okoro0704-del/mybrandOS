@@ -15,10 +15,10 @@ const actions = readFileSync(join(root, "apps/web/src/digital-life/personal-os/C
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const camera = readFileSync(join(root, "apps/web/src/pages/CameraCapability.tsx"), "utf8");
 const app = readFileSync(join(root, "apps/web/src/App.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 
 test("public APP uses destination chrome; SPACE keeps edge launchers", () => {
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /DigitalLifeBottomNav/);
   assert.match(shell, /DigitalLifeTopBar/);
   assert.match(shell, /data-app-nav=/);

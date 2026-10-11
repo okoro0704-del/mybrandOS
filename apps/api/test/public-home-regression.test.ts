@@ -10,7 +10,7 @@ import {
 } from "../../web/src/digital-life/personal-os/homeChrome.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const homeTsx = readFileSync(join(root, "apps/web/src/digital-life/personal-os/PersonalOsHome.tsx"), "utf8");
 const postCardMedia = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 

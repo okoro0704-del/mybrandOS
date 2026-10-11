@@ -11,7 +11,7 @@ import {
 } from "../../web/src/lib/galleryMediaFit.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
@@ -81,7 +81,7 @@ test("edge-marker fixture is fully visible under contain and cropped under cover
 });
 
 test("creator mark and reveal nav do not restyle gallery object-fit", () => {
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(styles, /os-wordmark--signature[\s\S]{0,180}position:\s*absolute/);
   assert.equal(/data-reveal[\s\S]{0,400}object-fit:\s*cover/.test(styles), false);
   assert.match(player, /fillViewport \? " adaptive-video--fill"/);

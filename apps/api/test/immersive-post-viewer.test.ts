@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 const comments = readFileSync(join(root, "apps/web/src/digital-life/personal-os/PostComments.tsx"), "utf8");

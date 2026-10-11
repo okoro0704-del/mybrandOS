@@ -12,7 +12,7 @@ import { Icons } from "../../nav/icons";
 import { AdaptiveVideoPlayer } from "../../media/AdaptiveVideoPlayer";
 import { ImmersivePostFeed } from "../../experience/ImmersivePostFeed";
 import { ContentActionBar } from "./ContentActionBar";
-import { OS_MORE_TABS, OS_PRIMARY_TABS, formatRelativeTime, initialsFrom, type OsHomeCategory } from "./osIdentity";
+import { formatRelativeTime, initialsFrom, osTopMenu, type OsHomeCategory } from "./osIdentity";
 import { useRevealChrome } from "./RevealChromeContext";
 
 function offerFor(experience: PublicBrandExperience, assetId: string) {
@@ -322,6 +322,7 @@ export function PersonalOsHome({
   }, [category, searchOpen, debounced, experience.slug]);
 
   const creator = experience.identity.displayName || experience.slug;
+  const menu = useMemo(() => osTopMenu(experience), [experience]);
   const reveal = useRevealChrome();
   const segmentsHidden = Boolean(reveal && !reveal.navVisible);
   const immersiveConsume =
@@ -358,12 +359,12 @@ export function PersonalOsHome({
           </div>
         ) : (
           <nav className="os-segments" aria-label="Content types">
-            {OS_PRIMARY_TABS.map((tab) => (
+            {menu.primary.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 className={category === tab.id && !moreOpen ? "active" : ""}
-                aria-current={category === tab.id && !OS_MORE_TABS.some((m) => m.id === category) ? "true" : undefined}
+                aria-current={category === tab.id ? "true" : undefined}
                 onClick={() => {
                   setCategory(tab.id);
                   setMoreOpen(false);
@@ -373,14 +374,14 @@ export function PersonalOsHome({
                 {tab.label}
               </button>
             ))}
-            {OS_MORE_TABS.length ? (
+            {menu.more.length ? (
             <button
               type="button"
-              className={`os-segments__more${moreOpen || OS_MORE_TABS.some((m) => m.id === category) ? " active" : ""}`}
+              className={`os-segments__more${moreOpen || menu.more.some((m) => m.id === category) ? " active" : ""}`}
               aria-expanded={moreOpen}
               onClick={() => setMoreOpen((v) => !v)}
             >
-              More
+              {menu.more.find((m) => m.id === category)?.label ?? "See more"}
               <span className={`os-chevron${moreOpen ? " is-open" : ""}`} aria-hidden>
                 ▾
               </span>
@@ -392,20 +393,22 @@ export function PersonalOsHome({
               aria-label="Search"
               onClick={() => setSearchOpen(true)}
             >
-              <Icons.search size={18} />
+              <Icons.search size={16} />
+              <span className="os-segments__search-label">Search</span>
             </button>
           </nav>
         )}
 
         {moreOpen && !searchOpen ? (
           <nav className="os-more-row" aria-label="More digital products">
-            {OS_MORE_TABS.map((tab) => (
+            {menu.more.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 className={category === tab.id ? "active" : ""}
                 onClick={() => {
                   setCategory(tab.id);
+                  setMoreOpen(false);
                   reveal?.selectDestination();
                 }}
               >

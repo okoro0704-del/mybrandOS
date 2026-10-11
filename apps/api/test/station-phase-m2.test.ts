@@ -14,7 +14,7 @@ const kernel = readFileSync(join(root, "apps/web/src/digital-life/offline/offlin
 const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/revealChrome.ts"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const publicRoutes = readFileSync(join(root, "apps/api/src/routes/public.ts"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 
 test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(station, /PUBLIC_STATION_MODES = \["APP", "TV", "RADIO"\]/);
@@ -24,13 +24,13 @@ test("App/TV/Radio modes exist on one creator station", () => {
   assert.match(digitalLife, /station\?: StationOwnerConfig/);
   assert.match(mode, /CreatorSpaceProvider/);
   assert.match(shell, /data-station-mode/);
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /channel="TV"/);
   assert.match(shell, /channel="RADIO"/);
 });
 
 test("surface launchers are tiny edge handles until first touch", () => {
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /collapseLaunchers/);
   assert.match(shell, /useRevealDoubleTap/);
   assert.match(reveal, /\.edge-handle/);

@@ -12,7 +12,7 @@ const router = readFileSync(join(root, "apps/web/src/digital-life/space/SpaceRou
 const ctx = readFileSync(join(root, "apps/web/src/digital-life/space/CreatorSpaceContext.tsx"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const stationSurface = readFileSync(join(root, "apps/web/src/digital-life/station/StationSurface.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const knowledge = readFileSync(join(root, "apps/web/src/digital-life/space/KnowledgeSurfaces.tsx"), "utf8");
 const interactions = readFileSync(join(root, "apps/web/src/digital-life/space/InteractionsPanel.tsx"), "utf8");
 const details = readFileSync(join(root, "apps/web/src/digital-life/space/PostDetailsOverlay.tsx"), "utf8");
@@ -36,7 +36,7 @@ test("tiny edge handles reveal destinations on first touch only", () => {
   assert.match(styles, /\.edge-handle/);
   assert.match(styles, /\.edge-tray--left/);
   // Edge launchers are SPACE presentation; APP restores destination chrome.
-  assert.match(shell, /spaceMode \? <>[\s\S]*className="space-launcher"/);
+  assert.match(shell, /spaceMode \? <>[\s\S]*className="space-ui-launcher"/);
   assert.match(shell, /<DigitalLifeBottomNav/);
   assert.match(shell, /<DigitalLifeTopBar/);
   assert.equal(shell.includes("<StationSwitcher"), false);
@@ -64,7 +64,7 @@ test("second touch launches a surface and collapses the launcher", () => {
   assert.match(ctx, /reduceCreatorSpace/);
   assert.match(ctx, /history\.pushState/);
   assert.match(ctx, /popstate/);
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(ctx, /LAUNCHER_IDLE_MS/);
 });
 
@@ -79,9 +79,10 @@ test("Interactions opens a transparent right-edge drawer", () => {
   assert.match(feed, /key=\{asset\.id\}/);
 });
 
-test("post details appear only in the Interaction state", () => {
-  assert.match(shell, /PostDetailsOverlay/);
-  assert.match(shell, /space\.ui === "INTERACTION"/);
+test("post details appear only once revealed (App post layer; Space after a double-tap)", () => {
+  // The Space uses the App's own post details, hidden on the clean canvas until a double-tap.
+  assert.match(styles, /\[data-space-reveal="CLEAN"\] :is\(\.post-dock, \.post-slide__details/);
+  assert.match(feed, /className="post-slide__details"/);
   assert.match(details, /data-interaction-details="true"/);
   assert.equal(details.includes("data-edge-handle=\"details\""), false);
   assert.match(styles, /\.post-detail-tray/);

@@ -1,3 +1,4 @@
+import { creatorSectionOrder, type PublicBrandExperience } from "@mybrandos/shared";
 /** Derive personal OS wordmark from brand slug (e.g. mrfundzman → mrfundzmanOS). */
 export type PublicationBrandMark = { slug: string; displayName?: string };
 
@@ -63,7 +64,7 @@ export type OsHomeCategory =
 /** The public app's top menu: every content type in one scrollable row. */
 export const OS_PRIMARY_TABS: Array<{ id: OsHomeCategory; label: string }> = [
   { id: "posts", label: "Content" },
-  { id: "videos", label: "Video" },
+  { id: "videos", label: "Videos" },
   { id: "books", label: "Books" },
   { id: "courses", label: "Courses" },
   { id: "products", label: "Products" },
@@ -72,8 +73,53 @@ export const OS_PRIMARY_TABS: Array<{ id: OsHomeCategory; label: string }> = [
   { id: "communities", label: "Community" },
 ];
 
-/** Kept for compatibility; the top menu no longer folds types behind "More". */
+/** Kept for compatibility; the top menu folds types behind "See more" per creator (osTopMenu). */
 export const OS_MORE_TABS: Array<{ id: OsHomeCategory; label: string }> = [];
+
+/** Tabs shown before "See more": Content, then the creator's three leading categories. */
+export const OS_TOP_MENU_VISIBLE = 4;
+
+/** Section ids from the creator's specialty order → top-menu categories. */
+const SECTION_TO_CATEGORY: Record<string, OsHomeCategory> = {
+  posts: "posts",
+  videos: "videos",
+  reels: "videos",
+  books: "books",
+  writing: "books",
+  courses: "courses",
+  products: "products",
+  audio: "audio",
+  podcasts: "audio",
+  software: "software",
+};
+
+/**
+ * Creator-sensitive top menu: Content first, then categories in the creator's specialty order
+ * (a singer gets Audio up front, an educator Courses, a developer Software). A creator with no
+ * clear specialty gets Content · Video · Books · Courses. The rest sit behind "See more".
+ */
+export function osTopMenu(experience: PublicBrandExperience): {
+  primary: Array<{ id: OsHomeCategory; label: string }>;
+  more: Array<{ id: OsHomeCategory; label: string }>;
+} {
+  const { specialty, order } = creatorSectionOrder(
+    experience.publishedAssets,
+    {
+      displayName: experience.identity.displayName,
+      tagline: experience.identity.tagline,
+      bio: experience.identity.bio,
+      offersCount: experience.offers?.length ?? 0,
+    },
+    experience.presentation,
+  );
+  const ranked: OsHomeCategory[] = ["posts"];
+  const sequence = specialty === "mixed" && !experience.presentation?.sectionOrder?.length
+    ? OS_PRIMARY_TABS.map((tab) => tab.id)
+    : order.map((id) => SECTION_TO_CATEGORY[id]).filter((id): id is OsHomeCategory => Boolean(id));
+  for (const id of [...sequence, ...OS_PRIMARY_TABS.map((tab) => tab.id)]) if (!ranked.includes(id)) ranked.push(id);
+  const tabs = ranked.map((id) => OS_PRIMARY_TABS.find((tab) => tab.id === id)!).filter(Boolean);
+  return { primary: tabs.slice(0, OS_TOP_MENU_VISIBLE), more: tabs.slice(OS_TOP_MENU_VISIBLE) };
+}
 
 export function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();

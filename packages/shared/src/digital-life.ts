@@ -932,6 +932,20 @@ export function favoritesDiscoveryLanes(input: {
 }
 
 /**
+ * The creator's own section order: an explicit presentation order wins, else the order for the
+ * creator's specialty (inferred from what they publish and how they describe themselves).
+ */
+export function creatorSectionOrder(
+  assets: PublicAssetCard[],
+  hints?: { tagline?: string; bio?: string; displayName?: string; offersCount?: number },
+  presentation?: PublicExperiencePresentation | null,
+): { specialty: CreatorSpecialty; order: string[] } {
+  const prefs = normalizePresentation(presentation);
+  const specialty = prefs.specialtyOverride || inferCreatorSpecialty(assets, hints);
+  return { specialty, order: prefs.sectionOrder?.length ? prefs.sectionOrder : SPECIALTY_ORDER[specialty] };
+}
+
+/**
  * LifeOS-style Home section bar — creator-aware order; empty categories hidden.
  */
 export function specialtyChipsFor(

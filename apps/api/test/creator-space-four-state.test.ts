@@ -23,7 +23,7 @@ const details = readFileSync(join(root, "apps/web/src/digital-life/space/PostDet
 const interactions = readFileSync(join(root, "apps/web/src/digital-life/space/InteractionsPanel.tsx"), "utf8");
 const actions = readFileSync(join(root, "apps/web/src/digital-life/personal-os/ContentActionBar.tsx"), "utf8");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const pedia = readFileSync(join(root, "apps/web/src/digital-life/digipedia/DigipediaScreen.tsx"), "utf8");
 const hero = readFileSync(join(root, "apps/web/src/digital-life/digipedia/HeroSection.tsx"), "utf8");
 const controller = readFileSync(join(root, "apps/web/src/lib/immersiveFeedController.ts"), "utf8");
@@ -34,7 +34,7 @@ test("1 home loads with media, brand, and tiny handles only", () => {
   assert.equal(home.surface, "APP");
   assert.equal(home.summonedSide, null);
   assert.match(shell, /data-space-surface="APP"/);
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /<DigitalLifeBottomNav/);
   assert.match(shell, /<DigitalLifeTopBar/);
   assert.match(rails, /data-edge-handle="left"/);

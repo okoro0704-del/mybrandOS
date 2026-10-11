@@ -25,7 +25,7 @@ import { publicationBrandMarks, publicationCollaboratorMarks } from "../../web/s
 import { readLayoutMode } from "../../web/src/media/AdaptiveVideoPlayer.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const hook = readFileSync(join(root, "apps/web/src/digital-life/personal-os/usePublicationComments.ts"), "utf8");
 const reveal = readFileSync(join(root, "apps/web/src/digital-life/personal-os/revealChrome.ts"), "utf8");
@@ -268,7 +268,7 @@ test("love hearts and action writing fly through media without a toast panel", (
 });
 
 test("owner OS identity is a shell landmark; keyboard overlays instead of resizing media", () => {
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /data-brand-persist="true"/);
   assert.match(shell, /data-brand-persist/);
   assert.equal(feed.includes("os-wordmark--signature"), false);

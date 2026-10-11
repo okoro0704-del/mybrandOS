@@ -14,7 +14,7 @@ const card = readFileSync(join(root, "apps/web/src/digital-life/digipedia/Knowle
 const featured = readFileSync(join(root, "apps/web/src/digital-life/digipedia/FeaturedKnowledgeCard.tsx"), "utf8");
 const dock = readFileSync(join(root, "apps/web/src/digital-life/digipedia/BottomNav.tsx"), "utf8");
 const top = readFileSync(join(root, "apps/web/src/digital-life/digipedia/TopActions.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
 
 test("Digipedia surface mounts the futuristic knowledge OS", () => {

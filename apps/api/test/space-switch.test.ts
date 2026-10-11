@@ -25,12 +25,35 @@ test("the offline service worker never caches sign-in, Studio or private API", (
 test("the installed Space opens on 100% media; double-tap reveals details, interactions and the launcher", () => {
   const shell = readFileSync(new URL("../../web/src/digital-life/shell/DigitalLifeShell.tsx", import.meta.url), "utf8");
   assert.match(shell, /useState<"CLEAN" \| "DETAILS" \| "BARS">\("CLEAN"\)/);
-  assert.match(shell, /if \(spaceReveal === "CLEAN"\) \{\s*space\.openInteractions\(\);\s*setSpaceReveal\("DETAILS"\);/);
-  assert.match(shell, /setSpaceReveal\("BARS"\)/);
+  assert.match(shell, /setSpaceReveal\(\(current\) => \(current === "CLEAN" \? "DETAILS" : "CLEAN"\)\)/);
+  assert.match(shell, /setSpaceReveal\(spaceReveal === "BARS" \? "DETAILS" : "BARS"\)/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /\{spaceReveal === "BARS" \? \(\s*<DigitalLifeBottomNav/);
   // No creator name, wordmark, edge handles or Space control panel on the clean canvas.
   assert.doesNotMatch(shell, /<OsWordmark|<HomeEdgeNav|<SpaceControls/);
   assert.match(shell, /useSpaceAutoSync\(experience, mediaBase, spaceMode && !preview\)/);
+});
+
+test("creator-sensitive top menu: Content first, then the creator's specialty", async () => {
+  const { osTopMenu } = await import("../../web/src/digital-life/personal-os/osIdentity.js");
+  const base = { slug: "x", identity: { displayName: "X", tagline: "", bio: "" }, publishedAssets: [], featuredAssets: [], offers: [], presentation: undefined };
+  const mixed = osTopMenu(base as never);
+  assert.deepEqual(mixed.primary.map((t) => t.label), ["Content", "Videos", "Books", "Courses"]);
+  assert.ok(mixed.more.some((t) => t.label === "Products"));
+  const singer = osTopMenu({ ...base, identity: { displayName: "X", tagline: "Singer and songwriter", bio: "" } } as never);
+  assert.deepEqual(singer.primary.map((t) => t.label).slice(0, 2), ["Content", "Audio"]);
+  const teacher = osTopMenu({ ...base, identity: { displayName: "X", tagline: "Maths tutor", bio: "" } } as never);
+  assert.equal(teacher.primary[1]!.label, "Courses");
+});
+
+test("installed Spaces are prepared invisibly: whole app + all media, then reported", () => {
+  const page = readFileSync(new URL("../../web/src/pages/PublicExperience.tsx", import.meta.url), "utf8");
+  assert.match(page, /if \(preparing\) return null;/);
+  assert.match(page, /syncSpaceOffline\(experience, `\/api\/public\/\$\{slug\}`/);
+  assert.match(page, /announceSpaceSynced\(result\)/);
+  const sw = readFileSync(new URL("../../web/public/sw-digital-life.js", import.meta.url), "utf8");
+  assert.match(sw, /cache\.put\(SHELL, response\)/);
+  assert.match(sw, /rangeResponse\(hit, range\)/);
 });
 
 test("the installed Space never shows the sign-in page", () => {

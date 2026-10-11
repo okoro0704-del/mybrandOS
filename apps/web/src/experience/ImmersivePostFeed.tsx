@@ -176,6 +176,7 @@ const PersistentCover = memo(function PersistentCover({
         const img = e.currentTarget;
         if (img.naturalWidth && img.naturalHeight) {
           img.dataset.intrinsic = `${img.naturalWidth}x${img.naturalHeight}`;
+          img.dataset.orientation = img.naturalHeight > img.naturalWidth * 1.1 ? "portrait" : "landscape";
           onIntrinsic?.(img.naturalWidth, img.naturalHeight);
         }
       }}
@@ -226,7 +227,10 @@ function PostSlide({
 }) {
   void basePath;
   void onToggleTop;
-  const appPost = useExperienceMode() === "APP";
+  // App and Space share one post architecture (details, action dock, composer under the post,
+  // transparent comments); the Space only keeps it hidden until a double-tap reveals it.
+  const mode = useExperienceMode();
+  const appPost = mode === "APP" || mode === "SPACE";
   const commentMode = interaction === "COMMENTS";
   // APP: the composer is always there for the active post; elsewhere it lives inside the comments layer.
   const composerLive = appPost ? active : commentMode;
@@ -790,7 +794,10 @@ export function ImmersivePostFeed({
   const holdTimerRef = useRef(0);
   const [documentHidden, setDocumentHidden] = useState(false);
   const [interactionNonce, setInteractionNonce] = useState(0);
-  const appPost = useExperienceMode() === "APP";
+  // App and Space share one post architecture (details, action dock, composer under the post,
+  // transparent comments); the Space only keeps it hidden until a double-tap reveals it.
+  const mode = useExperienceMode();
+  const appPost = mode === "APP" || mode === "SPACE";
   const viewportRef = useRef<HTMLDivElement>(null);
   const [swipePhase, setSwipePhase] = useState<SwipePhase>("RESTING");
   const swipePhaseRef = useRef<SwipePhase>("RESTING");

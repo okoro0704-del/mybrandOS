@@ -410,6 +410,8 @@ export function AdaptiveVideoPlayer({
             }
             if (v.videoWidth && v.videoHeight) {
               v.dataset.intrinsic = `${v.videoWidth}x${v.videoHeight}`;
+              // Portrait media fills the screen edge to edge; landscape keeps its letterbox.
+              v.dataset.orientation = v.videoHeight > v.videoWidth * 1.1 ? "portrait" : "landscape";
               onIntrinsic?.(v.videoWidth, v.videoHeight);
             }
           }}

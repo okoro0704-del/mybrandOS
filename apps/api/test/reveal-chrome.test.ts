@@ -13,7 +13,7 @@ import { isBrandLive, PUBLIC_LIVE_POLL_MS } from "../../web/src/digital-life/per
 import { personalOsName } from "../../web/src/digital-life/personal-os/osIdentity.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const shell = readFileSync(join(root, "apps/web/src/digital-life/shell/DigitalLifeShell.tsx"), "utf8");
 const chrome = readFileSync(join(root, "apps/web/src/digital-life/navigation/Chrome.tsx"), "utf8");
 const wordmark = readFileSync(join(root, "apps/web/src/digital-life/personal-os/OsWordmark.tsx"), "utf8");
@@ -55,7 +55,7 @@ test("OS identity is data-driven from slug, not hard-coded mrfundzman", () => {
 test("public shell uses one reveal controller over edge launchers", () => {
   assert.match(shell, /data-reveal-shell/);
   assert.match(shell, /useRevealDoubleTap/);
-  assert.match(shell, /className="space-launcher"/);
+  assert.match(shell, /className="space-ui-launcher"/);
   assert.match(shell, /toggleControls/);
   assert.equal(REVEAL_IDLE_MS, 3800);
 });

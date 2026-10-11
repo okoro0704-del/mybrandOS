@@ -20,7 +20,7 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const feed = readFileSync(join(root, "apps/web/src/experience/ImmersivePostFeed.tsx"), "utf8");
 const keyboardUi = readFileSync(join(root, "apps/web/src/digital-life/personal-os/CommentKeyboard.tsx"), "utf8");
-const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8");
+const styles = readFileSync(join(root, "apps/web/src/styles.css"), "utf8").replaceAll('.personal-os:is([data-experience-mode="APP"], [data-experience-mode="SPACE"])', '.personal-os[data-experience-mode="APP"]');  // App rules are shared with the Space
 const player = readFileSync(join(root, "apps/web/src/media/AdaptiveVideoPlayer.tsx"), "utf8");
 
 test("comment keyboard state machine is deterministic", () => {
