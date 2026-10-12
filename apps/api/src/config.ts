@@ -39,9 +39,9 @@ export const config = {
   trustIdRedirectUri: env("TRUSTID_REDIRECT_URI", "http://localhost:5176/auth/callback"),
   trustIdScopes: env(
     "TRUSTID_SCOPES",
-    // Add identity.step_up (Digi Twin / likeness authorization) only once the Trust ID release that
-    // grants it to mybrandos_public is live — Trust ID rejects sign-ins asking for scopes it does not allow.
-    "openid identity.basic identity.zk_claims identity.trust_level identity.verification_status",
+    // identity.step_up: Trust ID authorization of individual operations (Digi Twin, likeness consent).
+    // Granted to mybrandos_public by the Trust ID step-up release (TRUSTID #1).
+    "openid identity.basic identity.zk_claims identity.trust_level identity.verification_status identity.step_up",
   ),
   dataZoneApiUrl: env("DATAZONE_API_URL", "http://localhost:4200"),
   dataZoneApiKey: env("DATAZONE_API_KEY"),

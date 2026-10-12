@@ -78,7 +78,7 @@ function mapTrustIdError(result: { status: number; code: string; message: string
     throw new HttpError(
       409,
       "trustid_master_device_required",
-      "Register your phone as your Trust ID Master Device to authorize Digi Twin requests.",
+      "Set up your phone first: Trust ID app → Approvals → Use this phone. Then authorize again.",
     );
   }
   // Trust ID without the step-up release answers 404 for the whole step-up API: fail closed.

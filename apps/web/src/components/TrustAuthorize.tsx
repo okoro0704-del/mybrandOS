@@ -98,9 +98,12 @@ export function TrustAuthorize({
           <p className="small muted">
             {state === "running"
               ? "Approved. Working on it…"
-              : "Approve this request in Trust ID on your phone. It only allows this one request."}
+              : "Open the Trust ID app on your phone → Approvals → Requests from apps, and approve with your fingerprint or face. It only allows this one request."}
           </p>
           <div className="actions">
+            <a className="btn" href="https://trustedid.netlify.app/dashboard/approvals" target="_blank" rel="noopener noreferrer">
+              Open Trust ID Approvals
+            </a>
             <button
               className="btn ghost"
               type="button"
