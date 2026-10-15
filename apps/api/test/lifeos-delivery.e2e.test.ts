@@ -30,14 +30,35 @@ import {
 
 /**
  * End to end against a real, locally running LifeOS API (its own disposable Postgres):
- *   LIFEOS_E2E_URL=http://127.0.0.1:18790 LIFEOS_E2E_SECRET=... [LIFEOS_E2E_PG_CONTAINER=name]
+ *   LIFEOS_E2E_URL=http://127.0.0.1:18790 LIFEOS_E2E_SECRET=...
+ *   plus read access to LifeOS's test database, either
+ *     LIFEOS_E2E_PG_URL=postgresql://user:pass@127.0.0.1:5432/db   (direct; psql client, loopback hosts only), or
+ *     LIFEOS_E2E_PG_CONTAINER=name [LIFEOS_E2E_PG_DB=db]           (local fallback: docker exec psql).
+ * Without database access the suite is skipped with that reason rather than running weaker checks.
  * A pass-through proxy in front of LifeOS injects network faults (refused connections, dropped replies).
  */
 const LIFEOS = (process.env.LIFEOS_E2E_URL ?? "").replace(/\/$/, "");
 const SECRET = process.env.LIFEOS_E2E_SECRET ?? "";
+const PG_URL = process.env.LIFEOS_E2E_PG_URL ?? "";
 const PG_CONTAINER = process.env.LIFEOS_E2E_PG_CONTAINER ?? "";
 /** The database the running LifeOS API uses inside that container. */
 const PG_DB = process.env.LIFEOS_E2E_PG_DB ?? "lifeos_e2e";
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+if (PG_URL) {
+  // A disposable test database only: never a hosted or production database.
+  const host = new URL(PG_URL).hostname;
+  if (!LOOPBACK.has(host)) throw new Error(`LIFEOS_E2E_PG_URL must point at a loopback test database, not ${host}`);
+}
+const DB_ACCESS = Boolean(PG_URL || PG_CONTAINER);
+
+/** Read-only queries against LifeOS's test database (row checks). */
+function lifeosDb(sql: string): string {
+  if (PG_URL) {
+    // Options before the connection: Windows psql stops parsing options at the first positional argument.
+    return execFileSync(process.env.LIFEOS_E2E_PSQL || "psql", ["-At", "-v", "ON_ERROR_STOP=1", "-d", PG_URL, "-c", sql]).toString().trim();
+  }
+  return execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", PG_DB, "-At", "-c", sql]).toString().trim();
+}
 const HOUR = 60 * 60_000;
 const OWNER_A = "TD-E2E-LIFEOS-A";
 const OWNER_B = "TD-E2E-LIFEOS-B";
@@ -48,7 +69,11 @@ const PNG = Buffer.from(
 
 type Mode = "pass" | "refuse" | "drop_ack";
 
-describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECRET) && "LIFEOS_E2E_URL / LIFEOS_E2E_SECRET not set" }, () => {
+describe("mybrandOS → LifeOS delivery (real LifeOS)", {
+  skip: !(LIFEOS && SECRET)
+    ? "LIFEOS_E2E_URL / LIFEOS_E2E_SECRET not set"
+    : !DB_ACCESS && "LifeOS test database access not set (LIFEOS_E2E_PG_URL or LIFEOS_E2E_PG_CONTAINER)",
+}, () => {
   let proxy: http.Server;
   let proxyPort = 0;
   let mode: Mode = "pass";
@@ -132,12 +157,10 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
   }
   const inFeed = async (id: string) => (await feed()).filter((item) => item.originPublicationId === id);
 
-  function dbRows(id: string): Array<{ hidden: boolean; sequence: number | null }> | null {
-    if (!PG_CONTAINER) return null;
-    const out = execFileSync("docker", [
-      "exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", PG_DB, "-At", "-c",
+  function dbRows(id: string): Array<{ hidden: boolean; sequence: number | null }> {
+    const out = lifeosDb(
       `select ("hiddenAt" is not null), coalesce("originSequence", -1) from "PublicationProjection" where "originApplicationId"='mybrandos' and "originPublicationId"='${id.replace(/[^a-z0-9]/gi, "")}'`,
-    ]).toString().trim();
+    );
     return out ? out.split("\n").map((line) => {
       const [hidden, seq] = line.split("|");
       return { hidden: hidden === "t", sequence: Number(seq) === -1 ? null : Number(seq) };
@@ -229,7 +252,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     assert.equal(items[0].originTenantId, space.id);
     assert.equal((await studio(OWNER_A, id)).state, "delivered");
     const rows = dbRows(id);
-    if (rows) assert.deepEqual(rows, [{ hidden: false, sequence: 1 }]);
+    assert.deepEqual(rows, [{ hidden: false, sequence: 1 }]);
   });
 
   test("2. public photo post → feed with the public cover URL", async () => {
@@ -265,7 +288,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     }
     assert.equal((await inFeed(id)).length, 1);
     const rows = dbRows(id);
-    if (rows) assert.deepEqual(rows, [{ hidden: false, sequence: 4 }]);
+    assert.deepEqual(rows, [{ hidden: false, sequence: 4 }]);
   });
 
   test("5. lost acknowledgement after LifeOS stored it → retry acknowledged, still one row", async () => {
@@ -310,7 +333,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     assert.equal((await intent(OWNER_A, id)).status, "FAILED");
     assert.equal((await inFeed(id)).length, 0);
     const rows = dbRows(id);
-    if (rows) assert.equal(rows.length, 0);
+    assert.equal(rows.length, 0);
   });
 
   test("8. missing ingest configuration → nothing sent, post stays pending", async () => {
@@ -342,7 +365,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     assert.equal((await studio(OWNER_A, id)).state, "revoked");
     assert.equal((await inFeed(id)).length, 0);
     const rows = dbRows(id);
-    if (rows) assert.deepEqual(rows, [{ hidden: true, sequence: 2 }]);
+    assert.deepEqual(rows, [{ hidden: true, sequence: 2 }]);
   });
 
   test("11. a delayed publish retry arriving after the revocation cannot resurrect the post", async () => {
@@ -405,12 +428,10 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
   });
   // ---------------------------------------------------------------- hardening (round 2): needs the real mybrandOS API too
   const MB = (process.env.LIFEOS_E2E_MYBRANDOS_URL ?? "").replace(/\/$/, "");
-  const r2 = { skip: !(MB && PG_CONTAINER) && "LIFEOS_E2E_MYBRANDOS_URL / LIFEOS_E2E_PG_CONTAINER not set" };
+  const r2 = { skip: !MB && "LIFEOS_E2E_MYBRANDOS_URL not set" };
   const SECRET_TEXT = "E2E-PAID-TEXT-MUST-NOT-LEAK";
 
-  function psql(sql: string) {
-    return execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", PG_DB, "-At", "-c", sql]).toString().trim();
-  }
+  const psql = lifeosDb;
   function registerPullSource(slug: string) {
     psql(
       `insert into "PublicationSource"(id,"applicationId","tenantId",slug,"displayName","publicApiBaseUrl","publicDestination",status,"updatedAt") ` +
@@ -487,7 +508,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     }
     await reconcile();
     assert.equal(projectionRows(free), 1, "push + pull = one row");
-    const rows = dbRows(free)!;
+    const rows = dbRows(free);
     assert.deepEqual(rows, [{ hidden: false, sequence: 1 }], "push remains authoritative");
   });
 
