@@ -64,9 +64,13 @@ jobs:
       - name: Disposable SQLite schema
         working-directory: apps/api
         run: mkdir -p ../../.ci && npx prisma generate && npx prisma db push --skip-generate
+      # The spec reporter is pinned: Node 22 defaults to TAP when output is not a terminal.
       - name: Full API suite (no known failures; the cross-service e2e file reports itself as skipped here)
         working-directory: apps/api
-        run: npx tsx --experimental-test-module-mocks --test "test/**/*.test.ts"
+        run: npx tsx --experimental-test-module-mocks --test --test-reporter=spec "test/**/*.test.ts" 2>&1 | tee "$RUNNER_TEMP/api-tests.log"
+      - name: Report failing tests as annotations
+        if: failure()
+        run: bash .github/ci/annotate-failures.sh "$RUNNER_TEMP/api-tests.log"
 
   publication-e2e:
     name: cross-service publication e2e (mybrandOS + LifeOS + Postgres)
@@ -140,9 +144,12 @@ jobs:
           LIFEOS_E2E_MYBRANDOS_URL: http://127.0.0.1:18793
           LIFEOS_E2E_PG_URL: ${{ env.LIFEOS_PG }}
         run: |
-          LIFEOS_E2E_SECRET="$E2E_SECRET" npx tsx --experimental-test-module-mocks --test test/lifeos-delivery.e2e.test.ts | tee "$RUNNER_TEMP/e2e.log"
+          LIFEOS_E2E_SECRET="$E2E_SECRET" npx tsx --experimental-test-module-mocks --test --test-reporter=spec test/lifeos-delivery.e2e.test.ts 2>&1 | tee "$RUNNER_TEMP/e2e.log"
           # A skipped suite is not a pass.
           grep -Eq '^ℹ skipped 0$' "$RUNNER_TEMP/e2e.log" && grep -Eq '^ℹ pass 18$' "$RUNNER_TEMP/e2e.log"
+      - name: Report failing e2e scenarios as annotations
+        if: failure()
+        run: bash mybrandos/.github/ci/annotate-failures.sh "$RUNNER_TEMP/e2e.log"
       - name: The ingest secret never appears in service logs
         if: always()
         run: |
