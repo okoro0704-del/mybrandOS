@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { sendMediaStream } from "../lib/media-stream.js";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { digitalLifePath, normalizeSlug, publicApplicationUrl, type BrandMediaSlot } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
@@ -6,7 +7,7 @@ import { requestBrandSlug } from "../lib/surface.js";
 import {
   getPublicAsset,
   getPublicAssetCover,
-  getPublicAssetMedia,
+  resolvePublicAssetMedia,
   getPublicAssets,
   getPublicBrandExperience,
   getPublicBrandMedia,
@@ -177,42 +178,29 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.get("/public/:slug/assets/:id/cover", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const file = await getPublicAssetCover(slug, id, primitives);
+    const viewer = await resolveRequestIdentity(req, primitives);
+    const file = await getPublicAssetCover(slug, id, primitives, viewer?.ownerId ?? null);
     return reply
       .header("content-type", file.mimeType)
-      .header("cache-control", "public, max-age=86400")
+      // A locked cover was authorized for this viewer only: never let a shared cache keep it.
+      .header("cache-control", file.protected ? "private, no-store" : "public, max-age=86400")
       .header("content-disposition", `inline; filename="${file.filename}"`)
       .send(file.bytes);
   });
 
+  // Streamed by byte range straight from DataZone (lib/media-stream.ts) — never buffered whole.
   app.get("/public/:slug/assets/:id/media", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
     const viewer = await resolveRequestIdentity(req, primitives);
-    const file = await getPublicAssetMedia(slug, id, primitives, viewer?.ownerId ?? null);
-    const bytes = file.bytes;
-    const total = bytes.byteLength;
-    const range = String(req.headers.range || "");
-    reply.header("accept-ranges", "bytes");
-    reply.header("content-type", file.mimeType);
-    reply.header("cache-control", "public, max-age=86400");
-    reply.header("content-disposition", `inline; filename="${file.filename}"`);
-    if (range.startsWith("bytes=") && total > 0) {
-      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-      if (match) {
-        const start = match[1] ? Number(match[1]) : 0;
-        const end = match[2] ? Number(match[2]) : total - 1;
-        if (Number.isFinite(start) && Number.isFinite(end) && start <= end && start < total) {
-          const safeEnd = Math.min(end, total - 1);
-          const slice = bytes.subarray(start, safeEnd + 1);
-          return reply
-            .code(206)
-            .header("content-range", `bytes ${start}-${safeEnd}/${total}`)
-            .header("content-length", String(slice.byteLength))
-            .send(slice);
-        }
-      }
-    }
-    return reply.header("content-length", String(total)).send(bytes);
+    const range = typeof req.headers.range === "string" ? req.headers.range : "";
+    const playbackStart = !range || /^bytes=0-/.test(range.trim());
+    const media = await resolvePublicAssetMedia(slug, id, viewer?.ownerId ?? null, { countPlay: playbackStart });
+    // Paid media was authorized for this viewer only: never let a shared cache keep it.
+    return sendMediaStream(req, reply, {
+      dataZone: primitives.dataZone,
+      ...media,
+      cacheControl: media.protected ? "private, no-store" : undefined,
+    });
   });
 
   app.get("/public/:slug/assets/:id/social", async (req) => {

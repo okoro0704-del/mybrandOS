@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { safeLifeOsHook, syncLifeOsDeliveryForAsset } from "./lifeos-delivery.js";
 import {
   ASSET_TYPES,
   CATEGORY_TO_TYPES,
@@ -124,6 +125,15 @@ export async function updateAsset(
       title: `${row.title} → ${patch.status}`,
       assetId: id,
     });
+  }
+  if (
+    (patch.status && patch.status !== existing.status) ||
+    (patch.visibility && patch.visibility !== existing.visibility) ||
+    patch.metadata ||
+    patch.distribution
+  ) {
+    // Unpublish, archive, visibility or audience changes take an earlier LifeOS delivery down.
+    await safeLifeOsHook("asset_changed", () => syncLifeOsDeliveryForAsset(ownerId, id));
   }
   return toAsset(row);
 }

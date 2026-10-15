@@ -25,9 +25,14 @@ export async function addCreatorAssetToProduction(ownerId: string, assetId: stri
 export async function createProductionItemForUploadedAsset(ownerId: string, file: { filename: string; mimeType: string; bytes: Buffer }, rights: ProductionRights, primitives: PrimitiveBindings) {
   let stored; try { stored = await primitives.dataZone.storeBytes(file); } catch (error) { if (error instanceof PrimitiveError) throw new Error(`datazone_${error.code}`); throw new Error("datazone_unavailable"); }
   if (!stored.dataZoneId) throw new Error("datazone_unavailable");
-  const title = file.filename.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || file.filename;
   const checksum = createHash("sha256").update(file.bytes).digest("hex");
-  const asset = await createAsset({ ownerId, title, description: `Production upload: ${file.filename}`, assetType: "VIDEO", origin: "IMPORTED_FILE", originSource: file.filename, originRef: stored.dataZoneId, dataZoneId: stored.dataZoneId, visibility: "private", metadata: { filename: file.filename, mimeType: file.mimeType, sizeBytes: stored.sizeBytes, checksum, checksumAlgorithm: "sha256", productionUpload: true } });
+  return createProductionItemForStoredAsset(ownerId, { filename: file.filename, mimeType: file.mimeType, dataZoneId: stored.dataZoneId, sizeBytes: stored.sizeBytes ?? file.bytes.byteLength, checksum }, rights);
+}
+
+/** Catalogue a production upload already persisted (and verified) in DataZone. */
+export async function createProductionItemForStoredAsset(ownerId: string, file: { filename: string; mimeType: string; dataZoneId: string; sizeBytes: number; checksum: string }, rights: ProductionRights) {
+  const title = file.filename.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || file.filename;
+  const asset = await createAsset({ ownerId, title, description: `Production upload: ${file.filename}`, assetType: "VIDEO", origin: "IMPORTED_FILE", originSource: file.filename, originRef: file.dataZoneId, dataZoneId: file.dataZoneId, visibility: "private", metadata: { filename: file.filename, mimeType: file.mimeType, sizeBytes: file.sizeBytes, checksum: file.checksum, checksumAlgorithm: "sha256", productionUpload: true } });
   return { asset, item: await addCreatorAssetToProduction(ownerId, asset.id, { ...rights, sourceType: "DIRECT_UPLOAD" }) };
 }
 export async function updateProductionRights(ownerId: string, id: string, rights: ProductionRights) { if (!await getProductionItem(ownerId, id)) throw new Error("production_item_not_found"); return prisma.productionLibraryItem.update({ where: { id }, data: rightsData(rights) }); }

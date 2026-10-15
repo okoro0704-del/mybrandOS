@@ -9,7 +9,7 @@ import { requestBrandSlug } from "../lib/surface.js";
 import { trustIdCallbackUri } from "../lib/auth-origin.js";
 import { rememberProviderToken } from "../lib/provider-tokens.js";
 import { attachIdentity, completeHandoff, decideHandoff, handoffForBrowser, pollHandoff, startHandoff } from "../lib/signin-handoff.js";
-import { applyCreatorLink } from "../lib/creator-links.js";
+import { resolveCreatorLink } from "../lib/creator-links.js";
 import {
   clearSessionCookie,
   issueSession,
@@ -135,7 +135,7 @@ export function registerAuthRoutes(app: FastifyInstance, primitives: PrimitiveBi
     }
     const human = toIdentity(proof, true);
     // A human linked by the operator to a legacy creator account signs in as that account.
-    const identity = applyCreatorLink(human);
+    const identity = await resolveCreatorLink(human);
     if (identity !== human) req.log.info({ humanSubject: human.trustId, creatorAccount: identity.trustId }, "creator account link applied");
     if (stored.handoffId) {
       // Sign-in for an app elsewhere (OS Xperience): this browser gets no session, only the

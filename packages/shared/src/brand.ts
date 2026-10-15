@@ -169,6 +169,36 @@ export interface PublicAssetCard {
   /** Podcast episode published as MUSIC/VIDEO with podcast metadata — not a new Asset type. */
   isPodcast: boolean;
   presentation: PublicAssetPresentation;
+  /**
+   * Explicit audience. null = no explicit classification (published before audiences existed):
+   * still shown on the creator's own public app, but never syndicated to LifeOS.
+   */
+  access: PublicAccessClass | null;
+  /**
+   * PREMIUM / VIP (or an unknown access policy): only the public teaser (title, type, date) is exposed;
+   * text, description, cover and media require the viewer's entitlement.
+   */
+  locked: boolean;
+}
+
+export type PublicAccessClass = "FREE" | "PREMIUM" | "VIP";
+
+/**
+ * The single access classification for public surfaces. Fails closed: an access policy or audience
+ * that is not explicitly public/FREE is locked.
+ */
+export function publicAccessOf(metadata: Record<string, unknown> | null | undefined): {
+  access: PublicAccessClass | null;
+  locked: boolean;
+} {
+  const policy = typeof metadata?.accessPolicy === "string" ? metadata.accessPolicy : null;
+  const audience = typeof metadata?.audience === "string" ? metadata.audience : null;
+  if (policy === "CREATOR_VIP" || audience === "VIP") return { access: "VIP", locked: true };
+  if (policy === "PREMIUM" || audience === "PREMIUM") return { access: "PREMIUM", locked: true };
+  if ((policy !== null && policy !== "PUBLIC") || (audience !== null && audience !== "FREE")) {
+    return { access: null, locked: true };
+  }
+  return { access: audience === "FREE" ? "FREE" : null, locked: false };
 }
 
 export interface PublicAssetDetail extends PublicAssetCard {
@@ -363,5 +393,7 @@ export function publicAssetKeys(): Array<keyof PublicAssetCard> {
     "allowReuse",
     "isPodcast",
     "presentation",
+    "access",
+    "locked",
   ];
 }

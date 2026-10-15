@@ -382,7 +382,11 @@ export function CameraCapabilityPage() {
         ? "Synced to your Assets."
         : outcome.status === "AWAITING_ROUTE"
           ? "No connection to mybrandOS. Kept on this device."
-          : "Upload failed. Kept on this device.",
+          : outcome.status === "PROCESSING"
+            ? "Uploaded. mybrandOS is still processing it; it will finish without uploading again."
+            : outcome.status === "SYNC_FAILED" && outcome.error === "storage_full"
+              ? "Storage is full right now. Your capture is kept on this device; send it again later."
+              : "Upload failed. Kept on this device.",
     );
     refreshLocals();
   }

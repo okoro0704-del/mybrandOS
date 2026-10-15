@@ -391,6 +391,8 @@ export type LocalCapture = {
   status: LocalCaptureStatus;
   /** Set only after the server confirmed the upload. */
   remoteAssetId: string | null;
+  /** Import job finishing a stored upload (status PROCESSING); resumed instead of re-uploading. */
+  remoteImportJobId?: string | null;
   edits: CaptureEditMetadata;
   error: string | null;
   blob: Blob;
@@ -452,7 +454,7 @@ export async function updateLocalCaptureEdits(id: string, edits: CaptureEditMeta
 export async function transitionLocalCapture(
   id: string,
   event: LocalCaptureEvent,
-  opts?: { remoteAssetId?: string | null; error?: string | null },
+  opts?: { remoteAssetId?: string | null; error?: string | null; remoteImportJobId?: string | null },
 ): Promise<LocalCapture | null> {
   const row = await getLocalCapture(id);
   if (!row) return null;
@@ -461,6 +463,7 @@ export async function transitionLocalCapture(
     ...row,
     status,
     remoteAssetId: status === "SYNCED" ? opts?.remoteAssetId ?? null : row.remoteAssetId,
+    remoteImportJobId: status === "PROCESSING" ? opts?.remoteImportJobId ?? row.remoteImportJobId ?? null : null,
     error: status === "SYNC_FAILED" ? opts?.error ?? "upload_failed" : null,
     updatedAt: new Date().toISOString(),
   });

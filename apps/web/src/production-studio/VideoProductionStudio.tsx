@@ -259,7 +259,13 @@ export function VideoProductionStudio() {
       if (clip.source.kind === "capture" && !assetId) {
         const outcome = await syncLocalCapture(clip.source.captureId);
         if (outcome.status !== "SYNCED") {
-          setMessage(outcome.status === "AWAITING_ROUTE" ? "Publishing needs a connection. The capture stays on this device." : "Upload failed. The capture stays on this device.");
+          setMessage(
+            outcome.status === "AWAITING_ROUTE"
+              ? "Publishing needs a connection. The capture stays on this device."
+              : outcome.status === "PROCESSING"
+                ? "Uploaded. mybrandOS is still processing it; publish again in a moment (it will not upload twice)."
+                : "Upload failed. The capture stays on this device.",
+          );
           return;
         }
         assetId = outcome.assetId;

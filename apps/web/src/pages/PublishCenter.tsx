@@ -3,6 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ASSET_TYPE_LABELS,
+  IMPORT_JOB_STATUSES,
+  IMPORT_JOB_STATUS_LABELS,
+  trackImportJob,
+  type ImportJobSnapshot,
+  type ImportJobStatus,
   DEFAULT_PUBLISH_RIGHTS,
   PUBLISH_AUDIENCES,
   PUBLISH_AUDIENCE_DETAILS,
@@ -28,7 +33,17 @@ import {
   type PublishSourceId,
   type PublishVisibility,
 } from "@mybrandos/shared";
-import { ApiError, api, uploadForm } from "../lib/api";
+import { ApiError, api, assertUploadSize, uploadForm } from "../lib/api";
+import {
+  RESUMABLE_THRESHOLD_BYTES,
+  cancelResumableUpload,
+  describeUploadOutcome,
+  findPendingUploads,
+  matchesPending,
+  pendingFor,
+  uploadResumably,
+  type PendingUpload,
+} from "../lib/resumableUpload";
 import {
   SOURCE_TAB_IDS,
   SOURCE_TAB_LABELS,
@@ -42,7 +57,33 @@ import {
 
 type Step = "landing" | "source" | "setup" | "review" | "done" | "distribute";
 type SetupPanel = null | "schedule" | "audience" | "visibility" | "rights" | "surfaces";
-type UploadState = "idle" | "uploading" | "processing" | "ready" | "failed";
+type UploadState = "idle" | "uploading" | "paused" | "processing" | "pending" | "ready" | "failed";
+
+/** A large upload whose import job is still running; kept so a reload resumes it instead of re-uploading. */
+const PENDING_IMPORT_KEY = "mybrandos.publish.pendingImport";
+type PendingImport = { jobId: string; filename: string; startedAt: number };
+
+function readPendingImport(): PendingImport | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(PENDING_IMPORT_KEY) ?? "null") as PendingImport | null;
+    if (!value?.jobId || Date.now() - Number(value.startedAt) > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(PENDING_IMPORT_KEY);
+      return null;
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingImport(value: PendingImport | null) {
+  try {
+    if (value) localStorage.setItem(PENDING_IMPORT_KEY, JSON.stringify(value));
+    else localStorage.removeItem(PENDING_IMPORT_KEY);
+  } catch {
+    /* storage unavailable: tracking still works for this page */
+  }
+}
 
 type DriveFile = {
   id: string;
@@ -101,6 +142,25 @@ export function PublishCenterPage() {
   const [preview, setPreview] = useState<LocalMediaPreview | null>(null);
   const pendingFile = useRef<File | null>(null);
   const loadSeq = useRef(0);
+  const [importStatus, setImportStatus] = useState<ImportJobStatus | null>(null);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const tracking = useRef<AbortController | null>(null);
+  // Resumable (large) uploads: pause control, phase note, and uploads interrupted by a reload.
+  const uploadControl = useRef<AbortController | null>(null);
+  const [uploadNote, setUploadNote] = useState("");
+  const [interrupted, setInterrupted] = useState<PendingUpload[]>([]);
+
+  // Resume an import that was still processing when the page was left or reloaded.
+  useEffect(() => {
+    const pending = readPendingImport();
+    if (pending) void followImport(pending.jobId);
+    void findPendingUploads("import").then(setInterrupted);
+    return () => {
+      tracking.current?.abort();
+      uploadControl.current?.abort(); // leaving the page pauses; the upload can be resumed
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void api<{ categories: PublishCategoryInfo[]; sources: PublishSourceAvailability[] }>("/publish/center")
@@ -116,7 +176,13 @@ export function PublishCenterPage() {
   }, [preview]);
 
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  const canonicalReady = Boolean(selected) && uploadState !== "uploading" && uploadState !== "processing" && uploadState !== "failed";
+  const canonicalReady =
+    Boolean(selected) &&
+    uploadState !== "uploading" &&
+    uploadState !== "paused" &&
+    uploadState !== "processing" &&
+    uploadState !== "pending" &&
+    uploadState !== "failed";
   const scheduleReady = scheduleMode === "now" || Boolean(scheduledDate);
   const scheduleLabel =
     scheduleMode === "now" ? "Now" : scheduledDate ? `${scheduledDate} ${scheduledTime}` : "Choose time";
@@ -134,6 +200,11 @@ export function PublishCenterPage() {
     setPresentationTypes([]);
     setUploadState("idle");
     setUploadPercent(null);
+    setUploadMessage("");
+    setImportStatus(null);
+    // Stop watching; the import itself continues and its asset appears in Assets.
+    tracking.current?.abort();
+    writePendingImport(null);
     clearPreview();
   }
 
@@ -265,7 +336,12 @@ export function PublishCenterPage() {
     setUploadState("uploading");
     setUploadPercent(null);
     setError("");
+    if (file.size >= RESUMABLE_THRESHOLD_BYTES) {
+      await uploadLarge(file, local);
+      return;
+    }
     try {
+      await assertUploadSize(file);
       const form = new FormData();
       form.append("file", file, file.name);
       const data = await uploadForm<{
@@ -279,9 +355,8 @@ export function PublishCenterPage() {
         return;
       }
       if (data.status === "QUEUED" && data.jobId) {
-        setUploadState("processing");
-        const ready = await waitForQueuedAsset(data.jobId);
-        applyCandidate(candidateFromImportedAsset(ready), local);
+        writePendingImport({ jobId: data.jobId, filename: file.name, startedAt: Date.now() });
+        await followImport(data.jobId, local);
         return;
       }
       throw new Error("Upload failed. Retry.");
@@ -289,22 +364,154 @@ export function PublishCenterPage() {
       setUploadState("failed");
       setSelected(null);
       setSelectedId(null);
-      setError(err instanceof ApiError ? "Upload failed. Retry." : err instanceof Error ? err.message : "Upload failed. Retry.");
+      setError(err instanceof ApiError ? (["file_too_large", "storage_full", "too_many_uploads"].includes(err.code) ? err.message : "Upload failed. Retry.") : err instanceof Error ? err.message : "Upload failed. Retry.");
     }
   }
 
-  async function waitForQueuedAsset(jobId: string): Promise<ImportedAsset> {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const job = await api<{ status: string; assetIds: string[] }>(`/import-jobs/${jobId}`);
-      if (job.status === "FAILED") throw new Error("Upload failed. Retry.");
-      const assetId = job.assetIds?.[0];
-      if (job.status === "COMPLETED" && assetId) {
-        const data = await api<{ asset: ImportedAsset }>(`/assets/${assetId}`);
-        return data.asset;
-      }
+  /**
+   * Large files: short resumable chunk requests (survive slow links, drops and reloads). The
+   * completion result has the same shape as /import/file, so the import flow below is unchanged.
+   */
+  async function uploadLarge(file: File, local: LocalMediaPreview | null) {
+    uploadControl.current?.abort();
+    const control = new AbortController();
+    uploadControl.current = control;
+    setUploadState("uploading");
+    setUploadMessage("");
+    setUploadNote("");
+    try {
+      await assertUploadSize(file);
+    } catch (err) {
+      setUploadState("failed");
+      setUploadMessage(err instanceof ApiError ? err.message : "Upload failed. Retry.");
+      return;
     }
-    throw new Error("Upload failed. Retry.");
+    const outcome = await uploadResumably(file, {
+      purpose: "import",
+      signal: control.signal,
+      onProgress: (percent) => setUploadPercent(percent),
+      onPhase: (phase, detail) =>
+        setUploadNote(
+          phase === "uploading"
+            ? ""
+            : phase === "verifying"
+              ? "Verifying the upload…"
+              : phase === "offline"
+                ? "Offline. The upload continues when you are back online."
+                : (detail ?? "Waiting…"),
+        ),
+    });
+    if (uploadControl.current === control) uploadControl.current = null;
+    setUploadNote("");
+    if (outcome.kind === "completed") {
+      setInterrupted((rows) => rows.filter((row) => !matchesPending(file, row)));
+      const data = outcome.result as { assets?: ImportedAsset[]; status?: string; jobId?: string };
+      const asset = data.assets?.[0];
+      if (asset) {
+        applyCandidate(candidateFromImportedAsset(asset), local);
+        return;
+      }
+      if (data.status === "QUEUED" && data.jobId) {
+        writePendingImport({ jobId: data.jobId, filename: file.name, startedAt: Date.now() });
+        await followImport(data.jobId, local);
+        return;
+      }
+      setUploadState("failed");
+      setUploadMessage("The upload finished but nothing was imported. Retry.");
+      return;
+    }
+    if (outcome.kind === "cancelled") {
+      clearSelection();
+      return;
+    }
+    setUploadMessage(describeUploadOutcome(outcome));
+    setUploadState(outcome.kind === "paused" ? "paused" : "failed");
+    if (outcome.kind === "paused" && outcome.reason === "unreachable") {
+      window.addEventListener(
+        "online",
+        () => {
+          if (pendingFile.current === file) void uploadLarge(file, local);
+        },
+        { once: true },
+      );
+    }
+  }
+
+  function pauseLargeUpload() {
+    uploadControl.current?.abort();
+  }
+
+  async function cancelLargeUpload() {
+    const file = pendingFile.current;
+    uploadControl.current?.abort();
+    const pending = file ? pendingFor(file, "import") : undefined;
+    if (pending) await cancelResumableUpload(pending.uploadId);
+    clearSelection();
+  }
+
+  /** After a reload: the creator chose a file to continue an interrupted upload. */
+  async function resumeInterrupted(file: File, row: PendingUpload) {
+    if (!matchesPending(file, row)) {
+      setError(`That is not ${row.name}. Choose the original file to continue its upload.`);
+      return;
+    }
+    setError("");
+    setSource("external");
+    await uploadExternalFile(file);
+  }
+
+  async function discardInterrupted(row: PendingUpload) {
+    await cancelResumableUpload(row.uploadId);
+    setInterrupted((rows) => rows.filter((r) => r.uploadId !== row.uploadId));
+  }
+
+  /**
+   * Track a running import job. Slowness or a temporary network error is never shown as failure:
+   * only the job reporting FAILED or CANCELLED is. The file is never uploaded a second time.
+   */
+  async function followImport(jobId: string, local?: LocalMediaPreview | null) {
+    tracking.current?.abort();
+    const controller = new AbortController();
+    tracking.current = controller;
+    setUploadState("processing");
+    setUploadMessage("");
+    const outcome = await trackImportJob(jobId, {
+      fetchJob: (id) => api<ImportJobSnapshot>(`/import-jobs/${id}`),
+      errorStatus: (err) => (err instanceof ApiError ? err.status : undefined),
+      onUpdate: (job) =>
+        setImportStatus(IMPORT_JOB_STATUSES.includes(job.status as ImportJobStatus) ? (job.status as ImportJobStatus) : null),
+      signal: controller.signal,
+    });
+    if (controller.signal.aborted) return;
+    if (outcome.kind === "completed") {
+      try {
+        const data = await api<{ asset: ImportedAsset }>(`/assets/${outcome.assetId}`);
+        writePendingImport(null);
+        applyCandidate(candidateFromImportedAsset(data.asset), local);
+      } catch {
+        setUploadState("pending");
+        setUploadMessage("Your upload is ready, but it could not be opened here yet. Check again.");
+      }
+      return;
+    }
+    if (outcome.kind === "pending") {
+      setUploadState("pending");
+      setUploadMessage(
+        outcome.reason === "deadline"
+          ? "Still processing on mybrandOS. You can leave this page; it will be in your Assets when ready."
+          : "mybrandOS is not reachable right now. Your upload is safe; check again in a moment.",
+      );
+      return;
+    }
+    writePendingImport(null);
+    setUploadState("failed");
+    setUploadMessage(
+      outcome.kind === "failed"
+        ? outcome.reason
+        : outcome.kind === "cancelled"
+          ? "This import was cancelled."
+          : "This import could not be found. Upload the file again.",
+    );
   }
 
   function onExternalFile(file: File) {
@@ -434,6 +641,55 @@ export function PublishCenterPage() {
       </header>
 
       {error ? <p className="placeholder-note">{error}</p> : null}
+      {!preview && interrupted.length ? (
+        <div className="placeholder-note publish-upload-recover" aria-live="polite">
+          {interrupted.map((row) => (
+            <div key={row.uploadId} className="publish-upload-recover__row">
+              <p>
+                Your upload of <strong>{row.name}</strong> ({Math.round(row.size / 1024 / 1024)} MB) was interrupted. Choose the same
+                file to continue; nothing already sent is sent again.
+              </p>
+              <label className="btn">
+                Choose file
+                <input
+                  type="file"
+                  hidden
+                  accept={row.type || undefined}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) void resumeInterrupted(file, row);
+                  }}
+                />
+              </label>
+              <button type="button" className="btn ghost" onClick={() => void discardInterrupted(row)}>
+                Discard
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {!preview && (uploadState === "processing" || uploadState === "pending" || (uploadState === "failed" && uploadMessage)) ? (
+        <div className="placeholder-note publish-import-resume" aria-live="polite">
+          <p>
+            {uploadState === "processing"
+              ? `Your earlier upload is ${importStatus === "QUEUED" ? "waiting to be processed" : "processing"}…`
+              : uploadMessage}
+          </p>
+          {uploadState === "pending" ? (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                const pending = readPendingImport();
+                if (pending) void followImport(pending.jobId);
+              }}
+            >
+              Check again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {step === "landing" ? (
         <div className="publish-landing">
@@ -470,21 +726,72 @@ export function PublishCenterPage() {
                   <p className="publish-filename">{preview.name}</p>
                 )}
                 {uploadState === "uploading" ? (
-                  <p className="small muted publish-upload-status" aria-live="polite">
-                    {uploadPercent == null ? "Uploading…" : `Uploading… ${uploadPercent}%`}
-                  </p>
+                  <div className="publish-upload-progress" aria-live="polite">
+                    <p className="small muted publish-upload-status">
+                      {uploadPercent == null ? "Uploading…" : `Uploading… ${uploadPercent}%`}
+                      {uploadNote ? ` · ${uploadNote}` : ""}
+                    </p>
+                    {uploadControl.current ? (
+                      <div className="publish-upload-actions">
+                        <button type="button" className="btn ghost" onClick={pauseLargeUpload}>
+                          Pause
+                        </button>
+                        <button type="button" className="btn ghost" onClick={() => void cancelLargeUpload()}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {uploadState === "paused" ? (
+                  <div className="publish-upload-paused" aria-live="polite">
+                    <p className="small muted">
+                      {uploadPercent != null ? `${uploadPercent}% uploaded. ` : ""}
+                      {uploadMessage}
+                    </p>
+                    <div className="publish-upload-actions">
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          const file = pendingFile.current;
+                          if (file) void uploadLarge(file, preview);
+                        }}
+                      >
+                        Resume
+                      </button>
+                      <button type="button" className="btn ghost" onClick={() => void cancelLargeUpload()}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
                 {uploadState === "processing" ? (
                   <p className="small muted publish-upload-status" aria-live="polite">
-                    Processing…
+                    {importStatus ? IMPORT_JOB_STATUS_LABELS[importStatus] : "Processing…"}
                   </p>
+                ) : null}
+                {uploadState === "pending" ? (
+                  <div className="publish-upload-pending" aria-live="polite">
+                    <p className="small muted">{uploadMessage}</p>
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => {
+                        const pending = readPendingImport();
+                        if (pending) void followImport(pending.jobId, preview);
+                      }}
+                    >
+                      Check again
+                    </button>
+                  </div>
                 ) : null}
                 {uploadState === "ready" ? (
                   <p className="small muted publish-upload-status">Ready</p>
                 ) : null}
                 {uploadState === "failed" ? (
                   <div className="publish-upload-fail">
-                    <p className="small">Upload failed. Retry.</p>
+                    <p className="small">{uploadMessage || "Upload failed. Retry."}</p>
                     <button
                       type="button"
                       className="btn ghost"
@@ -918,10 +1225,16 @@ export function PublishCenterPage() {
                   <div className="small muted">{item.detail}</div>
                 </div>
                 <span className="chip">
-                  {item.state === "published" || item.state === "connected" || item.state === "configured" || item.state === "eligible"
+                  {item.state === "published" ||
+                  item.state === "delivered" ||
+                  item.state === "connected" ||
+                  item.state === "configured" ||
+                  item.state === "eligible"
                     ? "✓"
-                    : "○"}{" "}
-                  {item.state.replace("_", " ")}
+                    : item.state === "failed"
+                      ? "!"
+                      : "○"}{" "}
+                  {item.state.replaceAll("_", " ")}
                 </span>
               </div>
             ))}

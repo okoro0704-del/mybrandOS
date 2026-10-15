@@ -33,6 +33,8 @@ import { registerProductionLibraryRoutes } from "./routes/production-library.js"
 import { registerPublicBroadcastRoutes } from "./routes/public-broadcast.js";
 import { registerRecordingRoutes } from "./routes/recording.js";
 import { registerWhiteLabelRoutes } from "./routes/white-label.js";
+import { registerCreatorLinkRoutes } from "./routes/creator-links.js";
+import { registerUploadRoutes } from "./routes/uploads.js";
 import { registerInternalDigitalLifeRoutes } from "./routes/internal-digital-life.js";
 import { registerInternalDraftRoutes } from "./routes/internal-drafts.js";
 import { registerPublishRoutes } from "./routes/publish.js";
@@ -110,6 +112,7 @@ app.setErrorHandler((err, _req, reply) => {
     return reply.code(err.status).send({ error: err.service, message: err.message });
   }
   if (err instanceof HttpError) {
+    for (const [name, value] of Object.entries(err.headers)) reply.header(name, value);
     return reply.code(err.statusCode).send({ error: err.code, message: err.message });
   }
   const status =
@@ -168,6 +171,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerAuthRoutes(instance, primitives);
   registerAssetRoutes(instance, primitives);
   registerImportRoutes(instance, primitives);
+  registerUploadRoutes(instance, primitives);
   registerCreateRoutes(instance, primitives);
   registerCreationRoutes(instance, primitives);
   registerBookRoutes(instance, primitives);
@@ -190,6 +194,7 @@ async function registerApiSurface(instance: typeof app, opts: { includeHealth?: 
   registerPublicBroadcastRoutes(instance);
   registerJobRoutes(instance, primitives);
   registerWhiteLabelRoutes(instance, primitives);
+  registerCreatorLinkRoutes(instance);
   registerInternalDigitalLifeRoutes(instance, primitives);
   registerInternalDraftRoutes(instance, primitives);
   registerPublishRoutes(instance, primitives);
@@ -230,3 +235,6 @@ await app.listen({ port: config.port, host: config.host });
 
 const { startScheduledPublishScanner } = await import("./publish/service.js");
 startScheduledPublishScanner(primitives);
+
+const { startLifeOsDeliveryWorker } = await import("./services/lifeos-delivery.js");
+startLifeOsDeliveryWorker({ log: app.log });

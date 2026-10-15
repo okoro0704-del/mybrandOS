@@ -88,3 +88,22 @@ export function uploadForm<T>(
     xhr.send(form);
   });
 }
+
+let uploadLimit: Promise<number | null> | null = null;
+
+/**
+ * Refuse a file the API would reject for size before any bytes are sent. If the limit cannot be
+ * read the upload proceeds and the server enforces it.
+ */
+export async function assertUploadSize(file: Blob): Promise<void> {
+  uploadLimit ??= api<{ maxFileBytes: number }>("/import/limits")
+    .then((limits) => limits.maxFileBytes)
+    .catch(() => {
+      uploadLimit = null;
+      return null;
+    });
+  const max = await uploadLimit;
+  if (max && file.size > max) {
+    throw new ApiError(413, "file_too_large", `This file is larger than the ${Math.floor(max / 1024 / 1024)} MB upload limit.`);
+  }
+}

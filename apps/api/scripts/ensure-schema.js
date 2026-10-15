@@ -29,18 +29,20 @@ try {
   // Newer additive tables. A failure here can only ever mean "apply the additive schema"
   // (exit 2), never a reseed (exit 1): the table checks must not throw into the catch below.
   let missingAdditiveTables = false;
-  for (const table of ["TrustAuthorization", "LikenessRequest"]) {
+  for (const table of ["TrustAuthorization", "LikenessRequest", "CreatorAccountLink", "CreatorAccountLinkAudit", "ScheduledPublish", "MediaUploadSession"]) {
     const found = await prisma
       .$queryRawUnsafe(`SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='${table}' LIMIT 1`)
       .catch(() => []);
     if (!Array.isArray(found) || found.length === 0) missingAdditiveTables = true;
   }
+  const importJobCols = await prisma.$queryRawUnsafe("PRAGMA table_info(ImportJob)").catch(() => []);
   await prisma.$disconnect();
   if (!names.includes("presentationConfig")) process.exit(2);
   if (!sessionNames.includes("authMethod")) process.exit(2);
   // Additive columns: a missing one means "apply the additive schema" (db push), never a reseed.
   if (!sessionNames.includes("providerToken")) process.exit(2);
   if (!names.includes("managers")) process.exit(2);
+  if (Array.isArray(importJobCols) && importJobCols.length && !importJobCols.some((c) => c && c.name === "uploadSessionId")) process.exit(2);
   if (missingAdditiveTables) process.exit(2);
   if (!Array.isArray(draftIdem) || draftIdem.length === 0) process.exit(2);
   if (!Array.isArray(publishIdem) || publishIdem.length === 0) process.exit(2);

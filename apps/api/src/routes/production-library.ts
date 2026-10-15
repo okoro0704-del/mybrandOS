@@ -1,14 +1,35 @@
 import type { FastifyInstance } from "fastify";
+import { streamMultipartFilesToDataZone } from "../lib/streaming-upload.js";
+import { HttpError } from "../lib/errors.js";
 import { z } from "zod";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { requireIdentity } from "../lib/auth.js";
-import { addCreatorAssetToProduction, addScheduleEntry, createDraftSchedule, createProductionItemForUploadedAsset, createProgram, getProductionItem, getSchedule, listProductionItems, listPrograms, publishSchedule, removeProductionItem, removeScheduleEntry, reorderScheduleEntries, setScheduleStart, updateProductionRights } from "../services/production-library-service.js";
-const rights = z.object({ sourceType: z.enum(["CREATOR_LIBRARY", "DIRECT_UPLOAD", "SUPPLIED", "LICENSED", "SYNDICATED", "PUBLIC_DOMAIN", "COMMISSIONED"]), rightsBasis: z.enum(["OWNED", "LICENSED", "SYNDICATED", "SUPPLIED", "COMMISSIONED", "PUBLIC_DOMAIN", "OTHER"]), rightsReference: z.string().nullable().optional(), validFrom: z.string().datetime().nullable().optional(), validUntil: z.string().datetime().nullable().optional(), territory: z.string().nullable().optional(), notes: z.string().nullable().optional(), allowedChannels: z.array(z.string()).optional() }).transform((value) => ({ ...value, validFrom: value.validFrom ? new Date(value.validFrom) : null, validUntil: value.validUntil ? new Date(value.validUntil) : null }));
+import { addCreatorAssetToProduction, addScheduleEntry, createDraftSchedule, createProductionItemForStoredAsset, createProgram, getProductionItem, getSchedule, listProductionItems, listPrograms, publishSchedule, removeProductionItem, removeScheduleEntry, reorderScheduleEntries, setScheduleStart, updateProductionRights } from "../services/production-library-service.js";
+/** Production rights as accepted by every production-library route (also used by resumable uploads). */
+export const productionRightsSchema = z.object({ sourceType: z.enum(["CREATOR_LIBRARY", "DIRECT_UPLOAD", "SUPPLIED", "LICENSED", "SYNDICATED", "PUBLIC_DOMAIN", "COMMISSIONED"]), rightsBasis: z.enum(["OWNED", "LICENSED", "SYNDICATED", "SUPPLIED", "COMMISSIONED", "PUBLIC_DOMAIN", "OTHER"]), rightsReference: z.string().nullable().optional(), validFrom: z.string().datetime().nullable().optional(), validUntil: z.string().datetime().nullable().optional(), territory: z.string().nullable().optional(), notes: z.string().nullable().optional(), allowedChannels: z.array(z.string()).optional() }).transform((value) => ({ ...value, validFrom: value.validFrom ? new Date(value.validFrom) : null, validUntil: value.validUntil ? new Date(value.validUntil) : null }));
+const rights = productionRightsSchema;
 export function registerProductionLibraryRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
   app.get("/production/library", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return { items: await listProductionItems(s.ownerId) }; });
   app.get("/production/library/:id", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return { item: await getProductionItem(s.ownerId, (req.params as { id: string }).id) }; });
   app.post("/production/library/creator-assets/:assetId", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return addCreatorAssetToProduction(s.ownerId, (req.params as { assetId: string }).assetId, rights.parse(req.body)); });
-  app.post("/production/library/upload", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; let parsed: ReturnType<typeof rights.parse> | null = null; for await (const part of req.parts()) { if (part.type === "field" && part.fieldname === "rights") parsed = rights.parse(JSON.parse(String(part.value))); if (part.type === "file") { if (!parsed) return reply.code(400).send({ error: "rights_required" }); return createProductionItemForUploadedAsset(s.ownerId, { filename: part.filename, mimeType: part.mimetype || "application/octet-stream", bytes: await part.toBuffer() }, parsed, primitives); } } return reply.code(400).send({ error: "no_files" }); });
+  // Streamed to DataZone (lib/streaming-upload.ts); the rights field must precede the file.
+  app.post("/production/library/upload", async (req, reply) => {
+    const s = await requireIdentity(req, reply, primitives);
+    if (!s) return;
+    let parsed: ReturnType<typeof rights.parse> | null = null;
+    const files = await streamMultipartFilesToDataZone(req, primitives.dataZone, {
+      maxFiles: 1,
+      onField: (name, value) => {
+        if (name === "rights") parsed = rights.parse(JSON.parse(value));
+      },
+      beforeFile: () => {
+        if (!parsed) throw new HttpError(400, "rights_required", "Send the rights field before the file.");
+      },
+    });
+    const file = files[0];
+    if (!file || !parsed) return reply.code(400).send({ error: "no_files" });
+    return createProductionItemForStoredAsset(s.ownerId, { filename: file.filename, mimeType: file.mimeType, dataZoneId: file.stored.dataZoneId, sizeBytes: file.stored.sizeBytes, checksum: file.stored.originHash }, parsed);
+  });
   app.patch("/production/library/:id/rights", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return updateProductionRights(s.ownerId, (req.params as { id: string }).id, rights.parse(req.body)); });
   app.delete("/production/library/:id", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return { removed: await removeProductionItem(s.ownerId, (req.params as { id: string }).id) }; });
   app.get("/production/tv/programs", async (req, reply) => { const s = await requireIdentity(req, reply, primitives); if (!s) return; return { programs: await listPrograms(s.ownerId) }; });

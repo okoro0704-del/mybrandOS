@@ -241,6 +241,19 @@ export interface PublishExecuteResult {
 export interface PublishDistributionSummaryItem {
   id: string;
   label: string;
-  state: "published" | "eligible" | "connected" | "not_connected" | "configured" | "unavailable";
+  state:
+    | "published"
+    | "eligible"
+    | "connected"
+    | "not_connected"
+    | "configured"
+    | "unavailable"
+    // LifeOS delivery: "delivered" only after LifeOS acknowledged storing the post.
+    | "pending"
+    | "delivering"
+    | "delivered"
+    | "failed"
+    | "revoked"
+    | "not_distributed";
   detail: string;
 }

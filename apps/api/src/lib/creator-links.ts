@@ -1,13 +1,18 @@
 import type { TrustIdIdentity } from "@mybrandos/shared";
+import { prisma } from "./prisma.js";
 
 /**
  * Creator account links: a human's Trust ID subject → an existing legacy creator account.
  *
  * Some creator accounts predate Trust ID: they were provisioned as white-label accounts with a
  * synthetic owner id (TD-WL-<BRAND>) and own all of that brand's content. A real Trust ID login
- * can only manage them once the platform operator links the two, in the API service config:
+ * can only manage them once the platform operator links the two, either in the database through
+ * the protected operator endpoint (routes/creator-links.ts; applies at the next sign-in, no
+ * restart) or, for compatibility, in the API service config:
  *
  *   CREATOR_ACCOUNT_LINKS=TD-FNWN43T0=TD-WL-MRFUNDZMAN[,<subject>=<legacy account>...]
+ *
+ * A configured link takes precedence; the endpoint refuses links that conflict with one.
  *
  * Proof of both sides: the operator (only someone with access to the service configuration can
  * declare a link) and the human (the link applies only after a real Trust ID sign-in as that
@@ -18,8 +23,8 @@ import type { TrustIdIdentity } from "@mybrandos/shared";
  * mybrandOS sees one owner) and records the human's subject in identity.humanSubject.
  */
 
-const SUBJECT = /^TD-(?!WL-)[A-Z0-9][A-Z0-9-]{1,78}$/;
-const LEGACY_ACCOUNT = /^TD-WL-[A-Z0-9]{1,74}$/;
+export const SUBJECT = /^TD-(?!WL-)[A-Z0-9][A-Z0-9-]{1,78}$/;
+export const LEGACY_ACCOUNT = /^TD-WL-[A-Z0-9]{1,74}$/;
 
 export type CreatorLinks = { bySubject: Map<string, string>; problems: string[] };
 
@@ -56,4 +61,14 @@ export function applyCreatorLink(identity: TrustIdIdentity, links: CreatorLinks 
   const account = links.bySubject.get(identity.trustId);
   if (!account) return identity;
   return { ...identity, trustId: account, humanSubject: identity.trustId };
+}
+
+/** As applyCreatorLink, also consulting operator links stored in the database. */
+export async function resolveCreatorLink(identity: TrustIdIdentity): Promise<TrustIdIdentity> {
+  const configured = applyCreatorLink(identity);
+  if (configured !== identity) return configured;
+  if (!SUBJECT.test(identity.trustId)) return identity;
+  const stored = await prisma.creatorAccountLink.findUnique({ where: { subject: identity.trustId } });
+  if (!stored || !LEGACY_ACCOUNT.test(stored.account)) return identity;
+  return { ...identity, trustId: stored.account, humanSubject: identity.trustId };
 }
