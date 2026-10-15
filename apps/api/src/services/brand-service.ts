@@ -932,7 +932,8 @@ export async function getPublicAssetMedia(
 
   await assertProtectedAccess(space.ownerId, readJson<Record<string, unknown>>(asset.metadata, {}), viewerBuyerId);
 
-  return readAssetCover(asset.dataZoneId, primitives);
+  // Entitlement-gated media must never be kept by a shared cache.
+  return { ...(await readAssetCover(asset.dataZoneId, primitives)), protected: publicAccessOf(readJson<Record<string, unknown>>(asset.metadata, {})).locked };
 }
 
 /** Record public view/play on existing Asset.analytics — no separate engagement backend. */

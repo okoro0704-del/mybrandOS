@@ -228,3 +228,25 @@ test("media access uses the same fail-closed classification (audience-only PREMI
   });
   await assert.rejects(() => getPublicAssetMedia(SLUG, video.id, primitives() as never, null), /Premium/);
 });
+
+test("media: paid media is marked protected (private, no-store); FREE media stays publicly cacheable", async () => {
+  const store = async (name: string) => (await dataZone.storeBytes({ filename: name, mimeType: "video/mp4", bytes: Buffer.from("video-bytes") })).dataZoneId;
+  const make = async (title: string, metadata: Record<string, unknown>) =>
+    (await createAsset({
+      ownerId: OWNER, title, description: "", assetType: "VIDEO", origin: "IMPORTED_FILE", status: "PUBLISHED", visibility: "public",
+      dataZoneId: await store(`${title}.mp4`), metadata: { presentationTypes: ["WATCH"], ...metadata },
+    })).id;
+  const freeVideo = await make("free video", { audience: "FREE", accessPolicy: "PUBLIC" });
+  const paidVideo = await make("premium video", { audience: "PREMIUM", accessPolicy: "PREMIUM" });
+  // BUYER holds an ACTIVE Premium entitlement from this creator (created in the cover test).
+  const paid = await getPublicAssetMedia(SLUG, paidVideo, primitives() as never, BUYER);
+  assert.equal(paid.protected, true);
+  const free = await getPublicAssetMedia(SLUG, freeVideo, primitives() as never, null);
+  assert.equal(free.protected, false);
+  const freeHttp = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${freeVideo}/media` });
+  assert.equal(freeHttp.statusCode, 200);
+  assert.match(String(freeHttp.headers["cache-control"]), /public/);
+  const paidHttp = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${paidVideo}/media` });
+  assert.equal(paidHttp.statusCode, 403, "anonymous caller");
+  assert.ok(!String(paidHttp.headers["cache-control"] ?? "").includes("public, max-age"));
+});

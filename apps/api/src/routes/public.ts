@@ -196,7 +196,8 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
     const range = String(req.headers.range || "");
     reply.header("accept-ranges", "bytes");
     reply.header("content-type", file.mimeType);
-    reply.header("cache-control", "public, max-age=86400");
+    // Paid media was authorized for this viewer only: never let a shared cache keep it.
+    reply.header("cache-control", file.protected ? "private, no-store" : "public, max-age=86400");
     reply.header("content-disposition", `inline; filename="${file.filename}"`);
     if (range.startsWith("bytes=") && total > 0) {
       const match = /^bytes=(\d*)-(\d*)$/.exec(range);

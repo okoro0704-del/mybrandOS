@@ -426,9 +426,14 @@ test("concurrent workers: exactly one claims and sends", async () => {
   const assetId = await publishPost();
   const id = (await intentFor(assetId)).id;
   let release!: () => void;
-  replies.push(() => new Promise<Response>((resolve) => (release = () => resolve(ack()))));
+  let started!: () => void;
+  const inFlight = new Promise<void>((resolve) => (started = resolve));
+  replies.push(() => {
+    started();
+    return new Promise<Response>((resolve) => (release = () => resolve(ack())));
+  });
   const workers = [deliverLifeOsIntent(id, deps()), deliverLifeOsIntent(id, deps()), runLifeOsDeliveryPass(deps(), { ownerId: OWNER })];
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  await inFlight; // LifeOS is now holding the first request
   release();
   await Promise.all(workers);
   assert.equal(sent.length, 1);
@@ -528,9 +533,14 @@ test("revoke during an in-flight publish: the late acknowledgement does not over
   const assetId = await publishPost();
   const id = (await intentFor(assetId)).id;
   let release!: () => void;
-  replies.push(() => new Promise<Response>((resolve) => (release = () => resolve(ack()))));
+  let started!: () => void;
+  const inFlight = new Promise<void>((resolve) => (started = resolve));
+  replies.push(() => {
+    started();
+    return new Promise<Response>((resolve) => (release = () => resolve(ack())));
+  });
   const inflight = deliverLifeOsIntent(id, deps());
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await inFlight; // the publish is in flight at LifeOS
   await updateAsset(OWNER, assetId, { status: "DRAFT" });
   release();
   await inflight;
