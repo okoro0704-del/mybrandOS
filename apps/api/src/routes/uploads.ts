@@ -24,7 +24,11 @@ const CHUNK_TYPE = "application/offset+octet-stream";
  */
 export function registerUploadRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
   // A chunk is small (≤ 16 MiB) and arrives whole; buffering one is bounded.
-  app.addContentTypeParser(CHUNK_TYPE, { parseAs: "buffer", bodyLimit: 17 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+  // Development registers the API surface at the root and again under /api; the /api scope inherits the
+  // root parser, and registering it twice throws FST_ERR_CTP_ALREADY_PRESENT at boot.
+  if (!app.hasContentTypeParser(CHUNK_TYPE)) {
+    app.addContentTypeParser(CHUNK_TYPE, { parseAs: "buffer", bodyLimit: 17 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+  }
 
   app.post("/uploads", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
