@@ -3,6 +3,7 @@ import { conflict } from "../lib/errors.js";
 import { requireAsset } from "./access.js";
 import { getAssetIntelligence } from "./studio.js";
 import { recordActivity, updateAsset } from "../services/asset-service.js";
+import { safeLifeOsHook, syncLifeOsDeliveryForAsset } from "../services/lifeos-delivery.js";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 
 export async function previewDeletion(userId: string, assetId: string, primitives: PrimitiveBindings) {
@@ -37,6 +38,8 @@ export async function deleteAssetSafe(userId: string, assetId: string, primitive
   });
   await prisma.activity.updateMany({ where: { assetId }, data: { assetId: null } });
   await prisma.asset.delete({ where: { id: assetId } });
+  // The intent outlives the asset, so a delivered post is still taken down in LifeOS.
+  await safeLifeOsHook("asset_deleted", () => syncLifeOsDeliveryForAsset(userId, assetId, "asset_deleted"));
   await recordActivity({
     ownerId: userId,
     kind: "deleted",

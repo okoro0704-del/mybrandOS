@@ -1,4 +1,5 @@
 import type { PrimitiveBindings } from "@mybrandos/integrations";
+import { requestLifeOsPublish } from "../services/lifeos-delivery.js";
 import { PrimitiveError, liveDestinationsOf } from "@mybrandos/integrations";
 import {
   DEFAULT_PROFILE_FOR_TYPE,
@@ -183,22 +184,8 @@ export async function publishAsPost(
   const types = presentationTypesOf(metadata, access.asset.assetType);
   if (!types.includes("POST")) types.push("POST");
   await writePresentations(sourceAssetId, { ...metadata, postBody: input.body ?? "" }, types);
-  await prisma.distributionIntent.create({
-    data: {
-      ownerId,
-      projectId: access.asset.sourceProjectId ?? sourceAssetId,
-      assetId: sourceAssetId,
-      mode: "LIFEOS_POST",
-      status: "recorded",
-      payload: writeJson({
-        presentationType: "POST",
-        profileId: "POST_STANDARD",
-        destination: "LIFEOS",
-        destinationKind: "internal",
-        body: input.body ?? "",
-      }),
-    },
-  });
+  // One durable LifeOS intent per asset; eligibility (public, FREE, text/photo) decides delivery.
+  await requestLifeOsPublish(ownerId, sourceAssetId, access.asset.sourceProjectId ?? undefined);
   return { assetId: sourceAssetId, presentationTypes: types, destination: "LIFEOS" as const };
 }
 

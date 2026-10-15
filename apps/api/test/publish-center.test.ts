@@ -450,7 +450,11 @@ test("photo publish creates POST presentation, public projection, and LifeOS int
   assert.ok(posts.some((item) => item.id === draft.id));
 
   const summary = await buildDistributionSummary(OWNER, draft.id, primitives());
-  assert.ok(summary.items.some((item) => item.id === "lifeos" && item.state === "published"));
+  // Recording an intent is not delivery: LifeOS shows as delivered only after LifeOS acknowledges it.
+  const lifeosItem = summary.items.find((item) => item.id === "lifeos");
+  assert.equal(lifeosItem?.state, "pending");
+  assert.match(lifeosItem!.detail, /Waiting for LifeOS delivery/);
+  assert.equal(intents[0].status, "PENDING");
 });
 
 test("POST presentation is not treated as generic discovery chip content", async () => {
@@ -720,6 +724,8 @@ test("video publish requires presentation, preserves master rendition, projects 
     where: { ownerId: OWNER, assetId: draft.id, mode: "LIFEOS_POST" },
   });
   assert.equal(intents2.length, 1);
+  // Video is withheld from LifeOS in this release (LifeOS would render the poster as the media).
+  assert.equal(intents2[0].status, "NOT_ELIGIBLE");
 
   const lifeos = validateDestinationForVideo({
     destination: "LIFEOS",

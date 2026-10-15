@@ -918,10 +918,16 @@ export function PublishCenterPage() {
                   <div className="small muted">{item.detail}</div>
                 </div>
                 <span className="chip">
-                  {item.state === "published" || item.state === "connected" || item.state === "configured" || item.state === "eligible"
+                  {item.state === "published" ||
+                  item.state === "delivered" ||
+                  item.state === "connected" ||
+                  item.state === "configured" ||
+                  item.state === "eligible"
                     ? "✓"
-                    : "○"}{" "}
-                  {item.state.replace("_", " ")}
+                    : item.state === "failed"
+                      ? "!"
+                      : "○"}{" "}
+                  {item.state.replaceAll("_", " ")}
                 </span>
               </div>
             ))}

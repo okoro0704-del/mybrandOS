@@ -40,6 +40,7 @@ import {
 import { prisma } from "../lib/prisma.js";
 import { readJson, writeJson } from "../lib/json.js";
 import { badRequest, conflict, notFound, unavailable } from "../lib/errors.js";
+import { safeLifeOsHook, syncLifeOsDeliveriesForOwner } from "./lifeos-delivery.js";
 import { listPublicEligible, listPublished } from "./asset-service.js";
 import { isDistributedLiveToLifeOs } from "../live/distributions.js";
 import type { Asset } from "@mybrandos/shared";
@@ -464,6 +465,12 @@ export async function updateBrandConfig(
       ...(presentation !== undefined ? { presentationConfig: writeJson(presentation) } : {}),
     },
   });
+
+  const displayNameChanged = patch.displayName !== undefined && patch.displayName !== existing?.displayName;
+  if (existing && (existing.slug !== slug || existing.publicEnabled !== publicEnabled || displayNameChanged)) {
+    // Address, public switch or name changed: LifeOS copies are re-sent (or taken down when not public).
+    await safeLifeOsHook("space_changed", () => syncLifeOsDeliveriesForOwner(ownerId));
+  }
 
   return getBrandConfig(identity, primitives);
 }
