@@ -1,0 +1,156 @@
+name: ci
+
+# Tests only. No deployment, no environments, no repository secrets, no write scopes.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Production runs Node 20 (apps/api/Dockerfile: node:20-slim): typecheck and build with it.
+  NODE_BUILD: "20.20.2"
+  # The API test script uses --experimental-test-module-mocks, which needs Node >= 22.3.
+  NODE_TEST: "22.23.3"
+  # Cross-repository pin: LifeOS publication ingest (okoro0704-del/LifeOS-Shell-, fix/publication-ingest-ordering).
+  LIFEOS_REF: "11813b962d30b5ce2468967d7d11e2b36632d92f"
+
+jobs:
+  typecheck:
+    name: typecheck (api + web, Node 20)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_BUILD }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations
+      - name: API typecheck
+        working-directory: apps/api
+        run: npx prisma generate && npx tsc --noEmit
+      - name: Web typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+  api-tests:
+    name: API regression suite (full, incl. 500 MB streaming)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NODE_ENV: test
+      DATABASE_URL: file:${{ github.workspace }}/.ci/api-tests.db
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_TEST }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # The web build is required: surface-routing tests serve apps/web/dist.
+      - run: npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations && npm run build -w @mybrandos/web
+      - name: Disposable SQLite schema
+        working-directory: apps/api
+        run: mkdir -p ../../.ci && npx prisma generate && npx prisma db push --skip-generate
+      - name: Full API suite (no known failures; the cross-service e2e file reports itself as skipped here)
+        working-directory: apps/api
+        run: npx tsx --experimental-test-module-mocks --test "test/**/*.test.ts"
+
+  publication-e2e:
+    name: cross-service publication e2e (mybrandOS + LifeOS + Postgres)
+    needs: typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+        env:
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: lifeos_e2e
+        ports: ["127.0.0.1:5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U e2e -d lifeos_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NODE_ENV: test
+      LIFEOS_PG: postgresql://e2e:e2e@127.0.0.1:5432/lifeos_e2e
+      MB_DB: file:${{ github.workspace }}/.ci/e2e-mybrandos.db
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: mybrandos
+          persist-credentials: false
+      - name: Checkout LifeOS at the pinned revision (public, read-only)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: okoro0704-del/LifeOS-Shell-
+          ref: ${{ env.LIFEOS_REF }}
+          path: lifeos
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_TEST }}
+      - name: Ephemeral test-only ingest secret (never a real credential)
+        run: echo "E2E_SECRET=ci-$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+      - name: Build mybrandOS
+        working-directory: mybrandos
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build -w @mybrandos/shared && npm run build -w @mybrandos/integrations
+          mkdir -p ../.ci && cd apps/api && npx prisma generate && DATABASE_URL="$MB_DB" npx prisma db push --skip-generate
+      - name: Build LifeOS API
+        working-directory: lifeos
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build -w @lifeos/shared && npm run build -w @lifeos/experience-sdk && npm run build -w @lifeos/token-network
+          cd apps/lifeos-api && npx prisma generate && DATABASE_URL="$LIFEOS_PG" npx prisma db push --skip-generate
+      - name: Start mybrandOS API (development profile; delivery unconfigured, local primitives)
+        working-directory: mybrandos/apps/api
+        run: |
+          DATABASE_URL="$MB_DB" PORT=18793 HOST=127.0.0.1 NODE_ENV=development PRIMITIVES_MODE=local \
+            nohup npx tsx src/index.ts > "$RUNNER_TEMP/mybrandos.log" 2>&1 &
+      - name: Start LifeOS API (points only at the local mybrandOS)
+        working-directory: lifeos/apps/lifeos-api
+        run: |
+          DATABASE_URL="$LIFEOS_PG" PORT=18790 HOST=127.0.0.1 NODE_ENV=development \
+            LIFEOS_PUBLICATION_INGEST_SECRET="$E2E_SECRET" MYBRANDOS_API_URL=http://127.0.0.1:18793 \
+            nohup npx tsx src/index.ts > "$RUNNER_TEMP/lifeos.log" 2>&1 &
+      - name: Wait for both APIs
+        run: |
+          curl --retry 60 --retry-connrefused --retry-delay 2 -fsS http://127.0.0.1:18793/api/health > /dev/null
+          curl --retry 60 --retry-connrefused --retry-delay 2 -fsS http://127.0.0.1:18790/health > /dev/null
+      - name: Cross-service e2e (18 scenarios; database access is mandatory)
+        working-directory: mybrandos/apps/api
+        env:
+          DATABASE_URL: ${{ env.MB_DB }}
+          LIFEOS_E2E_URL: http://127.0.0.1:18790
+          LIFEOS_E2E_MYBRANDOS_URL: http://127.0.0.1:18793
+          LIFEOS_E2E_PG_URL: ${{ env.LIFEOS_PG }}
+        run: |
+          LIFEOS_E2E_SECRET="$E2E_SECRET" npx tsx --experimental-test-module-mocks --test test/lifeos-delivery.e2e.test.ts | tee "$RUNNER_TEMP/e2e.log"
+          # A skipped suite is not a pass.
+          grep -Eq '^ℹ skipped 0$' "$RUNNER_TEMP/e2e.log" && grep -Eq '^ℹ pass 18$' "$RUNNER_TEMP/e2e.log"
+      - name: The ingest secret never appears in service logs
+        if: always()
+        run: |
+          if grep -qF "$E2E_SECRET" "$RUNNER_TEMP/mybrandos.log" "$RUNNER_TEMP/lifeos.log"; then echo "secret leaked into logs"; exit 1; fi
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: publication-e2e-logs
+          path: ${{ runner.temp }}/*.log
+          retention-days: 7
