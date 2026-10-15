@@ -36,6 +36,8 @@ import {
 const LIFEOS = (process.env.LIFEOS_E2E_URL ?? "").replace(/\/$/, "");
 const SECRET = process.env.LIFEOS_E2E_SECRET ?? "";
 const PG_CONTAINER = process.env.LIFEOS_E2E_PG_CONTAINER ?? "";
+/** The database the running LifeOS API uses inside that container. */
+const PG_DB = process.env.LIFEOS_E2E_PG_DB ?? "lifeos_e2e";
 const HOUR = 60 * 60_000;
 const OWNER_A = "TD-E2E-LIFEOS-A";
 const OWNER_B = "TD-E2E-LIFEOS-B";
@@ -133,7 +135,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
   function dbRows(id: string): Array<{ hidden: boolean; sequence: number | null }> | null {
     if (!PG_CONTAINER) return null;
     const out = execFileSync("docker", [
-      "exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", "lifeos_e2e", "-At", "-c",
+      "exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", PG_DB, "-At", "-c",
       `select ("hiddenAt" is not null), coalesce("originSequence", -1) from "PublicationProjection" where "originApplicationId"='mybrandos' and "originPublicationId"='${id.replace(/[^a-z0-9]/gi, "")}'`,
     ]).toString().trim();
     return out ? out.split("\n").map((line) => {
@@ -407,7 +409,7 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
   const SECRET_TEXT = "E2E-PAID-TEXT-MUST-NOT-LEAK";
 
   function psql(sql: string) {
-    return execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", "lifeos_e2e", "-At", "-c", sql]).toString().trim();
+    return execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", PG_DB, "-At", "-c", sql]).toString().trim();
   }
   function registerPullSource(slug: string) {
     psql(
