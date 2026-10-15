@@ -65,10 +65,10 @@ test("publication action hood is Love Comment Save Reuse Share", () => {
   assert.match(styles, /\.living-gallery__caption\s*\{[^}]*color:\s*#111/s);
 });
 
-test("studio dock is Home Create Camera Publish More; Assets is a side rail", () => {
+test("studio dock is Home Studio Camera Publish More; Assets is a side rail", () => {
   assert.deepEqual(
     DOCK_NAV.map((item) => item.id),
-    ["home", "create", "camera", "publish"],
+    ["home", "studio", "camera", "publish"],
   );
   assert.match(osShell, /dock-label">More</);
   assert.match(osShell, /asset-rail/);
