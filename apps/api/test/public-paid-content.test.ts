@@ -10,6 +10,7 @@ import {
   LocalTrustIdAdapter,
   UnboundAiProvider,
   UnboundPlatformJobsAdapter,
+  toIdentity,
 } from "@mybrandos/integrations";
 import { publicAccessOf, type TrustIdIdentity } from "@mybrandos/shared";
 import { prisma } from "../src/lib/prisma.js";
@@ -22,6 +23,8 @@ import {
   updateBrandConfig,
 } from "../src/services/brand-service.js";
 import { registerPublicRoutes } from "../src/routes/public.js";
+import { issueSession } from "../src/lib/auth.js";
+import type { FastifyReply } from "fastify";
 
 const OWNER = "TD-PAID-CONTENT-OWNER";
 const OTHER = "TD-PAID-CONTENT-OTHER";
@@ -249,4 +252,30 @@ test("media: paid media is marked protected (private, no-store); FREE media stay
   const paidHttp = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${paidVideo}/media` });
   assert.equal(paidHttp.statusCode, 403, "anonymous caller");
   assert.ok(!String(paidHttp.headers["cache-control"] ?? "").includes("public, max-age"));
+});
+
+test("HTTP, entitled viewer: streamed paid media and paid covers are served private, no-store", async () => {
+  const fakeReply = { setCookie() { return fakeReply; } } as unknown as FastifyReply;
+  const { token } = await issueSession(toIdentity({ trustId: BUYER, displayName: "Buyer", status: "local" }, false), fakeReply, "trustid");
+  const headers = { "x-mybrandos-session": token };
+  const bytes = Buffer.alloc(64 * 1024, 7);
+  const video = await createAsset({
+    ownerId: OWNER, title: "entitled video", description: "", assetType: "VIDEO", origin: "IMPORTED_FILE", status: "PUBLISHED", visibility: "public",
+    dataZoneId: (await dataZone.storeBytes({ filename: "e.mp4", mimeType: "video/mp4", bytes })).dataZoneId,
+    metadata: { presentationTypes: ["WATCH"], audience: "PREMIUM", accessPolicy: "PREMIUM", mimeType: "video/mp4", sizeBytes: bytes.length },
+  });
+  const whole = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${video.id}/media`, headers });
+  assert.equal(whole.statusCode, 200);
+  assert.equal(whole.headers["cache-control"], "private, no-store");
+  assert.equal(whole.rawPayload.length, bytes.length);
+  const ranged = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${video.id}/media`, headers: { ...headers, range: "bytes=1024-2047" } });
+  assert.equal(ranged.statusCode, 206);
+  assert.equal(ranged.headers["cache-control"], "private, no-store");
+  assert.equal(ranged.rawPayload.length, 1024);
+  const cover = await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${ids.premium}/cover`, headers });
+  assert.equal(cover.statusCode, 200);
+  assert.equal(cover.headers["cache-control"], "private, no-store");
+  // The same requests without the session are refused.
+  assert.equal((await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${video.id}/media` })).statusCode, 403);
+  assert.equal((await app.inject({ method: "GET", url: `/api/public/${SLUG}/assets/${ids.premium}/cover` })).statusCode, 403);
 });
