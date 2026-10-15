@@ -401,4 +401,141 @@ describe("mybrandOS → LifeOS delivery (real LifeOS)", { skip: !(LIFEOS && SECR
     assert.equal(after.title, itemA.title);
     assert.equal(after.authorSlug, "e2e-creator-a");
   });
+  // ---------------------------------------------------------------- hardening (round 2): needs the real mybrandOS API too
+  const MB = (process.env.LIFEOS_E2E_MYBRANDOS_URL ?? "").replace(/\/$/, "");
+  const r2 = { skip: !(MB && PG_CONTAINER) && "LIFEOS_E2E_MYBRANDOS_URL / LIFEOS_E2E_PG_CONTAINER not set" };
+  const SECRET_TEXT = "E2E-PAID-TEXT-MUST-NOT-LEAK";
+
+  function psql(sql: string) {
+    return execFileSync("docker", ["exec", PG_CONTAINER, "psql", "-U", "e2e", "-d", "lifeos_e2e", "-At", "-c", sql]).toString().trim();
+  }
+  function registerPullSource(slug: string) {
+    psql(
+      `insert into "PublicationSource"(id,"applicationId","tenantId",slug,"displayName","publicApiBaseUrl","publicDestination",status,"updatedAt") ` +
+        `values ('src-${slug}','mybrandos','tenant-${slug}','${slug}','${slug}','${MB}','https://${slug}.getlifeos.app/','active',now()) on conflict do nothing`,
+    );
+  }
+  async function reconcile() {
+    const res = await fetch(`${LIFEOS}/v1/publications/reconcile`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${SECRET}` },
+      body: "{}",
+    });
+    assert.equal(res.status, 200);
+    return (await res.json()).report;
+  }
+  async function paidPost(ownerId: string, audience: "PREMIUM" | "VIP") {
+    const id = await publish(ownerId, { kind: "photo", audience, caption: SECRET_TEXT });
+    return id;
+  }
+  const projectionRows = (id: string) => Number(psql(`select count(*) from "PublicationProjection" where "originPublicationId"='${id.replace(/[^a-z0-9]/gi, "")}'`));
+
+  test("14. real mybrandOS API: PREMIUM/VIP listing and detail expose only a teaser", r2, async () => {
+    const premium = await paidPost(OWNER_A, "PREMIUM");
+    const vip = await paidPost(OWNER_A, "VIP");
+    const free = await publish(OWNER_A, { caption: "E2E-FREE-TEXT" });
+    const list = await (await fetch(`${MB}/api/public/e2e-creator-a`)).json();
+    const byId = new Map((list.publishedAssets as Array<Record<string, unknown>>).map((a) => [a.id, a]));
+    for (const id of [premium, vip]) {
+      const card = byId.get(id)!;
+      assert.equal(card.locked, true);
+      assert.ok(!JSON.stringify(card).includes(SECRET_TEXT));
+      const detail = await fetch(`${MB}/api/public/e2e-creator-a/assets/${id}`);
+      assert.equal(detail.status, 200);
+      assert.ok(!(await detail.text()).includes(SECRET_TEXT), "direct asset-id request is a teaser too");
+    }
+    assert.equal((byId.get(free) as { access: string }).access, "FREE");
+    assert.ok(!JSON.stringify(list).includes(SECRET_TEXT));
+  });
+
+  test("15. real mybrandOS API: protected covers are 403 for anonymous callers; FREE covers are public", r2, async () => {
+    const premium = await paidPost(OWNER_A, "PREMIUM");
+    const free = await publish(OWNER_A, { kind: "photo" });
+    const denied = await fetch(`${MB}/api/public/e2e-creator-a/assets/${premium}/cover`);
+    assert.equal(denied.status, 403);
+    assert.ok(!(denied.headers.get("content-type") ?? "").startsWith("image/"));
+    // The local DataZone adapter keeps bytes in memory per process, so the server cannot read bytes this test
+    // process stored: it answers 404 (no bytes), never 403. Byte serving + public caching of FREE covers is
+    // verified over HTTP in-process in public-paid-content.test.ts.
+    const ok = await fetch(`${MB}/api/public/e2e-creator-a/assets/${free}/cover`);
+    assert.notEqual(ok.status, 403, "FREE covers are never refused for access reasons");
+  });
+
+  test("16. real pull reconciler rejects paid and unclassified posts; FREE pushed posts are not duplicated", r2, async () => {
+    const premium = await paidPost(OWNER_A, "PREMIUM");
+    const vip = await paidPost(OWNER_A, "VIP");
+    const legacy = await createAsset({
+      ownerId: OWNER_A,
+      title: "E2E unclassified legacy",
+      description: "",
+      assetType: "WRITING",
+      origin: "IMPORTED_FILE",
+      status: "PUBLISHED",
+      visibility: "public",
+      metadata: { presentationTypes: ["POST"] },
+    });
+    const free = await publish(OWNER_A);
+    await pass(OWNER_A);
+    registerPullSource("e2e-creator-a");
+    const report = await reconcile();
+    assert.equal(report.errors, 0);
+    for (const id of [premium, vip, legacy.id]) {
+      assert.equal(projectionRows(id), 0, `pull must not ingest ${id}`);
+      assert.equal((await inFeed(id)).length, 0);
+    }
+    await reconcile();
+    assert.equal(projectionRows(free), 1, "push + pull = one row");
+    const rows = dbRows(free)!;
+    assert.deepEqual(rows, [{ hidden: false, sequence: 1 }], "push remains authoritative");
+  });
+
+  test("17. historical posts: not sent by default; dry run → bounded, idempotent operator backfill", r2, async () => {
+    const id = await publish(OWNER_A, { caption: "E2E-HISTORICAL" });
+    const row = await intent(OWNER_A, id);
+    await prisma.distributionIntent.update({ where: { id: row.id }, data: { status: "projected", payload: "{}" } });
+    await pass(OWNER_A);
+    assert.equal(ingestCalls.filter((c) => c.publicationId === id).length, 0, "historical row not auto-delivered");
+    const { inventoryLifeOsBackfill, runLifeOsBackfill } = await import("../src/services/lifeos-backfill.js");
+    const dry = await inventoryLifeOsBackfill({ slug: "e2e-creator-a" });
+    assert.equal(dry.candidates.find((c) => c.assetId === id)?.decision, "eligible");
+    for (const paid of dry.candidates.filter((c) => c.reason === "not_free")) assert.notEqual(paid.decision, "eligible");
+    const env = { LIFEOS_API_URL: `http://127.0.0.1:${proxyPort}`, LIFEOS_PUBLICATION_INGEST_SECRET: SECRET };
+    assert.equal((await runLifeOsBackfill({ slug: "e2e-creator-a", batchId: "e2e-1", env }) as { refused?: string }).refused, "backfill_disabled");
+    const run = await runLifeOsBackfill({ slug: "e2e-creator-a", batchId: "e2e-1", limit: 50, env: { ...env, LIFEOS_BACKFILL_ENABLED: "true" } });
+    assert.ok(run.ok && run.scheduled.includes(id));
+    await pass(OWNER_A);
+    assert.equal((await inFeed(id)).length, 1);
+    const again = await runLifeOsBackfill({ slug: "e2e-creator-a", batchId: "e2e-1", limit: 50, env: { ...env, LIFEOS_BACKFILL_ENABLED: "true" } });
+    assert.ok(again.ok && again.scheduled.length === 0);
+    await pass(OWNER_A);
+    assert.equal(projectionRows(id), 1);
+    assert.equal(ingestCalls.filter((c) => c.publicationId === id).length, 1);
+  });
+
+  test("18. creator public-space shutdown removes pushed and pulled posts from LifeOS", r2, async () => {
+    const pushed = await publish(OWNER_B, { caption: "E2E-B-PUSHED" });
+    await pass(OWNER_B);
+    // A FREE post that only the pull reconciler knows (no push intent).
+    const pulledOnly = await createAsset({
+      ownerId: OWNER_B,
+      title: "E2E pulled only",
+      description: "",
+      assetType: "WRITING",
+      origin: "IMPORTED_FILE",
+      status: "PUBLISHED",
+      visibility: "public",
+      metadata: { presentationTypes: ["POST"], audience: "FREE", accessPolicy: "PUBLIC", postBody: "pulled" },
+    });
+    registerPullSource("e2e-creator-b");
+    await reconcile();
+    assert.equal((await inFeed(pushed)).length, 1);
+    assert.equal((await inFeed(pulledOnly.id)).length, 1);
+    await updateBrandConfig(identity(OWNER_B), { publicEnabled: false });
+    await pass(OWNER_B);
+    const report = await reconcile();
+    assert.ok(report.hidden >= 1);
+    assert.equal((await inFeed(pushed)).length, 0, "push revocation");
+    assert.equal((await inFeed(pulledOnly.id)).length, 0, "pull hides when the space is gone");
+    assert.equal(psql(`select status||':'||coalesce("lastError",'') from "PublicationSource" where slug='e2e-creator-b'`), "inactive:public_contract_gone");
+  });
 });

@@ -448,13 +448,44 @@ test("process restart: an expired lease is reclaimed; a live lease is respected"
   assert.equal((await intentFor(assetId)).status, "DELIVERED");
 });
 
-test("legacy rows (projected / QUEUED) are picked up instead of staying undelivered forever", async () => {
+test("historical rows (projected / QUEUED) are NOT delivered automatically; a fresh publish delivers", async () => {
   const assetId = await publishPost();
   const row = await intentFor(assetId);
   await prisma.distributionIntent.update({ where: { id: row.id }, data: { status: "QUEUED", payload: JSON.stringify({ platformJobId: "job-1" }) } });
+  await runLifeOsDeliveryPass(deps(24 * HOUR), { ownerId: OWNER });
+  assert.equal(sent.length, 0);
+  const item = await lifeosItem(assetId);
+  assert.equal(item.state, "eligible");
+  assert.match(item.detail, /Publish again/);
+  // A space change must not sneak historical rows out either.
+  await updateBrandConfig(identity(OWNER), { displayName: "Delivery Creator Renamed" });
+  await runLifeOsDeliveryPass(deps(24 * HOUR), { ownerId: OWNER });
+  assert.equal(sent.length, 0);
+  assert.equal((await intentFor(assetId)).status, "QUEUED");
+  // The creator publishing again is a fresh publication.
+  await requestLifeOsPublish(OWNER, assetId);
   await runLifeOsDeliveryPass(deps(), { ownerId: OWNER });
   assert.equal(sent.length, 1);
-  assert.equal((await intentFor(assetId)).status, "DELIVERED");
+  assert.equal(sent[0].body.originSequence, 1);
+  await updateBrandConfig(identity(OWNER), { displayName: "Delivery Creator" });
+});
+
+test("posts without an explicit FREE audience are not delivered", async () => {
+  const asset = await createAsset({
+    ownerId: OWNER,
+    title: "legacy public post",
+    description: "",
+    assetType: "WRITING",
+    origin: "IMPORTED_FILE",
+    status: "PUBLISHED",
+    visibility: "public",
+    metadata: { presentationTypes: ["POST"] },
+  });
+  const row = await requestLifeOsPublish(OWNER, asset.id);
+  assert.equal(row?.status, "NOT_ELIGIBLE");
+  assert.equal(readDeliveryState(row!).ineligibleReason, "audience_unclassified");
+  await runLifeOsDeliveryPass(deps(HOUR), { ownerId: OWNER });
+  assert.equal(sent.length, 0);
 });
 
 // ------------------------------------------------------------------ unpublish + revocation

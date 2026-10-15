@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { parsePresentationTypes, parsePublicSurfaceDestinations, publicApplicationUrl } from "@mybrandos/shared";
+import { parsePresentationTypes, parsePublicSurfaceDestinations, publicAccessOf, publicApplicationUrl } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson, writeJson } from "../lib/json.js";
 
@@ -27,9 +27,13 @@ export type LifeOsDeliveryStatus =
   | "NOT_ELIGIBLE"
   | "SUPERSEDED";
 
-/** Statuses written before durable delivery existed: never delivered, so they are picked up as PENDING. */
-const LEGACY_PENDING = new Set(["projected", "QUEUED", "queued", "recorded"]);
-const CLAIMABLE = ["PENDING", "RETRY_PENDING", "DELIVERING", ...LEGACY_PENDING];
+/**
+ * Statuses written before durable delivery existed. They were never delivered and are NOT picked up
+ * automatically: historical posts reach LifeOS only through an operator backfill (lifeos-backfill.ts)
+ * or when the creator publishes again.
+ */
+export const LEGACY_STATUSES = new Set(["projected", "QUEUED", "queued", "recorded"]);
+const CLAIMABLE = ["PENDING", "RETRY_PENDING", "DELIVERING"];
 
 export const LIFEOS_RETRY_BASE_MS = 15_000;
 export const LIFEOS_RETRY_MAX_MS = 60 * 60_000;
@@ -207,12 +211,16 @@ function freshState(desired: DeliveryState["desiredState"], version: number): De
 export function readDeliveryState(row: { payload: string; status: string }): DeliveryState {
   const raw = readJson<Partial<DeliveryState> & Record<string, unknown>>(row.payload, {});
   if (raw.v === 2) return { ...freshState("PUBLISHED", 1), ...raw } as DeliveryState;
-  // Pre-delivery rows (projected / QUEUED / recorded) were never sent: deliver their publish as version 1, due now.
-  return { ...freshState("PUBLISHED", 1), nextAttemptAt: new Date(0).toISOString() };
+  // Historical rows (projected / QUEUED / recorded) were never sent; scheduling them starts at version 1.
+  return freshState("PUBLISHED", 0);
 }
 
-function normalizedStatus(status: string): LifeOsDeliveryStatus {
-  return LEGACY_PENDING.has(status) ? "PENDING" : (status as LifeOsDeliveryStatus);
+export function isLegacyIntent(row: { status: string; payload: string }): boolean {
+  return LEGACY_STATUSES.has(row.status) || readJson<{ v?: number }>(row.payload, {}).v !== 2;
+}
+
+function normalizedStatus(status: string): LifeOsDeliveryStatus | "LEGACY" {
+  return LEGACY_STATUSES.has(status) ? "LEGACY" : (status as LifeOsDeliveryStatus);
 }
 
 function withHistory(state: DeliveryState, event: string, extra: { httpStatus?: number | null; code?: string } = {}): DeliveryState {
@@ -271,12 +279,16 @@ export function lifeOsEligibility(asset: AssetRow | null, space: SpaceRow | null
   if (asset.status !== "PUBLISHED") return { ok: false, reason: "not_published", detail: "Not published in mybrandOS." };
   if (asset.visibility !== "public") return { ok: false, reason: "not_public", detail: "Only public posts are delivered to LifeOS." };
   const meta = readJson<Record<string, unknown>>(asset.metadata, {});
-  if (meta.audience !== "FREE" || (meta.accessPolicy !== undefined && meta.accessPolicy !== "PUBLIC")) {
+  const { access, locked } = publicAccessOf(meta);
+  if (locked) {
     return {
       ok: false,
       reason: "not_free",
       detail: "PREMIUM and VIP posts are not delivered to LifeOS until LifeOS supports paid-content access.",
     };
+  }
+  if (access !== "FREE") {
+    return { ok: false, reason: "audience_unclassified", detail: "Only posts with an explicit FREE audience are delivered to LifeOS." };
   }
   const types = parsePresentationTypes(meta.presentationTypes);
   if (!types.includes("POST") || NON_POST_TYPES.has(asset.assetType)) {
@@ -451,7 +463,7 @@ export async function syncLifeOsDeliveryForAsset(ownerId: string, assetId: strin
   if (!row) return null;
   const state = readDeliveryState(row);
   const status = normalizedStatus(row.status);
-  if (state.desiredState !== "PUBLISHED" || status === "NOT_ELIGIBLE") return row;
+  if (state.desiredState !== "PUBLISHED" || status === "NOT_ELIGIBLE" || status === "LEGACY") return row;
   const { asset, space } = await loadSource(ownerId, assetId);
   if (lifeOsEligibility(asset, space).ok) return row;
   return schedule(ownerId, assetId, "REVOKED", reason);
@@ -468,12 +480,48 @@ export async function syncLifeOsDeliveriesForOwner(ownerId: string, reason = "sp
     if (!row.assetId || seen.has(row.assetId)) continue;
     seen.add(row.assetId);
     const state = readDeliveryState(row);
-    if (state.desiredState !== "PUBLISHED") continue;
+    const status = normalizedStatus(row.status);
+    // Historical rows are only ever sent through an operator backfill.
+    if (state.desiredState !== "PUBLISHED" || status === "LEGACY") continue;
     // Re-sending carries the new address; delivery-time eligibility turns it into a revoke when not public.
-    if (state.lastSent || normalizedStatus(row.status) !== "NOT_ELIGIBLE") {
+    if (state.lastSent || status !== "NOT_ELIGIBLE") {
       await schedule(ownerId, row.assetId, "PUBLISHED", reason);
     }
   }
+}
+
+/**
+ * Operator backfill of one historical post. Only a post with no intent, or with a pre-delivery (legacy)
+ * intent, is scheduled; anything already managed by durable delivery — delivered, pending, failed,
+ * withheld or revoked — is left alone, so a backfill can never override a newer revocation.
+ */
+export async function scheduleBackfillDelivery(
+  ownerId: string,
+  assetId: string,
+  batchId: string,
+): Promise<{ scheduled: true; intentId: string } | { scheduled: false; reason: string }> {
+  for (let tries = 0; tries < 8; tries += 1) {
+    const { asset, space } = await loadSource(ownerId, assetId);
+    if (!asset || asset.ownerId !== ownerId) return { scheduled: false, reason: "asset_missing" };
+    const eligibility = lifeOsEligibility(asset, space);
+    if (!eligibility.ok) return { scheduled: false, reason: eligibility.reason };
+    const row = await canonicalIntent(ownerId, assetId);
+    if (row && !isLegacyIntent(row)) return { scheduled: false, reason: "already_managed" };
+    if (!row) {
+      const created = await schedule(ownerId, assetId, "PUBLISHED", `backfill:${batchId}`);
+      return created ? { scheduled: true, intentId: created.id } : { scheduled: false, reason: "not_scheduled" };
+    }
+    const next = withHistory(
+      { ...readDeliveryState(row), desiredState: "PUBLISHED", version: 1, attempts: 0, nextAttemptAt: nowIso() },
+      `scheduled:backfill:${batchId}`,
+    );
+    const updated = await casUpdate(row, "PENDING", next);
+    if (updated) {
+      kick?.();
+      return { scheduled: true, intentId: updated.id };
+    }
+  }
+  return { scheduled: false, reason: "contended" };
 }
 
 /** Run a hook without letting a delivery-bookkeeping failure break the creator's own action. */
@@ -763,6 +811,7 @@ export type LifeOsStudioStatus = {
 
 const INELIGIBLE_DETAIL: Record<string, string> = {
   not_free: "PREMIUM and VIP posts are not delivered to LifeOS until LifeOS supports paid-content access.",
+  audience_unclassified: "Only posts with an explicit FREE audience are delivered to LifeOS.",
   unsupported_type: "Only text and photo posts are delivered to LifeOS in this release.",
   not_on_public_app: "Not selected for the Public App surface, so it is not sent to LifeOS.",
   space_not_public: "Turn on your public Digital Life before posts can reach LifeOS.",
@@ -786,6 +835,11 @@ export function lifeOsStudioStatus(
   const status = normalizedStatus(row.status);
   const waiting = cfg.ok ? "" : " LifeOS delivery is not configured on this server yet.";
   switch (status) {
+    case "LEGACY":
+      return {
+        state: "eligible",
+        detail: "Published before LifeOS delivery was available. Publish again to send it to LifeOS now.",
+      };
     case "DELIVERED":
       return state.deliveredVersion === state.version
         ? { state: "delivered", detail: `Delivered to LifeOS. LifeOS confirmed it stored this post${state.deliveredAt ? ` at ${state.deliveredAt}` : ""}.` }

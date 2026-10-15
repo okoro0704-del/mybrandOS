@@ -177,10 +177,12 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.get("/public/:slug/assets/:id/cover", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const file = await getPublicAssetCover(slug, id, primitives);
+    const viewer = await resolveRequestIdentity(req, primitives);
+    const file = await getPublicAssetCover(slug, id, primitives, viewer?.ownerId ?? null);
     return reply
       .header("content-type", file.mimeType)
-      .header("cache-control", "public, max-age=86400")
+      // A locked cover was authorized for this viewer only: never let a shared cache keep it.
+      .header("cache-control", file.protected ? "private, no-store" : "public, max-age=86400")
       .header("content-disposition", `inline; filename="${file.filename}"`)
       .send(file.bytes);
   });
