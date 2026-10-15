@@ -48,6 +48,7 @@ import { publishProject } from "../creation/publish-service.js";
 import { publishWriting } from "../writing/publish.js";
 import { videoLiveCapability } from "../live/capability.js";
 import { publishSurfacesToKernel } from "../services/offline-kernel-client.js";
+import { findLifeOsIntent, lifeOsStudioStatus, requestLifeOsPublish } from "../services/lifeos-delivery.js";
 
 function resolveSelectedPresentations(input: PublishExecuteInput): PresentationType[] {
   const fromList = parsePresentationTypes(input.presentationTypes ?? []);
@@ -87,99 +88,6 @@ function audienceAccessPolicy(audience: PublishAudience | null | undefined): str
 
 function profileIdFor(type: PresentationType): string {
   return DEFAULT_PROFILE_FOR_TYPE[type];
-}
-
-/**
- * Record internal LifeOS projection for a public POST. Idempotent per asset.
- * When Platform Jobs is bound, queue distribution.fan-out for retry; otherwise
- * mark projected so LifeOS can consume the same public Asset via Digiconomy.
- */
-async function projectInternalLifeOsPost(
-  ownerId: string,
-  assetId: string,
-  input: {
-    title: string;
-    body: string;
-    dataZoneId: string | null;
-    presentationType: PresentationType;
-    platformJobsBound: boolean;
-    platformJobs: PrimitiveBindings["platformJobs"];
-  },
-) {
-  const existing = await prisma.distributionIntent.findFirst({
-    where: { ownerId, assetId, mode: "LIFEOS_POST" },
-    orderBy: { createdAt: "desc" },
-  });
-  if (existing && (existing.status === "projected" || existing.status === "QUEUED" || existing.status === "queued")) {
-    return existing;
-  }
-
-  let status = "projected";
-  let jobId: string | null = null;
-  if (input.platformJobsBound) {
-    try {
-      const dispatched = await input.platformJobs.dispatch({
-        type: "distribution.fan-out",
-        payload: {
-          assetId,
-          channels: ["lifeos"],
-          presentationType: input.presentationType,
-          destination: "LIFEOS",
-          destinationKind: "internal",
-          title: input.title,
-          body: input.body,
-          dataZoneId: input.dataZoneId,
-        },
-        idempotencyKey: `lifeos-post:${assetId}`,
-        correlationId: assetId,
-      });
-      if (dispatched.jobId) {
-        status = "QUEUED";
-        jobId = dispatched.jobId;
-      }
-    } catch {
-      status = "projected";
-    }
-  }
-
-  const payload = {
-    presentationType: input.presentationType,
-    profileId:
-      input.presentationType === "REEL"
-        ? "REEL_VERTICAL"
-        : input.presentationType === "WATCH"
-          ? "WATCH_STANDARD"
-          : input.presentationType === "CINEMA"
-            ? "CINEMA_FULL"
-            : "POST_STANDARD",
-    destination: "LIFEOS",
-    destinationKind: "internal",
-    title: input.title,
-    body: input.body,
-    dataZoneId: input.dataZoneId,
-    platformJobId: jobId,
-  };
-
-  if (existing) {
-    return prisma.distributionIntent.update({
-      where: { id: existing.id },
-      data: {
-        status,
-        payload: writeJson(payload),
-      },
-    });
-  }
-
-  return prisma.distributionIntent.create({
-    data: {
-      ownerId,
-      projectId: assetId,
-      assetId,
-      mode: "LIFEOS_POST",
-      status,
-      payload: writeJson(payload),
-    },
-  });
 }
 
 function toCandidate(row: {
@@ -665,20 +573,9 @@ export async function executePublish(
     update: {},
   });
 
-  // Internal Digiconomy distribution: one publish projects to mybrandOS public + LifeOS.
-  // Idempotent — one LIFEOS_POST intent per asset.
-  const lifeosPresentation = (presentationTypes.find((t) => isPresentationType(t)) ??
-    null) as PresentationType | null;
-  if (publishVisibility === "public" && lifeosPresentation) {
-    await projectInternalLifeOsPost(ownerId, updated.id, {
-      title,
-      body: writeup,
-      dataZoneId: updated.dataZoneId,
-      presentationType: lifeosPresentation,
-      platformJobsBound: primitives.platformJobs.bound,
-      platformJobs: primitives.platformJobs,
-    });
-  }
+  // Internal Digiconomy distribution: deliver eligible public FREE posts to LifeOS (durable, acknowledged),
+  // or revoke an earlier delivery when this publish made the post ineligible.
+  const lifeosIntent = await requestLifeOsPublish(ownerId, updated.id, asset.sourceProjectId ?? undefined);
 
   await prisma.distributionIntent.updateMany({
     where: { ownerId, assetId: asset.id, mode: "schedule", status: "SCHEDULED" },
@@ -717,7 +614,7 @@ export async function executePublish(
     publicPath,
     detail:
       publishVisibility === "public"
-        ? "Published once to mybrandOS. LifeOS can consume the same public Asset through Digiconomy."
+        ? `Published to mybrandOS. ${lifeOsStudioStatus(lifeosIntent, updated).detail}`
         : `Published as ${publishVisibility}. It will not appear on the public Digital Life until visibility is public.`,
   };
 }
@@ -1042,14 +939,7 @@ export async function buildDistributionSummary(
     ? (theme.externalSites as PublishExternalSite[])
     : [];
 
-  const lifeosIntent = await prisma.distributionIntent.findFirst({
-    where: { ownerId, assetId, mode: "LIFEOS_POST" },
-    orderBy: { createdAt: "desc" },
-  });
-  const lifeosProjected =
-    asset.status === "PUBLISHED" &&
-    asset.visibility === "public" &&
-    Boolean(lifeosIntent && ["projected", "QUEUED", "queued", "recorded"].includes(lifeosIntent.status));
+  const lifeos = lifeOsStudioStatus(await findLifeOsIntent(ownerId, assetId), asset);
 
   const surfaces = parsePublicSurfaceDestinations(asset.distribution?.surfaces);
   const surfaceSet = new Set(surfaces.length ? surfaces : ["PUBLIC_APP"]);
@@ -1105,18 +995,8 @@ export async function buildDistributionSummary(
     {
       id: "lifeos",
       label: "LifeOS",
-      state: lifeosProjected
-        ? "published"
-        : asset.status === "PUBLISHED" && asset.visibility === "public"
-          ? "eligible"
-          : "unavailable",
-      detail: lifeosProjected
-        ? lifeosIntent?.status === "QUEUED" || lifeosIntent?.status === "queued"
-          ? "Queued for LifeOS through Platform Jobs. Same public Asset is available for Digiconomy consumption."
-          : "Projected for LifeOS. Same public Asset is available for Digiconomy consumption."
-        : asset.status === "PUBLISHED" && asset.visibility === "public"
-          ? "Eligible through Digiconomy when LifeOS consumes published public Assets."
-          : "Publish publicly before LifeOS eligibility.",
+      state: lifeos.state,
+      detail: lifeos.detail,
     },
   ];
 

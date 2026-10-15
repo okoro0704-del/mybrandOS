@@ -119,6 +119,8 @@ export async function sendMediaStream(
     sizeBytes?: number | null;
     mimeType?: string | null;
     filename?: string | null;
+    /** Defaults to public caching; entitlement-gated media passes "private, no-store". */
+    cacheControl?: string;
     /** Test hook: receives transfer stats when the response ends. */
     onStats?: (stats: MediaStreamStats) => void;
   },
@@ -160,7 +162,7 @@ export async function sendMediaStream(
   reply
     .header("accept-ranges", "bytes")
     .header("content-type", contentType)
-    .header("cache-control", "public, max-age=86400")
+    .header("cache-control", input.cacheControl ?? "public, max-age=86400")
     .header("content-disposition", `inline; filename="${(input.filename || "media").replace(/["\r\n]/g, "")}"`);
 
   if (upstream.status === 206) {

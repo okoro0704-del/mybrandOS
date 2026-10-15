@@ -235,3 +235,6 @@ await app.listen({ port: config.port, host: config.host });
 
 const { startScheduledPublishScanner } = await import("./publish/service.js");
 startScheduledPublishScanner(primitives);
+
+const { startLifeOsDeliveryWorker } = await import("./services/lifeos-delivery.js");
+startLifeOsDeliveryWorker({ log: app.log });

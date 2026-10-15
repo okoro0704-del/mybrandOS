@@ -36,11 +36,13 @@ import {
   type PublicLink,
   type PublicLiveNow,
   type PublicNavItem,
-  type PublicNavItemConfig, type BrandManager, publicManagers } from "@mybrandos/shared";
+  type PublicNavItemConfig, type BrandManager, publicManagers, publicAccessOf } from "@mybrandos/shared";
 import { prisma } from "../lib/prisma.js";
 import { readJson, writeJson } from "../lib/json.js";
 import { badRequest, conflict, notFound, unavailable } from "../lib/errors.js";
+import { safeLifeOsHook, syncLifeOsDeliveriesForOwner } from "./lifeos-delivery.js";
 import { listPublicEligible, listPublished } from "./asset-service.js";
+import { toAsset } from "./asset-mapper.js";
 import { isDistributedLiveToLifeOs } from "../live/distributions.js";
 import type { Asset } from "@mybrandos/shared";
 import { parseWebsitePages } from "./website-service.js";
@@ -147,14 +149,12 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
       : asset.assetType === "SOFTWARE"
         ? Boolean(software.hasPublicPackage && asset.dataZoneId)
         : false;
-  const coverAvailable =
-    asset.assetType === "MUSIC"
-      ? Boolean(music.hasCover)
-      : asset.assetType === "SOFTWARE"
-        ? false
-        : asset.assetType === "VIDEO"
-          ? Boolean(asset.metadata?.posterAvailable || asset.metadata?.thumbnailFileId)
-          : Boolean(asset.dataZoneId);
+  const { access, locked } = publicAccessOf(asset.metadata);
+  if (locked) {
+    // Paid content: only the teaser (title, type, date) is public. Text needs the viewer's entitlement.
+    presentation.body = "";
+  }
+  const coverAvailable = !locked && sourceCoverAvailable(asset);
   const durationMs =
     typeof asset.metadata?.durationMs === "number"
       ? asset.metadata.durationMs
@@ -176,7 +176,7 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
   return {
     id: asset.id,
     title: asset.title,
-    description: asset.description,
+    description: locked ? "" : asset.description,
     assetType: asset.assetType,
     publishedAt,
     coverAvailable,
@@ -188,12 +188,59 @@ export function toPublicAssetCard(asset: Asset): PublicAssetCard {
     isLiveReplay: asset.origin === "LIVE_REPLAY" || Boolean(asset.metadata?.liveReplay),
     createdInStudio: asset.origin === "CREATED_INTERNAL" || asset.origin === "LIVE_REPLAY",
     engagement: { views, plays, score: score + loves * 2, loves },
-    downloadAllowed: Boolean(rights.allowDownload),
+    downloadAllowed: !locked && Boolean(rights.allowDownload),
     allowSharing: rights.allowSharing !== false,
     allowReuse: Boolean(rights.allowReuse),
     isPodcast,
     presentation,
+    access,
+    locked,
   };
+}
+
+/** Whether the asset has cover bytes at all (before any access decision). */
+function sourceCoverAvailable(asset: Asset): boolean {
+  const music = (asset.metadata?.music ?? {}) as Record<string, unknown>;
+  if (asset.assetType === "MUSIC") return Boolean(music.hasCover);
+  if (asset.assetType === "SOFTWARE") return false;
+  if (asset.assetType === "VIDEO") return Boolean(asset.metadata?.posterAvailable || asset.metadata?.thumbnailFileId);
+  return Boolean(asset.dataZoneId);
+}
+
+/**
+ * Explicit authorization for protected (locked) public content: Creator VIP needs an active VIP
+ * relationship with this creator; PREMIUM needs an active entitlement from this creator. Anything
+ * else that is locked (unknown policy) is refused.
+ */
+async function assertProtectedAccess(
+  creatorOwnerId: string,
+  metadata: Record<string, unknown>,
+  viewerBuyerId: string | null | undefined,
+) {
+  const { access, locked } = publicAccessOf(metadata);
+  if (!locked) return;
+  const { forbidden } = await import("../lib/errors.js");
+  if (access === "VIP") {
+    const { viewerHasCreatorVip } = await import("./creator-info.js");
+    const vip = await viewerHasCreatorVip(creatorOwnerId, viewerBuyerId);
+    if (!vip.active) throw forbidden("This publication requires an active Creator VIP membership.");
+    return;
+  }
+  if (access === "PREMIUM") {
+    // Premium content tier is modeled; dedicated Premium products are not fully productized.
+    const entitlement = viewerBuyerId
+      ? await prisma.commerceEntitlement.findFirst({
+          where: { buyerId: viewerBuyerId, ownerId: creatorOwnerId, status: "ACTIVE" },
+        })
+      : null;
+    if (!entitlement) {
+      throw forbidden(
+        "This publication requires Premium access. Premium entitlement products are not fully configured for this creator.",
+      );
+    }
+    return;
+  }
+  throw forbidden("This publication is not publicly available.");
 }
 
 export function publicSafeKeys(value: object): string[] {
@@ -464,6 +511,12 @@ export async function updateBrandConfig(
       ...(presentation !== undefined ? { presentationConfig: writeJson(presentation) } : {}),
     },
   });
+
+  const displayNameChanged = patch.displayName !== undefined && patch.displayName !== existing?.displayName;
+  if (existing && (existing.slug !== slug || existing.publicEnabled !== publicEnabled || displayNameChanged)) {
+    // Address, public switch or name changed: LifeOS copies are re-sent (or taken down when not public).
+    await safeLifeOsHook("space_changed", () => syncLifeOsDeliveriesForOwner(ownerId));
+  }
 
   return getBrandConfig(identity, primitives);
 }
@@ -810,31 +863,44 @@ export async function getPublicBrandMedia(
   return loadBrandMediaBytes(parseMedia(space.brandMedia), slot, primitives);
 }
 
-export async function getPublicAssetCover(slug: string, assetId: string, primitives: PrimitiveBindings) {
+export async function getPublicAssetCover(
+  slug: string,
+  assetId: string,
+  primitives: PrimitiveBindings,
+  viewerBuyerId?: string | null,
+) {
   const detail = await getPublicAsset(slug, assetId);
-  if (!detail.coverAvailable) throw notFound("No public cover is available for this Asset.");
   const space = await prisma.personalSpace.findUnique({ where: { slug: normalizeSlug(slug) } });
   if (!space || !space.publicEnabled) throw notFound("This branded experience is not available.");
-  const asset = await prisma.asset.findFirst({
+  const row = await prisma.asset.findFirst({
     where: {
       id: assetId,
       ownerId: space.ownerId,
       status: "PUBLISHED",
       visibility: "public",
     },
-    select: { dataZoneId: true, assetType: true, sourceProjectId: true },
   });
+  if (!row) throw notFound("No public cover is available for this Asset.");
+  const source = toAsset(row);
+  if (detail.locked) {
+    // Locked covers follow the same entitlement policy as locked media.
+    await assertProtectedAccess(space.ownerId, source.metadata ?? {}, viewerBuyerId);
+    if (!sourceCoverAvailable(source)) throw notFound("No public cover is available for this Asset.");
+  } else if (!detail.coverAvailable) {
+    throw notFound("No public cover is available for this Asset.");
+  }
+  const asset = { dataZoneId: row.dataZoneId, assetType: row.assetType, sourceProjectId: row.sourceProjectId };
   if (asset?.assetType === "MUSIC" && asset.sourceProjectId) {
     const meta = await prisma.musicMetadata.findUnique({ where: { projectId: asset.sourceProjectId } });
     if (meta?.coverFileId) {
       const cover = await prisma.projectFile.findFirst({
         where: { id: meta.coverFileId, projectId: asset.sourceProjectId },
       });
-      if (cover) return readAssetCover(cover.dataZoneId, primitives);
+      if (cover) return { ...(await readAssetCover(cover.dataZoneId, primitives)), protected: detail.locked };
     }
   }
   if (!asset?.dataZoneId) throw notFound("No public cover is available for this Asset.");
-  return readAssetCover(asset.dataZoneId, primitives);
+  return { ...(await readAssetCover(asset.dataZoneId, primitives)), protected: detail.locked };
 }
 
 /**
@@ -846,7 +912,7 @@ export async function resolvePublicAssetMedia(
   assetId: string,
   viewerBuyerId?: string | null,
   options: { countPlay?: boolean } = {},
-): Promise<{ dataZoneId: string; sizeBytes: number | null; mimeType: string | null; filename: string | null }> {
+): Promise<{ dataZoneId: string; sizeBytes: number | null; mimeType: string | null; filename: string | null; protected: boolean }> {
   await getPublicAsset(slug, assetId);
   // One play per playback start, not one per byte-range request while seeking.
   if (options.countPlay !== false) await bumpPublicEngagement(assetId, "play");
@@ -870,33 +936,7 @@ export async function resolvePublicAssetMedia(
   if (!asset?.dataZoneId) throw notFound("This work is not available.");
 
   const meta = readJson<Record<string, unknown>>(asset.metadata, {});
-  const accessPolicy = typeof meta.accessPolicy === "string" ? meta.accessPolicy : "PUBLIC";
-  if (accessPolicy === "CREATOR_VIP") {
-    const { viewerHasCreatorVip } = await import("./creator-info.js");
-    const access = await viewerHasCreatorVip(space.ownerId, viewerBuyerId);
-    if (!access.active) {
-      const { forbidden } = await import("../lib/errors.js");
-      throw forbidden("This publication requires an active Creator VIP membership.");
-    }
-  }
-  if (accessPolicy === "PREMIUM") {
-    const { forbidden } = await import("../lib/errors.js");
-    // Premium content tier is modeled; dedicated Premium products are not fully productized.
-    const entitlement = viewerBuyerId
-      ? await prisma.commerceEntitlement.findFirst({
-          where: {
-            buyerId: viewerBuyerId,
-            ownerId: space.ownerId,
-            status: "ACTIVE",
-          },
-        })
-      : null;
-    if (!entitlement) {
-      throw forbidden(
-        "This publication requires Premium access. Premium entitlement products are not fully configured for this creator.",
-      );
-    }
-  }
+  await assertProtectedAccess(space.ownerId, meta, viewerBuyerId);
 
   const size = Number(meta.sizeBytes);
   return {
@@ -904,6 +944,8 @@ export async function resolvePublicAssetMedia(
     sizeBytes: Number.isSafeInteger(size) && size > 0 ? size : null,
     mimeType: typeof meta.mimeType === "string" ? meta.mimeType : null,
     filename: typeof meta.filename === "string" ? meta.filename : null,
+    // Entitlement-gated media must never be kept by a shared cache.
+    protected: publicAccessOf(meta).locked,
   };
 }
 

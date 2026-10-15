@@ -178,10 +178,12 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
 
   app.get("/public/:slug/assets/:id/cover", async (req, reply) => {
     const { slug, id } = req.params as { slug: string; id: string };
-    const file = await getPublicAssetCover(slug, id, primitives);
+    const viewer = await resolveRequestIdentity(req, primitives);
+    const file = await getPublicAssetCover(slug, id, primitives, viewer?.ownerId ?? null);
     return reply
       .header("content-type", file.mimeType)
-      .header("cache-control", "public, max-age=86400")
+      // A locked cover was authorized for this viewer only: never let a shared cache keep it.
+      .header("cache-control", file.protected ? "private, no-store" : "public, max-age=86400")
       .header("content-disposition", `inline; filename="${file.filename}"`)
       .send(file.bytes);
   });
@@ -193,7 +195,12 @@ export function registerPublicRoutes(app: FastifyInstance, primitives: Primitive
     const range = typeof req.headers.range === "string" ? req.headers.range : "";
     const playbackStart = !range || /^bytes=0-/.test(range.trim());
     const media = await resolvePublicAssetMedia(slug, id, viewer?.ownerId ?? null, { countPlay: playbackStart });
-    return sendMediaStream(req, reply, { dataZone: primitives.dataZone, ...media });
+    // Paid media was authorized for this viewer only: never let a shared cache keep it.
+    return sendMediaStream(req, reply, {
+      dataZone: primitives.dataZone,
+      ...media,
+      cacheControl: media.protected ? "private, no-store" : undefined,
+    });
   });
 
   app.get("/public/:slug/assets/:id/social", async (req) => {
