@@ -309,9 +309,13 @@ test("comments toggle over video; action hood stays five actions; comments stay 
   assert.match(styles, /\.living-gallery__bottom-bar[\s\S]{0,180}background:\s*transparent/);
   assert.match(styles, /\.living-comments-layer[\s\S]{0,400}background:\s*transparent/);
   assert.match(styles, /env\(safe-area-inset-bottom/);
-  assert.match(media, /export async function getPublicAssetMedia/);
+  // Public media is resolved here and streamed byte-for-byte (with Range) by lib/media-stream.ts.
+  assert.match(media, /export async function resolvePublicAssetMedia/);
   assert.match(media, /return readAssetCover\(asset\.dataZoneId, primitives\)/);
   assert.equal(/ffmpeg|transcode/i.test(media), false);
+  const mediaStream = readFileSync(join(root, "apps/api/src/lib/media-stream.ts"), "utf8");
+  assert.match(mediaStream, /export async function sendMediaStream/);
+  assert.equal(/ffmpeg|transcode/i.test(mediaStream), false);
 });
 
 test("tiny top and bottom launchers hide details and comments by default", () => {

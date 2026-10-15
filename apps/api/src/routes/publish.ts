@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { requireOperator } from "../lib/operator-auth.js";
 import { z } from "zod";
 import {
   DEFAULT_PUBLISH_RIGHTS,
@@ -125,9 +126,17 @@ export function registerPublishRoutes(app: FastifyInstance, primitives: Primitiv
     return result;
   });
 
+  // A creator can fire only their own due schedules.
   app.post("/publish/schedule/fire-due", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
+    const { fireDueScheduledPublishes } = await import("../publish/service.js");
+    return fireDueScheduledPublishes(primitives, { ownerId: session.ownerId });
+  });
+
+  // Every creator's due schedules: platform operator only (the in-process scanner does this too).
+  app.post("/internal/publish/fire-due", async (req, reply) => {
+    if (!requireOperator(req, reply)) return;
     const { fireDueScheduledPublishes } = await import("../publish/service.js");
     return fireDueScheduledPublishes(primitives);
   });

@@ -5,6 +5,7 @@ export * from "./errors.js";
 export * from "./trust-id.js";
 
 export * from "./datazone.js";
+export * from "./datazone-uploads.js";
 
 export * from "./elfcom.js";
 

@@ -321,18 +321,20 @@ export function normalizeCaptureEdits(input: Partial<CaptureEditMetadata> | null
   };
 }
 
-export const LOCAL_CAPTURE_STATUSES = ["SAVED_LOCAL", "AWAITING_ROUTE", "SYNCING", "SYNCED", "SYNC_FAILED"] as const;
+export const LOCAL_CAPTURE_STATUSES = ["SAVED_LOCAL", "AWAITING_ROUTE", "SYNCING", "PROCESSING", "SYNCED", "SYNC_FAILED"] as const;
 export type LocalCaptureStatus = (typeof LOCAL_CAPTURE_STATUSES)[number];
 
 export const LOCAL_CAPTURE_STATUS_LABELS: Record<LocalCaptureStatus, string> = {
   SAVED_LOCAL: "Saved on this device",
   AWAITING_ROUTE: "Waiting for a connection",
   SYNCING: "Uploading",
+  PROCESSING: "Uploaded — processing on mybrandOS",
   SYNCED: "Synced",
   SYNC_FAILED: "Upload failed — kept on this device",
 };
 
-export type LocalCaptureEvent = "ROUTE_UNAVAILABLE" | "SYNC_START" | "SYNC_CONFIRMED" | "SYNC_FAILED";
+/** SYNC_QUEUED: the bytes are stored and the import job is running (the file is not sent again). */
+export type LocalCaptureEvent = "ROUTE_UNAVAILABLE" | "SYNC_START" | "SYNC_QUEUED" | "SYNC_CONFIRMED" | "SYNC_FAILED";
 
 /** Only a confirmed server asset id may move a capture to SYNCED. */
 export function nextLocalCaptureStatus(
@@ -345,6 +347,8 @@ export function nextLocalCaptureStatus(
       return current === "SYNCED" ? current : "AWAITING_ROUTE";
     case "SYNC_START":
       return current === "SYNCED" ? current : "SYNCING";
+    case "SYNC_QUEUED":
+      return current === "SYNCED" ? current : "PROCESSING";
     case "SYNC_CONFIRMED":
       return remoteAssetId ? "SYNCED" : "SYNC_FAILED";
     case "SYNC_FAILED":

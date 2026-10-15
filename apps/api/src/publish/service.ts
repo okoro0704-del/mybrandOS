@@ -467,6 +467,12 @@ export async function executePublish(
         ...(platformJobId ? { scheduledPlatformJobId: platformJobId } : {}),
       },
     });
+    // (Re)scheduling resets the due index: a new time, a fresh retry budget.
+    await prisma.scheduledPublish.upsert({
+      where: { assetId: asset.id },
+      create: { ownerId, assetId: asset.id, dueAt: when, nextAttemptAt: when },
+      update: { ownerId, dueAt: when, nextAttemptAt: when, status: "PENDING", attempts: 0, lastError: null, claimedAt: null },
+    });
     await prisma.distributionIntent.create({
       data: {
         ownerId,
@@ -716,23 +722,28 @@ export async function executePublish(
   };
 }
 
+type DueScheduleOutcome = { result: PublishExecuteResult } | { cancelled: true } | { notDueUntil: Date };
+
+/** The schedule recorded in an asset's metadata, if it is still waiting to publish. */
+function pendingScheduleAt(metadata: Record<string, unknown>): Date | null {
+  if (!metadata.publishPending || metadata.scheduleMode !== "schedule") return null;
+  const raw = typeof metadata.scheduledPublishAt === "string" ? metadata.scheduledPublishAt : null;
+  const when = raw ? new Date(raw) : null;
+  return when && !Number.isNaN(when.getTime()) ? when : null;
+}
+
 /**
- * Fire one due scheduled publish. Re-enters executePublish with scheduleMode "now"
+ * Publish one schedule whose time has come. Re-enters executePublish with scheduleMode "now"
  * using persisted intent (visibility, presentations, audience).
  */
-export async function fireScheduledPublish(
-  ownerId: string,
-  assetId: string,
-  primitives: PrimitiveBindings,
-): Promise<PublishExecuteResult | null> {
+async function runDueSchedule(ownerId: string, assetId: string, primitives: PrimitiveBindings): Promise<DueScheduleOutcome> {
   const asset = await getAsset(ownerId, assetId);
-  if (!asset) return null;
+  if (!asset) return { cancelled: true };
   const meta = { ...(asset.metadata ?? {}) };
-  if (!meta.publishPending || meta.scheduleMode !== "schedule") return null;
-  const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
-  if (!whenRaw) return null;
-  const when = new Date(whenRaw);
-  if (Number.isNaN(when.getTime()) || when.getTime() > Date.now() + 2000) return null;
+  const when = pendingScheduleAt(meta);
+  if (!when) return { cancelled: true };
+  const whenRaw = meta.scheduledPublishAt as string;
+  if (when.getTime() > Date.now() + 2000) return { notDueUntil: when };
 
   const visibility = (
     meta.intendedVisibility === "public" ||
@@ -754,7 +765,7 @@ export async function fireScheduledPublish(
   const contentFormat = (meta.contentFormat as PublishContentFormat | null) ?? null;
 
   try {
-    return await executePublish(
+    const result = await executePublish(
       ownerId,
       {
         assetId,
@@ -773,6 +784,7 @@ export async function fireScheduledPublish(
       },
       primitives,
     );
+    return { result };
   } catch (err) {
     const message = err instanceof HttpError ? err.message : err instanceof Error ? err.message : "Scheduled publish failed.";
     await updateAsset(ownerId, assetId, {
@@ -798,31 +810,165 @@ export async function fireScheduledPublish(
   }
 }
 
-/** Scan all due scheduled publishes and fire them. Safe to call repeatedly. */
-export async function fireDueScheduledPublishes(primitives: PrimitiveBindings): Promise<{ fired: number; failed: number }> {
-  const rows = await prisma.asset.findMany({
-    where: { status: "DRAFT" },
-    select: { id: true, ownerId: true, metadata: true },
-    take: 200,
-  });
-  let fired = 0;
-  let failed = 0;
-  const now = Date.now();
-  for (const row of rows) {
-    const meta = readJson<Record<string, unknown>>(row.metadata, {});
-    if (!meta.publishPending || meta.scheduleMode !== "schedule") continue;
-    const whenRaw = typeof meta.scheduledPublishAt === "string" ? meta.scheduledPublishAt : null;
-    if (!whenRaw) continue;
-    const when = new Date(whenRaw);
-    if (Number.isNaN(when.getTime()) || when.getTime() > now) continue;
-    try {
-      const result = await fireScheduledPublish(row.ownerId, row.id, primitives);
-      if (result?.status === "PUBLISHED") fired += 1;
-    } catch {
-      failed += 1;
+/** Retry delays after a failed scheduled publish; after the last one the schedule is FAILED. */
+export const SCHEDULE_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
+const SCHEDULE_MAX_ATTEMPTS = SCHEDULE_RETRY_DELAYS_MS.length + 1;
+/** A claim older than this belongs to a worker that died mid-publish; the schedule is retried. */
+const SCHEDULE_CLAIM_STALE_MS = 10 * 60_000;
+const SCHEDULE_PAGE = 50;
+
+/** Index a schedule recorded only in asset metadata (before the index existed, or by older code). */
+async function indexScheduleFromMetadata(ownerId: string, assetId: string, metadata: Record<string, unknown>) {
+  const when = pendingScheduleAt(metadata);
+  if (!when) return;
+  await prisma.scheduledPublish
+    .create({ data: { ownerId, assetId, dueAt: when, nextAttemptAt: when } })
+    .catch(() => undefined); // already indexed
+}
+
+/**
+ * Index every pending schedule that exists only in asset metadata, page by page over all drafts
+ * (optionally one creator's). Idempotent.
+ */
+export async function indexLegacyScheduledPublishes(ownerId?: string): Promise<number> {
+  let indexed = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.asset.findMany({
+      where: { status: "DRAFT", ...(ownerId ? { ownerId } : {}), metadata: { contains: '"scheduleMode":"schedule"' } },
+      select: { id: true, ownerId: true, metadata: true },
+      orderBy: { id: "asc" },
+      take: 200,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    if (!page.length) break;
+    cursor = page[page.length - 1]!.id;
+    const known = new Set(
+      (await prisma.scheduledPublish.findMany({ where: { assetId: { in: page.map((r) => r.id) } }, select: { assetId: true } })).map((r) => r.assetId),
+    );
+    for (const row of page) {
+      if (known.has(row.id)) continue;
+      const meta = readJson<Record<string, unknown>>(row.metadata, {});
+      if (!pendingScheduleAt(meta)) continue;
+      await indexScheduleFromMetadata(row.ownerId, row.id, meta);
+      indexed += 1;
+    }
+    if (page.length < 200) break;
+  }
+  return indexed;
+}
+
+/**
+ * Fire one scheduled publish if it is due. Every entry point (due scanner, a creator's manual
+ * trigger, the Platform Jobs callback) goes through one atomic claim, so a schedule is published
+ * at most once however many fire at the same moment. A failure is recorded and retried with
+ * backoff; after SCHEDULE_MAX_ATTEMPTS the schedule is FAILED until the creator reschedules.
+ */
+export async function fireScheduledPublish(
+  ownerId: string,
+  assetId: string,
+  primitives: PrimitiveBindings,
+): Promise<PublishExecuteResult | null> {
+  const asset = await getAsset(ownerId, assetId);
+  if (!asset) return null;
+  const indexed = await prisma.scheduledPublish.findUnique({ where: { assetId }, select: { status: true, attempts: true, dueAt: true } });
+  if (!indexed) {
+    await indexScheduleFromMetadata(ownerId, assetId, { ...(asset.metadata ?? {}) });
+  } else if (indexed.status === "PENDING" && indexed.attempts === 0) {
+    // The asset's metadata is the source of truth for when: follow it if it moved (e.g. a
+    // schedule edited by code that predates the index). Retries keep their backoff.
+    const when = pendingScheduleAt({ ...(asset.metadata ?? {}) });
+    if (when && when.getTime() !== indexed.dueAt.getTime()) {
+      await prisma.scheduledPublish.updateMany({
+        where: { assetId, ownerId, status: "PENDING", attempts: 0 },
+        data: { dueAt: when, nextAttemptAt: when },
+      });
     }
   }
-  return { fired, failed };
+  const claimedAt = new Date();
+  const claim = await prisma.scheduledPublish.updateMany({
+    where: { assetId, ownerId, status: "PENDING", nextAttemptAt: { lte: new Date(claimedAt.getTime() + 2000) } },
+    data: { status: "CLAIMED", claimedAt },
+  });
+  if (claim.count !== 1) return null; // not due, not this owner's, finished, or another worker has it
+  const settle = (data: Record<string, unknown>) =>
+    prisma.scheduledPublish.updateMany({ where: { assetId, status: "CLAIMED", claimedAt }, data: { ...data, claimedAt: null } });
+
+  let outcome: DueScheduleOutcome;
+  try {
+    outcome = await runDueSchedule(ownerId, assetId, primitives);
+  } catch (err) {
+    const row = await prisma.scheduledPublish.findUnique({ where: { assetId }, select: { attempts: true } });
+    const attempts = (row?.attempts ?? 0) + 1;
+    const lastError = (err instanceof Error ? err.message : "Scheduled publish failed.").slice(0, 500);
+    const retryIn = SCHEDULE_RETRY_DELAYS_MS[attempts - 1];
+    await settle(
+      attempts >= SCHEDULE_MAX_ATTEMPTS || retryIn === undefined
+        ? { status: "FAILED", attempts, lastError }
+        : { status: "PENDING", attempts, lastError, nextAttemptAt: new Date(Date.now() + retryIn) },
+    );
+    throw err;
+  }
+  if ("notDueUntil" in outcome) {
+    await settle({ status: "PENDING", dueAt: outcome.notDueUntil, nextAttemptAt: outcome.notDueUntil });
+    return null;
+  }
+  if ("cancelled" in outcome) {
+    // Published, rescheduled to "now", archived or deleted in the meantime: nothing to do.
+    await settle({ status: "CANCELLED" });
+    return null;
+  }
+  await settle({ status: "DONE", lastError: null });
+  return outcome.result;
+}
+
+export type FireDueResult = { fired: number; failed: number; skipped: number; indexed: number };
+
+/**
+ * Fire every due scheduled publish, oldest first, page by page (no cap on how many drafts exist).
+ * `ownerId` limits the run to one creator's schedules. Safe to call repeatedly and concurrently.
+ */
+export async function fireDueScheduledPublishes(
+  primitives: PrimitiveBindings,
+  options: { ownerId?: string; indexLegacy?: boolean; maxPerRun?: number } = {},
+): Promise<FireDueResult> {
+  const { ownerId } = options;
+  const indexed = options.indexLegacy === false ? 0 : await indexLegacyScheduledPublishes(ownerId);
+  // Recover schedules claimed by a worker that never finished.
+  await prisma.scheduledPublish.updateMany({
+    where: { status: "CLAIMED", claimedAt: { lt: new Date(Date.now() - SCHEDULE_CLAIM_STALE_MS) }, ...(ownerId ? { ownerId } : {}) },
+    data: { status: "PENDING", claimedAt: null },
+  });
+  const maxPerRun = options.maxPerRun ?? 1000;
+  const seen: string[] = [];
+  let fired = 0;
+  let failed = 0;
+  let skipped = 0;
+  while (seen.length < maxPerRun) {
+    const due = await prisma.scheduledPublish.findMany({
+      where: {
+        status: "PENDING",
+        nextAttemptAt: { lte: new Date() },
+        ...(ownerId ? { ownerId } : {}),
+        ...(seen.length ? { id: { notIn: seen } } : {}),
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { id: "asc" }],
+      select: { id: true, ownerId: true, assetId: true },
+      take: Math.min(SCHEDULE_PAGE, maxPerRun - seen.length),
+    });
+    if (!due.length) break;
+    for (const row of due) {
+      seen.push(row.id);
+      try {
+        const result = await fireScheduledPublish(row.ownerId, row.assetId, primitives);
+        if (result?.status === "PUBLISHED") fired += 1;
+        else skipped += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+  }
+  return { fired, failed, skipped, indexed };
 }
 
 let scheduleScanner: ReturnType<typeof setInterval> | null = null;
@@ -830,10 +976,20 @@ let scheduleScanner: ReturnType<typeof setInterval> | null = null;
 /** Durable due-scanner — not a local job queue; reads persisted scheduledPublishAt. */
 export function startScheduledPublishScanner(primitives: PrimitiveBindings, intervalMs = 20_000) {
   if (scheduleScanner) return;
+  // Legacy metadata-only schedules are indexed on the first tick and then every ~5 minutes.
+  let ticks = 0;
+  let running = false;
   const tick = () => {
-    void fireDueScheduledPublishes(primitives).catch(() => {
-      /* scanner must not crash the process */
-    });
+    if (running) return;
+    running = true;
+    const indexLegacy = ticks++ % 15 === 0;
+    void fireDueScheduledPublishes(primitives, { indexLegacy })
+      .catch(() => {
+        /* scanner must not crash the process */
+      })
+      .finally(() => {
+        running = false;
+      });
   };
   tick();
   scheduleScanner = setInterval(tick, intervalMs);

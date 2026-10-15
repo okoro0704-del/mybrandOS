@@ -3,7 +3,7 @@ import { z } from "zod";
 import { toIdentity, type PrimitiveBindings } from "@mybrandos/integrations";
 import { normalizeSlug, isReservedSlug, digitalLifeUrl, digitalLifePath, publicApplicationUrl } from "@mybrandos/shared";
 import { config } from "../config.js";
-import { issueSession } from "../lib/auth.js";
+import { requireOperator } from "../lib/operator-auth.js";
 import { updateBrandConfig } from "../services/brand-service.js";
 
 /**
@@ -12,17 +12,7 @@ import { updateBrandConfig } from "../services/brand-service.js";
  */
 export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
   app.post("/internal/white-label/provision", async (req, reply) => {
-    const secret = config.whiteLabelSecret;
-    if (!secret) {
-      return reply.code(503).send({
-        error: "not_configured",
-        message: "Set WHITE_LABEL_SECRET on mybrandOS to accept Portal provisions.",
-      });
-    }
-    const auth = String(req.headers.authorization ?? "");
-    if (auth !== `Bearer ${secret}`) {
-      return reply.code(401).send({ error: "unauthorized" });
-    }
+    if (!requireOperator(req, reply)) return;
 
     const body = z
       .object({
@@ -49,7 +39,8 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
       false,
     );
     try {
-      const issued = await issueSession(identity, reply, "white_label");
+      // No session is issued: provisioning returns no credential. The creator signs in to their
+      // Studio with Trust ID (an operator creator link connects their subject to this account).
       await updateBrandConfig(
         identity,
         {
@@ -71,7 +62,6 @@ export function registerWhiteLabelRoutes(app: FastifyInstance, primitives: Primi
         ok: true,
         trustId,
         slug,
-        token: issued.token,
         publicUrl: publicApplicationUrl(slug),
         adminUrl: digitalLifeUrl({ surface: "workstation", slug }),
         studioUrl: digitalLifeUrl({ surface: "workstation", slug }),

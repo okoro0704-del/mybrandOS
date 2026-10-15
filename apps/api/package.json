@@ -13,7 +13,7 @@
     "db:push:force": "prisma db push --accept-data-loss",
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --env-file=.env --test test/**/*.test.ts"
+    "test": "tsx --env-file=.env --experimental-test-module-mocks --test test/**/*.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -92,24 +92,49 @@ async function persistNativeAsset(input: {
   });
 }
 
+/** A file already persisted in DataZone (buffered or streamed), ready to be catalogued. */
+export type StoredImport = {
+  filename: string;
+  mimeType: string;
+  stored: { dataZoneId: string; sizeBytes?: number; originHash?: string };
+};
+
 export async function importFiles(
   ownerId: string,
   files: ImportedFile[],
   primitives: PrimitiveBindings,
 ): Promise<{ assets: Asset[]; jobId: string; status: string; platformJobId?: string }> {
-  const totalBytes = files.reduce((n, file) => n + file.bytes.byteLength, 0);
+  const stored: StoredImport[] = [];
+  for (const file of files) {
+    stored.push({
+      filename: file.filename,
+      mimeType: file.mimeType,
+      stored: await primitives.dataZone.storeBytes({ filename: file.filename, mimeType: file.mimeType, bytes: file.bytes }),
+    });
+  }
+  return importStoredFiles(ownerId, stored, primitives);
+}
+
+/**
+ * Catalogue files that are already in DataZone. Same behaviour as before for every upload path:
+ * small single files become Assets + projects now; large or many files go to the import job.
+ */
+export async function importStoredFiles(
+  ownerId: string,
+  files: StoredImport[],
+  primitives: PrimitiveBindings,
+  /** The resumable upload these files came from; recorded so a repeated completion can find this import. */
+  opts: { uploadSessionId?: string } = {},
+): Promise<{ assets: Asset[]; jobId: string; status: string; platformJobId?: string }> {
+  const totalBytes = files.reduce((n, file) => n + (file.stored.sizeBytes ?? 0), 0);
   const large = totalBytes >= config.largeImportBytes || files.length >= 12;
   if (large) {
-    return queueLargeImport(ownerId, files, primitives);
+    return queueLargeImport(ownerId, files, primitives, opts.uploadSessionId);
   }
 
   const assets: Asset[] = [];
   for (const file of files) {
-    const stored = await primitives.dataZone.storeBytes({
-      filename: file.filename,
-      mimeType: file.mimeType,
-      bytes: file.bytes,
-    });
+    const stored = file.stored;
     const assetType = inferAssetTypeFromMime(file.mimeType, file.filename);
     const baseMeta: Record<string, unknown> = {
       filename: file.filename,
@@ -162,6 +187,7 @@ export async function importFiles(
       origin: "IMPORTED_FILE",
       source: files.map((f) => f.filename).join(", "),
       assetIds: writeJson(assets.map((a) => a.id)),
+      uploadSessionId: opts.uploadSessionId ?? null,
     },
   });
 
@@ -170,19 +196,11 @@ export async function importFiles(
 
 async function queueLargeImport(
   ownerId: string,
-  files: ImportedFile[],
+  files: StoredImport[],
   primitives: PrimitiveBindings,
+  uploadSessionId?: string,
 ): Promise<{ assets: Asset[]; jobId: string; status: string; platformJobId?: string }> {
-  const stored = [];
-  for (const file of files) {
-    stored.push(
-      await primitives.dataZone.storeBytes({
-        filename: file.filename,
-        mimeType: file.mimeType,
-        bytes: file.bytes,
-      }),
-    );
-  }
+  const stored = files.map((file) => file.stored);
 
   const job = await prisma.importJob.create({
     data: {
@@ -192,6 +210,7 @@ async function queueLargeImport(
       origin: "IMPORTED_FILE",
       source: files.map((f) => f.filename).join(", "),
       assetIds: writeJson([]),
+      uploadSessionId: uploadSessionId ?? null,
     },
   });
 

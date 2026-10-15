@@ -837,14 +837,19 @@ export async function getPublicAssetCover(slug: string, assetId: string, primiti
   return readAssetCover(asset.dataZoneId, primitives);
 }
 
-export async function getPublicAssetMedia(
+/**
+ * Public media access: the same visibility and entitlement checks as before, returning a
+ * reference to the stored object (never its bytes) so the route can stream it by range.
+ */
+export async function resolvePublicAssetMedia(
   slug: string,
   assetId: string,
-  primitives: PrimitiveBindings,
   viewerBuyerId?: string | null,
-) {
+  options: { countPlay?: boolean } = {},
+): Promise<{ dataZoneId: string; sizeBytes: number | null; mimeType: string | null; filename: string | null }> {
   await getPublicAsset(slug, assetId);
-  await bumpPublicEngagement(assetId, "play");
+  // One play per playback start, not one per byte-range request while seeking.
+  if (options.countPlay !== false) await bumpPublicEngagement(assetId, "play");
   const space = await prisma.personalSpace.findUnique({ where: { slug: normalizeSlug(slug) } });
   if (!space || !space.publicEnabled) throw notFound("This work is not available.");
   const asset = await prisma.asset.findFirst({
@@ -893,7 +898,13 @@ export async function getPublicAssetMedia(
     }
   }
 
-  return readAssetCover(asset.dataZoneId, primitives);
+  const size = Number(meta.sizeBytes);
+  return {
+    dataZoneId: asset.dataZoneId,
+    sizeBytes: Number.isSafeInteger(size) && size > 0 ? size : null,
+    mimeType: typeof meta.mimeType === "string" ? meta.mimeType : null,
+    filename: typeof meta.filename === "string" ? meta.filename : null,
+  };
 }
 
 /** Record public view/play on existing Asset.analytics — no separate engagement backend. */

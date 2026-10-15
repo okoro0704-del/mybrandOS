@@ -62,6 +62,12 @@ export const config = {
   liveBroadcastUrl: env("LIVE_BROADCAST_URL"),
   liveBroadcastToken: env("LIVE_BROADCAST_TOKEN"),
   largeImportBytes: Number(env("LARGE_IMPORT_BYTES", String(8 * 1024 * 1024))),
+  /**
+   * Per-file limit for streamed creator media uploads (import, production library). Default
+   * 200 MB = DataZone's current upload ceiling (multer memory storage); raise only together with
+   * DataZone. Never unlimited.
+   */
+  mediaUploadMaxBytes: Math.max(1, Number(env("MEDIA_UPLOAD_MAX_BYTES", String(200 * 1024 * 1024)))),
   /** Public browser origin for cookies, Trust ID redirect, and os-shell manifest. */
   publicOrigin: env("PUBLIC_ORIGIN", env("RAILWAY_PUBLIC_DOMAIN") ? `https://${env("RAILWAY_PUBLIC_DOMAIN")}` : ""),
   /** When true, local/dev-session enter works even in production (testing / Portal white-label). */

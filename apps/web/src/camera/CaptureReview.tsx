@@ -127,7 +127,11 @@ export function CaptureReview({
     setMessage(
       outcome.status === "AWAITING_ROUTE"
         ? "No connection to mybrandOS. Saved on this device; it will upload when a connection is available."
-        : "Upload failed. Your capture is still saved on this device.",
+        : outcome.status === "PROCESSING"
+          ? "Uploaded. mybrandOS is still processing it; it will finish without uploading again."
+          : outcome.status === "SYNC_FAILED" && outcome.error === "storage_full"
+            ? "Storage is full right now. Your capture is kept on this device; send it again later."
+            : "Upload failed. Your capture is still saved on this device.",
     );
     return null;
   }

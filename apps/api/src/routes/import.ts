@@ -1,52 +1,36 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ASSET_TYPES } from "@mybrandos/shared";
 import type { PrimitiveBindings } from "@mybrandos/integrations";
 import { requireIdentity } from "../lib/auth.js";
-import { cancelImportJob, getImportJob, importExternal, importFiles, importUrl } from "../services/import-service.js";
+import { cancelImportJob, getImportJob, importExternal, importStoredFiles, importUrl } from "../services/import-service.js";
+import { mediaUploadLimitBytes, streamMultipartFilesToDataZone } from "../lib/streaming-upload.js";
 
 export function registerImportRoutes(app: FastifyInstance, primitives: PrimitiveBindings) {
-  app.post("/import/file", async (req, reply) => {
+  // Upload limits for Studio to check before sending a file.
+  app.get("/import/limits", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const files: { filename: string; mimeType: string; bytes: Buffer }[] = [];
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
-    if (!files.length) {
-      return reply.code(400).send({ error: "no_files" });
-    }
-    const result = await importFiles(session.ownerId, files, primitives);
-    return reply.code(201).send(result);
+    return { maxFileBytes: mediaUploadLimitBytes() };
   });
 
-  app.post("/import/folder", async (req, reply) => {
+  // Streamed straight to DataZone (lib/streaming-upload.ts): never buffered whole here.
+  const streamedImport = async (req: FastifyRequest, reply: FastifyReply) => {
     const session = await requireIdentity(req, reply, primitives);
     if (!session) return;
-    const files: { filename: string; mimeType: string; bytes: Buffer }[] = [];
-    const parts = req.parts();
-    for await (const part of parts) {
-      if (part.type === "file") {
-        files.push({
-          filename: part.filename,
-          mimeType: part.mimetype || "application/octet-stream",
-          bytes: await part.toBuffer(),
-        });
-      }
-    }
+    const files = await streamMultipartFilesToDataZone(req, primitives.dataZone);
     if (!files.length) {
       return reply.code(400).send({ error: "no_files" });
     }
-    const result = await importFiles(session.ownerId, files, primitives);
+    const result = await importStoredFiles(
+      session.ownerId,
+      files.map((file) => ({ filename: file.filename, mimeType: file.mimeType, stored: file.stored })),
+      primitives,
+    );
     return reply.code(201).send(result);
-  });
+  };
+  app.post("/import/file", streamedImport);
+  app.post("/import/folder", streamedImport);
 
   app.post("/import/url", async (req, reply) => {
     const session = await requireIdentity(req, reply, primitives);

@@ -33,6 +33,8 @@ export * from "./station.js";
 export * from "./creator-space.js";
 export * from "./space-runtime.js";
 export * from "./publish-center.js";
+export * from "./import-jobs.js";
+export * from "./resumable-upload.js";
 export * from "./twin.js";
 
 export { digitalLifePath, digitalLifeUrl, publicApplicationUrl, publicSpaceEntryUrl, resolveDigitalLifeRequest, studioReturnPath, type DigitalLifeUrlOptions } from "./digital-life-urls.js";
